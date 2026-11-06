@@ -1,0 +1,11 @@
+# Боевой конфиг (создаётся при установке из inc.config.example.php)
+/inc.config.php
+
+# Фото: всё игнорируем, кроме перечисленных
+photos/*
+!photos/map1.png
+!photos/map2.png
+!photos/map3.png
+!photos/map4.png
+!photos/map5.png
+!photos/placeholder.txt

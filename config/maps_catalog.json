@@ -1,0 +1,52 @@
+{
+  "categories": [
+    {
+      "category": "Офис",
+      "sort": 10,
+      "maps": [
+        {
+          "id": 1,
+          "title": "1 этаж",
+          "sort": 10,
+          "image": "photos/map1.png"
+        },
+        {
+          "id": 2,
+          "title": "2 этаж",
+          "sort": 20,
+          "image": "photos/map2.png"
+        },
+        {
+          "id": 3,
+          "title": "3 этаж",
+          "sort": 30,
+          "image": "photos/map3.png"
+        }
+      ]
+    },
+    {
+      "category": "Москва",
+      "sort": 20,
+      "maps": [
+        {
+          "id": 4,
+          "title": "1 этаж",
+          "sort": 10,
+          "image": "photos/map4.png"
+        },
+        {
+          "id": 5,
+          "title": "2 этаж",
+          "sort": 20,
+          "image": "photos/map5.png"
+        },
+        {
+          "id": 6,
+          "title": "3 этаж",
+          "sort": 30,
+          "image": "photos/map6.png"
+        }
+      ]
+    }
+  ]
+}
