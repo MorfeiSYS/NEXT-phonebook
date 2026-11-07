@@ -17,7 +17,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-define('DB_VERSION', 10);
+define('DB_VERSION', 11);
 
 if(!defined('ROOT_DIR'))
 {
@@ -37,6 +37,19 @@ if(!file_exists(ROOT_DIR.'inc.config.php'))
 
 require_once(ROOT_DIR.'inc.config.php');
 
+	// Defaults for optional config constants (inc.config.php may omit them; keeps linters satisfied)
+	if(!defined('APP_LANGUAGE'))
+	{
+		define('APP_LANGUAGE', 'en');
+	}
+	if(!defined('WEB_URL'))
+	{
+		define('WEB_URL', 'http://localhost/');
+	}
+	if(!defined('WEB_LINK_BASE_PATH'))
+	{
+		define('WEB_LINK_BASE_PATH', '/');
+	}
 
 	session_name('ZID');
 	session_start();
@@ -166,13 +179,94 @@ function contacts_columns_visible(&$core)
 	return $personal;
 }
 
+/**
+ * Human-readable tooltip for status dot (matches flag bits used in contact_name_status_dot_markup).
+ */
+function contact_name_status_dot_title($flags)
+{
+	$f = intval($flags);
+	$parts = array();
+	if(($f & PB_CONTACT_AD_DELETED) !== 0)
+	{
+		$parts[] = LL('ContactStatusTooltipAdDeleted');
+	}
+	if(($f & PB_CONTACT_AD_DISABLED) !== 0)
+	{
+		$parts[] = LL('ContactStatusTooltipAdDisabled');
+	}
+	if(($f & PB_CONTACT_LIST_HIDDEN) !== 0)
+	{
+		$parts[] = LL('ContactStatusTooltipListHidden');
+	}
+	if(($f & PB_CONTACT_VISIBLE) === 0)
+	{
+		$parts[] = LL('ContactStatusTooltipNotVisible');
+	}
+	if(empty($parts))
+	{
+		return LL('ContactStatusTooltipOk');
+	}
+
+	return implode('; ', $parts);
+}
+
+/**
+ * Status dot left of the name: one color per flag; several active → conic-gradient sectors.
+ * Sectors (clockwise): deleted (red), disabled (orange), list hidden (blue), hidden / not visible (purple).
+ */
+function contact_name_status_dot_markup($flags)
+{
+	$f = intval($flags);
+	$title = htmlspecialchars(contact_name_status_dot_title($flags), ENT_QUOTES, 'UTF-8');
+	$order = array(
+		array('bit' => PB_CONTACT_AD_DELETED, 'class' => 'contact-status-dot--del', 'color' => '#c62828', 'negate' => false),
+		array('bit' => PB_CONTACT_AD_DISABLED, 'class' => 'contact-status-dot--dis', 'color' => '#ef6c00', 'negate' => false),
+		array('bit' => PB_CONTACT_LIST_HIDDEN, 'class' => 'contact-status-dot--hid', 'color' => '#1565c0', 'negate' => false),
+		array('bit' => PB_CONTACT_VISIBLE, 'class' => 'contact-status-dot--inv', 'color' => '#6a1b9a', 'negate' => true),
+	);
+	$active = array();
+	foreach($order as $o)
+	{
+		$on = $o['negate'] ? (($f & $o['bit']) === 0) : (($f & $o['bit']) !== 0);
+		if($on)
+		{
+			$active[] = $o;
+		}
+	}
+	$n = count($active);
+	if($n === 0)
+	{
+		return '<span class="contact-status-dot contact-status-dot--ok" title="'.$title.'" aria-label="'.$title.'"></span>';
+	}
+	if($n === 1)
+	{
+		return '<span class="contact-status-dot '.htmlspecialchars($active[0]['class'], ENT_QUOTES, 'UTF-8').'" title="'.$title.'" aria-label="'.$title.'"></span>';
+	}
+	$step = 360 / $n;
+	$parts = array();
+	for($i = 0; $i < $n; $i++)
+	{
+		$parts[] = $active[$i]['color'].' '.($i * $step).'deg '.(($i + 1) * $step).'deg';
+	}
+	$style = 'background: conic-gradient(from 0deg, '.implode(', ', $parts).');';
+
+	return '<span class="contact-status-dot contact-status-dot--multi" style="'.htmlspecialchars($style, ENT_QUOTES, 'UTF-8').'" title="'.$title.'" aria-label="'.$title.'"></span>';
+}
+
 function contacts_column_cell($key, &$row)
 {
 	switch($key)
 	{
 		case 'name':
-			$class = (intval($row['flags']) & PB_CONTACT_WITH_PHOTO) ? ' class="userwithphoto"' : '';
-			return '<td onclick="f_sw_map(event);" onmouseenter="f_sw_img(event);" onmouseleave="gi(\'imgblock\').style.display = \'none\'" onmousemove="f_mv_img(event);" style="cursor: pointer;"'.$class.'>'.htmlspecialchars($row['last_name'].' '.$row['first_name'].' '.$row['middle_name']).'</td>';
+			$classes = array('contact-name-cell');
+			if((intval($row['flags']) & PB_CONTACT_WITH_PHOTO))
+			{
+				$classes[] = 'userwithphoto';
+			}
+			$td_class = ' class="'.htmlspecialchars(implode(' ', $classes), ENT_QUOTES, 'UTF-8').'"';
+			$dot_html = contact_name_status_dot_markup($row['flags']);
+			$name = htmlspecialchars($row['last_name'].' '.$row['first_name'].' '.$row['middle_name']);
+			return '<td onclick="f_sw_map(event);" onmouseenter="f_sw_img(event);" onmouseleave="gi(\'imgblock\').style.display = \'none\'" onmousemove="f_mv_img(event);" style="cursor: pointer;"'.$td_class.'>'.$dot_html.'<span class="contact-name-text">'.$name.'</span></td>';
 
 		case 'phone':
 			$value = htmlspecialchars((string) $row['phone_internal']);
@@ -201,6 +295,31 @@ function contacts_column_cell($key, &$row)
 	}
 
 	return '';
+}
+
+/**
+ * Real column names of @contacts (for XML/SQL round-trips that must match the current schema).
+ *
+ * @return list<string>
+ */
+function contacts_table_column_names(&$core)
+{
+	$rows = array();
+	if(!$core->db->select_ex($rows, rpv('SHOW COLUMNS FROM `@contacts`')))
+	{
+		return array();
+	}
+
+	$names = array();
+	foreach($rows as $row)
+	{
+		if(isset($row[0]) && $row[0] !== '')
+		{
+			$names[] = $row[0];
+		}
+	}
+
+	return $names;
 }
 
 function theme_default_value(&$core)
@@ -435,6 +554,8 @@ function exception_handler_ajax($exception)
 	define('PB_CONTACT_AD_DELETED',    0x0002);
 	define('PB_CONTACT_AD_DISABLED',   0x0004);
 	define('PB_CONTACT_WITH_PHOTO',    0x0008);
+	/// Hidden from the phonebook by admin bulk action (does not affect AD sync bits)
+	define('PB_CONTACT_LIST_HIDDEN',   0x0010);
 
 	global $g_app_language;
 	$g_app_language = $core->Config->get_user('language', isset($_COOKIE['lang']) ? $_COOKIE['lang'] : APP_LANGUAGE);
@@ -482,6 +603,7 @@ function exception_handler_ajax($exception)
 			$core->Router->add_route('contacts_sync', 'contacts_sync', TRUE);
 			$core->Router->add_route('contacts_hide_disabled', 'contacts_hide_disabled', TRUE);
 			$core->Router->add_route('contacts_show_all_enabled', 'contacts_show_all_enabled', TRUE);
+			$core->Router->add_route('contacts_reveal_admin_hidden', 'contacts_reveal_admin_hidden', TRUE);
 			$core->Router->add_route('contacts_purge_deleted', 'contacts_purge_deleted', TRUE);
 			$core->Router->add_route('contacts_dump_db', 'contacts_dump_db', TRUE);
 			$core->Router->add_route('contacts_export', 'contacts_export', TRUE);

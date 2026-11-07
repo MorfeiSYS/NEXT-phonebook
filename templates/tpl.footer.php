@@ -12,6 +12,15 @@
 				<h3><?php L('Loading') ?></h3>
 			</div>
 		</div>
+		<div id="confirm-dialog" class="modal-container confirm-dialog" style="display: none">
+			<div class="modal-content">
+				<div id="confirm-dialog-body"></div>
+				<div class="confirm-dialog-actions">
+					<button type="button" class="button-decline" id="confirm-dialog-cancel"><?php L('Cancel') ?></button>
+					<button type="button" class="button-accept" id="confirm-dialog-ok"><?php L('OK') ?></button>
+				</div>
+			</div>
+		</div>
 <?php if(!defined('Z_HIDE_COPYRIGHT')) { ?>
 		<div id="codedby"><small>Coded by <a href="https://github.com/MorfeiSYS/NEXT-phonebook">NEXT</a></small></div>
 <?php } ?>

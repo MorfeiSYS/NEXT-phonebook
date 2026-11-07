@@ -157,6 +157,8 @@
 		'ContactUploadPhoto'		=> 'Загрузить фото',
 		'ContactDeletePhoto'		=> 'Удалить фото',
 		'HideDisabledContacts'		=> 'Скрыть контакты, которые были отключены или удалены из AD',
+		'RevealAdminHiddenContacts'	=> 'Показать все контакты, скрытые администратором (для записей в норме в AD)',
+		'MessageRevealAdminHidden'	=> 'Контакты в норме в AD снова отображаются в справочнике и на карте.',
 		'ShowEnabledContacts'		=> 'Показать контакты, которые не отключены и не удалены из AD',
 		'PurgeADDeletedContacts'	=> 'Очистить контакты удалённые из AD',
 		'EditContact'				=> 'Редактировать',
@@ -172,6 +174,20 @@
 		'ThemeDefault'				=> 'Тема по умолчанию',
 		'ColumnsAsAdmin'			=> 'Как у администратора',
 		'ColumnsRequired'			=> 'Нужна хотя бы одна колонка',
+
+		'ContactStatusLegendTitle'	=> 'Кружок статуса',
+		'ContactStatusLegendOk'		=> 'в норме (нет проблем ниже)',
+		'ContactStatusLegendAdDeleted'	=> 'не найден при синхронизации с AD',
+		'ContactStatusLegendAdDisabled'	=> 'учётная запись отключена в AD',
+		'ContactStatusLegendListHidden'	=> 'скрыт массово (действие администратора)',
+		'ContactStatusLegendNotVisible'	=> 'скрыт вручную из списка',
+		'ContactStatusLegendMulti'	=> 'Несколько цветов — сочетание статусов.',
+
+		'ContactStatusTooltipOk'	=> 'В норме: нет признаков удаления/отключения/массового скрытия для индикатора.',
+		'ContactStatusTooltipAdDeleted'	=> 'Не найден при последней синхронизации с AD (помечен удалённым)',
+		'ContactStatusTooltipAdDisabled'	=> 'Учётная запись отключена в AD',
+		'ContactStatusTooltipListHidden'	=> 'Скрыт массовой операцией администратора',
+		'ContactStatusTooltipNotVisible'	=> 'Скрыт из справочника вручную администратором',
 
 		'Loading'					=> 'Подождите, идет загрузка...'
 	);

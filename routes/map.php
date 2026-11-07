@@ -56,6 +56,7 @@ function map(&$core, $params, $post_data)
 			FROM `@contacts` AS m
 			WHERE
 				(m.`flags` & {%PB_CONTACT_VISIBLE}) = {%PB_CONTACT_VISIBLE}
+				AND NOT (((m.`flags` & {%PB_CONTACT_LIST_HIDDEN}) = {%PB_CONTACT_LIST_HIDDEN}) AND ((m.`flags` & ({%PB_CONTACT_AD_DELETED} | {%PB_CONTACT_AD_DISABLED})) <> 0))
 				AND m.`map` = #
 			ORDER BY
 				m.`last_name`,

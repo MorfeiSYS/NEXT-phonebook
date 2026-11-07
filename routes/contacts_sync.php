@@ -3,6 +3,16 @@
 //ini_set('display_errors', 1);
 //error_reporting(E_ALL);
 
+// Stubs when this file is analyzed without inc.config.php (runtime loads config via pb.php)
+if(!defined('LDAP_BASE_DN'))
+{
+	define('LDAP_BASE_DN', '');
+}
+if(!defined('PB_LDAP_FILTER'))
+{
+	define('PB_LDAP_FILTER', '');
+}
+
 function contacts_sync(&$core, $params, $post_data)
 {
 
@@ -148,7 +158,7 @@ function contacts_sync(&$core, $params, $post_data)
 								`reserved4` = {s15},
 								`reserved5` = {s16},
 								`type` = {d17},
-								`flags` = ((`flags` & ~{%PB_CONTACT_AD_DELETED}) | {d18})
+								`flags` = ((`flags` & ~({%PB_CONTACT_AD_DELETED} | {%PB_CONTACT_AD_DISABLED})) | {d18})
 							WHERE
 								`id` = {d19}
 							LIMIT 1
@@ -201,7 +211,7 @@ function contacts_sync(&$core, $params, $post_data)
 								`reserved5`,
 								`type`,
 								`flags`
-							) VALUES ({s0}, {s1}, {s2}, {s3}, {s4}, {s5}, {s6}, {s7}, {s8}, {s9}, {s10}, {s11}, {r12}, {s13}, {s14}, {s14}, {s16}, {s17}, {d18}, {d19})
+							) VALUES ({s0}, {s1}, {s2}, {s3}, {s4}, {s5}, {s6}, {s7}, {s8}, {s9}, {s10}, {s11}, {r12}, {s13}, {s14}, {s15}, {s16}, {s17}, {d18}, {d19})
 						',
 						$v_adid,
 						$v_samaccountname,

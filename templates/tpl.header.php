@@ -49,8 +49,9 @@
 					<a href="<?php ln('tools') ?>"><?php L('Tools') ?></a>
 					<ul class="submenu submenu-left">
 						<li><a href="<?php ln('contacts_sync') ?>" onclick="return f_confirm_async(this);"><?php L('Sync') ?></a></li>
-						<li><a href="<?php ln('contacts_hide_disabled') ?>" onclick="return f_confirm_async(this);"><?php L('HideDisabledContacts') ?></a></li>
+						<li><a href="<?php ln('contacts_hide_disabled') ?>" onclick="return f_confirm_hide_disabled_async(this);"><?php L('HideDisabledContacts') ?></a></li>
 						<li><a href="<?php ln('contacts_show_all_enabled') ?>" onclick="return f_confirm_async(this);"><?php L('ShowEnabledContacts') ?></a></li>
+						<li><a href="<?php ln('contacts_reveal_admin_hidden') ?>" onclick="return f_confirm_reveal_admin_hidden_async(this);"><?php L('RevealAdminHiddenContacts') ?></a></li>
 						<li><a href="<?php ln('contacts_purge_deleted') ?>" onclick="return f_confirm_async(this);"><?php L('PurgeADDeletedContacts') ?></a></li>
 						<li><a href="<?php ln('contacts_export') ?>"><?php L('Export') ?></a></li>
 						<li><a href="<?php ln('contacts_dump_db') ?>"><?php L('DumpDB') ?></a></li>

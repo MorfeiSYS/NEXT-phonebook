@@ -66,7 +66,7 @@ function contacts(&$core, $params, $post_data)
 	}
 	else
 	{
-		$where = rpv('WHERE ((c.`flags` & {%PB_CONTACT_VISIBLE}) = {%PB_CONTACT_VISIBLE})');
+		$where = rpv('WHERE ((c.`flags` & {%PB_CONTACT_VISIBLE}) = {%PB_CONTACT_VISIBLE}) AND NOT (((c.`flags` & {%PB_CONTACT_LIST_HIDDEN}) = {%PB_CONTACT_LIST_HIDDEN}) AND ((c.`flags` & ({%PB_CONTACT_AD_DELETED} | {%PB_CONTACT_AD_DISABLED})) <> 0))');
 	}
 
 	if(!empty($search))
@@ -157,6 +157,7 @@ function contacts(&$core, $params, $post_data)
 			`@contacts` AS c
 		WHERE
 			(c.`flags` & {%PB_CONTACT_VISIBLE}) = {%PB_CONTACT_VISIBLE}
+			AND NOT (((c.`flags` & {%PB_CONTACT_LIST_HIDDEN}) = {%PB_CONTACT_LIST_HIDDEN}) AND ((c.`flags` & ({%PB_CONTACT_AD_DELETED} | {%PB_CONTACT_AD_DISABLED})) <> 0))
 			AND c.`birthday` IS NOT NULL
 			AND DATE_ADD(
 				c.`birthday`,
@@ -171,6 +172,7 @@ function contacts(&$core, $params, $post_data)
 	"));
 
 	$total = 0;
+	$phones_total = array();
 
 	if($core->db->select_ex($phones_total, rpv('
 			SELECT

@@ -1,5 +1,21 @@
-<?php include(TEMPLATES_DIR.'tpl.header.php'); ?>
-		<h3 align="center"><?php L('Phonebook') ?></h3>
+<?php
+/**
+ * Phonebook list template (included from routes/contacts.php).
+ *
+ * @var \Core $core
+ * @var string $action
+ * @var int $offset
+ * @var int $sort
+ * @var string $search
+ * @var int $total
+ * @var array<int,array<string,mixed>> $phones
+ * @var list<string> $contacts_columns
+ * @var bool $contacts_columns_custom
+ * @var array<int,array<string,mixed>> $birthdays
+ */
+include(TEMPLATES_DIR.'tpl.header.php');
+?>
+		<h2 class="page-heading"><?php L('Phonebook') ?></h2>
 		<div>
 			<?php if(user_is_operator()) { ?>
 				<span class="command f-right" onclick="f_show_form('<?php ln('contact_edit/0') ?>');"><?php L('AddСontact') ?></span>
@@ -30,6 +46,16 @@
 			<input class="button-other" type="submit" value="<?php L('Search') ?>" /><br />
 		</form>
 
+		<div class="contact-status-legend">
+			<strong><?php L('ContactStatusLegendTitle'); ?>:</strong>
+			<span class="contact-status-legend-item"><span class="contact-status-dot contact-status-dot--ok" aria-hidden="true"></span> <?php L('ContactStatusLegendOk'); ?></span>
+			<span class="contact-status-legend-item"><span class="contact-status-dot contact-status-dot--del" aria-hidden="true"></span> <?php L('ContactStatusLegendAdDeleted'); ?></span>
+			<span class="contact-status-legend-item"><span class="contact-status-dot contact-status-dot--dis" aria-hidden="true"></span> <?php L('ContactStatusLegendAdDisabled'); ?></span>
+			<span class="contact-status-legend-item"><span class="contact-status-dot contact-status-dot--hid" aria-hidden="true"></span> <?php L('ContactStatusLegendListHidden'); ?></span>
+			<span class="contact-status-legend-item"><span class="contact-status-dot contact-status-dot--inv" aria-hidden="true"></span> <?php L('ContactStatusLegendNotVisible'); ?></span>
+			<span class="contact-status-legend-item"><?php L('ContactStatusLegendMulti'); ?></span>
+		</div>
+
 		<table id="table" class="main-table">
 			<thead>
 			<tr>
@@ -46,7 +72,7 @@
 			</thead>
 			<tbody id="table-data">
 		<?php $i = 0; foreach($phones as &$row) { $i++; ?>
-			<tr id="<?php eh("row".$row['id']);?>" data-id=<?php eh($row['id']);?> data-map=<?php eh($row['map']); ?> data-x=<?php eh($row['x']); ?> data-y=<?php eh($row['y']); ?> data-flags=<?php eh($row['flags']); ?>>
+			<tr id="<?php eh("row".$row['id']);?>" data-id="<?php eh($row['id']); ?>" data-map="<?php eh($row['map']); ?>" data-x="<?php eh($row['x']); ?>" data-y="<?php eh($row['y']); ?>" data-flags="<?php eh($row['flags']); ?>">
 				<?php if(user_is_admin()) { ?>
 					<td><input type="checkbox" name="check" value="<?php eh($row['id']); ?>"/></td>
 				<?php } ?>

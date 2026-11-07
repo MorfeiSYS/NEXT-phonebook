@@ -1,10 +1,13 @@
 <?php include(TEMPLATES_DIR.'tpl.header.php'); ?>
 
+<?php if(!isset($config)) { $config = array(); } ?>
+
 <h3><?php L('Tools') ?></h3>
 
 <a href="<?php ln('contacts_sync') ?>" onclick="return f_confirm_async(this);"><?php L('Sync') ?></a><br />
-<a href="<?php ln('contacts_hide_disabled') ?>" onclick="return f_confirm_async(this);"><?php L('HideDisabledContacts') ?></a><br />
+<a href="<?php ln('contacts_hide_disabled') ?>" onclick="return f_confirm_hide_disabled_async(this);"><?php L('HideDisabledContacts') ?></a><br />
 <a href="<?php ln('contacts_show_all_enabled') ?>" onclick="return f_confirm_async(this);"><?php L('ShowEnabledContacts') ?></a><br />
+<a href="<?php ln('contacts_reveal_admin_hidden') ?>" onclick="return f_confirm_reveal_admin_hidden_async(this);"><?php L('RevealAdminHiddenContacts') ?></a><br />
 <a href="<?php ln('contacts_purge_deleted') ?>" onclick="return f_confirm_async(this);"><?php L('PurgeADDeletedContacts') ?></a><br />
 <a href="<?php ln('contacts_export') ?>"><?php L('Export') ?></a><br />
 <a href="<?php ln('contacts_dump_db') ?>"><?php L('DumpDB') ?></a><br />

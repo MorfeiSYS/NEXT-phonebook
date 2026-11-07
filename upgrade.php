@@ -33,6 +33,23 @@ if(!file_exists(ROOT_DIR.'inc.config.php'))
 
 require_once(ROOT_DIR.'inc.config.php');
 
+	// Optional config: fallbacks for static analysis / minimal configs (upgrade validates required keys below)
+	if(!defined('LDAP_BASE_DN'))
+	{
+		define('LDAP_BASE_DN', '');
+	}
+	if(!defined('PB_LDAP_FILTER'))
+	{
+		define('PB_LDAP_FILTER', '(objectCategory=person)');
+	}
+	if(!defined('PB_MAPS_COUNT'))
+	{
+		define('PB_MAPS_COUNT', 5);
+	}
+	if(!isset($map_names) || !is_array($map_names))
+	{
+		$map_names = array();
+	}
 
 	if(!isset($_GET['action']) || ($_GET['action'] != 'upgrade'))
 	{
@@ -84,6 +101,7 @@ require_once(ROOT_DIR.'inc.config.php');
 	$core->load_ex('db', 'MySQLDB');
 	$core->load('UserAuth');
 
+	$data = array();
 	if(!$core->db->select_ex($data, rpv("SHOW COLUMNS FROM @config LIKE 'uid'")))
 	{
 		if(!$core->db->put(rpv('ALTER TABLE `@config` ADD COLUMN `uid` INT NOT NULL DEFAULT 0 FIRST')))
@@ -548,6 +566,7 @@ require_once(ROOT_DIR.'inc.config.php');
 		case 7:
 		{
 			global $map_names;
+			$map_names_for_json = is_array($map_names) ? $map_names : array();
 
 			echo "Adding column `description` to table @config...\n";
 			if(!$core->db->put(rpv("ALTER TABLE `@config` ADD COLUMN `description` VARCHAR(2048) DEFAULT NULL AFTER `value`")))
@@ -555,7 +574,7 @@ require_once(ROOT_DIR.'inc.config.php');
 				echo 'ERROR['.__LINE__.']: '.$core->db->get_last_error().PHP_EOL;
 			}
 			echo "Add new config parameter 'map_names_json'...\n";
-			if(!$core->db->put(rpv("INSERT INTO @config (`uid`, `name`, `value`, `description`) VALUES (0, 'map_names_json', {s0}, 'Map names')", json_encode($map_names, JSON_UNESCAPED_UNICODE))))
+			if(!$core->db->put(rpv("INSERT INTO @config (`uid`, `name`, `value`, `description`) VALUES (0, 'map_names_json', {s0}, 'Map names')", json_encode($map_names_for_json, JSON_UNESCAPED_UNICODE))))
 			{
 				echo 'ERROR['.__LINE__.']: '.$core->db->get_last_error().PHP_EOL;
 			}
@@ -616,6 +635,22 @@ require_once(ROOT_DIR.'inc.config.php');
 		break;
 
 		case 10:
+		{
+			echo "Migrating bulk-hidden AD contacts to PB_CONTACT_LIST_HIDDEN flag...\n";
+			if(!$core->db->put(rpv('UPDATE `@contacts` SET `flags` = (`flags` | 16) WHERE `adid` <> \'\' AND (`flags` & (2 | 4)) AND (`flags` & 1) = 0')))
+			{
+				echo 'ERROR['.__LINE__.']: '.$core->db->get_last_error().PHP_EOL;
+			}
+			echo "Set db_version = '11'...\n";
+			if(!$core->db->put(rpv("UPDATE @config SET `value` = 11 WHERE `uid` = 0 AND `name` = 'db_version' LIMIT 1")))
+			{
+				echo 'ERROR['.__LINE__.']: '.$core->db->get_last_error().PHP_EOL;
+			}
+			echo "\n\nUpgrade to version 11 complete!\n";
+		}
+		break;
+
+		case 11:
 		{
 			echo "Upgrade doesn't required\n";
 		}

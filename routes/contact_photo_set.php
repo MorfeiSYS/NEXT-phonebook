@@ -19,8 +19,8 @@ function contact_photo_set(&$core, $params, $post_data)
 	}
 
 	$s_photo = file_get_contents(@$_FILES['file']['tmp_name']);
-	$w = 128;
-	$h = 128;
+	$w = 512;
+	$h = 512;
 	list($width, $height) = getimagesizefromstring($s_photo);
 	$r = $w / $h;
 	if($width/$height > $r)

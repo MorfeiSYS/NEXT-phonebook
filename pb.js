@@ -7,6 +7,7 @@ var PB_CONTACT_VISIBLE     = 0x0001;
 var PB_CONTACT_AD_DELETED  = 0x0002;
 var PB_CONTACT_AD_DISABLED = 0x0004;
 var PB_CONTACT_WITH_PHOTO  = 0x0008;
+var PB_CONTACT_LIST_HIDDEN = 0x0010;
 
 function gi(name)
 {
@@ -556,11 +557,16 @@ function on_saved(action, data)
 function f_sw_img(ev)
 {
 	var el_src = ev.target || ev.srcElement;
-	var img = el_src.parentNode.getAttribute('data-flags');
+	var row = contact_row_from_event_target(el_src);
+	if(!row)
+	{
+		return;
+	}
+	var img = row.getAttribute('data-flags');
 	if(parseInt(img, 10) & 0x0008)
 	{
 		var el = gi('userphoto');
-		el.src = 'photos/t'+el_src.parentNode.getAttribute('data-id')+'.jpg';
+		el.src = 'photos/t'+row.getAttribute('data-id')+'.jpg';
 		el = gi('imgblock');
 		el.style.display = 'block';
 		el.style.left = (ev.clientX+10)  + "px";
@@ -581,12 +587,17 @@ function f_mv_img(ev)
 function f_sw_map(ev)
 {
 	var el_src = ev.target || ev.srcElement;
-	var id = parseInt(el_src.parentNode.getAttribute('data-map'), 10);
+	var row = contact_row_from_event_target(el_src);
+	if(!row)
+	{
+		return;
+	}
+	var id = parseInt(row.getAttribute('data-map'), 10);
 	if(id)
 	{
 		var el = gi('map-container');
-		var x = parseInt(el_src.parentNode.getAttribute('data-x'), 10);
-		var y = parseInt(el_src.parentNode.getAttribute('data-y'), 10);
+		var x = parseInt(row.getAttribute('data-x'), 10);
+		var y = parseInt(row.getAttribute('data-y'), 10);
 		el.style.display = 'block';
 		el.onclick = function() {gi('map-container').style.display = 'none';};
 		var mapImg = gi('map-image');
@@ -907,6 +918,79 @@ function f_confirm_async(a)
 	return false;
 }
 
+var g_confirm_dialog_callback = null;
+
+function f_confirm_dialog_init()
+{
+	var box = gi('confirm-dialog');
+	if(!box || box.getAttribute('data-inited'))
+	{
+		return;
+	}
+	box.setAttribute('data-inited', '1');
+	gi('confirm-dialog-ok').onclick = function()
+	{
+		box.style.display = 'none';
+		var cb = g_confirm_dialog_callback;
+		g_confirm_dialog_callback = null;
+		if(cb)
+		{
+			cb(true);
+		}
+	};
+	gi('confirm-dialog-cancel').onclick = function()
+	{
+		box.style.display = 'none';
+		var cb = g_confirm_dialog_callback;
+		g_confirm_dialog_callback = null;
+		if(cb)
+		{
+			cb(false);
+		}
+	};
+}
+
+function f_confirm_dialog_show(html, callback)
+{
+	f_confirm_dialog_init();
+	g_confirm_dialog_callback = callback;
+	gi('confirm-dialog-body').innerHTML = html;
+	gi('confirm-dialog').style.display = 'block';
+	return false;
+}
+
+function f_confirm_hide_disabled_async(a)
+{
+	var step1 = '<p>' + escapeHtml(LL.ConfirmHideDisabledContacts1) + '</p>'
+		+ '<p class="confirm-dialog-warning">' + escapeHtml(LL.ConfirmHideDisabledMapWarning) + '</p>';
+	f_confirm_dialog_show(step1, function(ok1)
+	{
+		if(!ok1)
+		{
+			return;
+		}
+		var step2 = '<p>' + escapeHtml(LL.ConfirmHideDisabledSuggestExport) + '</p>'
+			+ '<p>' + escapeHtml(LL.ConfirmHideDisabledContacts2) + '</p>';
+		f_confirm_dialog_show(step2, function(ok2)
+		{
+			if(ok2)
+			{
+				f_async_ex(a.href);
+			}
+		});
+	});
+	return false;
+}
+
+function f_confirm_reveal_admin_hidden_async(a)
+{
+	if(!window.confirm(LL.ConfirmRevealAdminHiddenContacts))
+	{
+		return false;
+	}
+	return f_async_ex(a.href);
+}
+
 function f_async(a)
 {
 	return f_async_ex(a.href);
@@ -988,6 +1072,103 @@ function contacts_column_on(key)
 	return false;
 }
 
+/** Nearest table row with contact data-* (name cell may contain nested spans). */
+function contact_row_from_event_target(el)
+{
+	while(el && el.nodeType === 1)
+	{
+		if(el.tagName === 'TR' && el.getAttribute('data-id') !== null)
+		{
+			return el;
+		}
+		el = el.parentNode;
+	}
+	return null;
+}
+
+var CONTACT_DOT_ORDER = [
+	{ bit: PB_CONTACT_AD_DELETED, singleClass: 'contact-status-dot--del', color: '#c62828' },
+	{ bit: PB_CONTACT_AD_DISABLED, singleClass: 'contact-status-dot--dis', color: '#ef6c00' },
+	{ bit: PB_CONTACT_LIST_HIDDEN, singleClass: 'contact-status-dot--hid', color: '#1565c0' },
+	{ bit: PB_CONTACT_VISIBLE, singleClass: 'contact-status-dot--inv', color: '#6a1b9a', negate: true }
+];
+
+function attr_escape(s)
+{
+	return String(s)
+		.replace(/&/g, '&amp;')
+		.replace(/"/g, '&quot;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;');
+}
+
+function contact_status_dot_title(flags)
+{
+	var f = flags | 0;
+	var parts = [];
+	if(LL.ContactStatusTooltipAdDeleted && (f & PB_CONTACT_AD_DELETED))
+	{
+		parts.push(LL.ContactStatusTooltipAdDeleted);
+	}
+	if(LL.ContactStatusTooltipAdDisabled && (f & PB_CONTACT_AD_DISABLED))
+	{
+		parts.push(LL.ContactStatusTooltipAdDisabled);
+	}
+	if(LL.ContactStatusTooltipListHidden && (f & PB_CONTACT_LIST_HIDDEN))
+	{
+		parts.push(LL.ContactStatusTooltipListHidden);
+	}
+	if(LL.ContactStatusTooltipNotVisible && (f & PB_CONTACT_VISIBLE) === 0)
+	{
+		parts.push(LL.ContactStatusTooltipNotVisible);
+	}
+	if(parts.length === 0 && LL.ContactStatusTooltipOk)
+	{
+		return LL.ContactStatusTooltipOk;
+	}
+	return parts.join('; ');
+}
+
+function contact_status_dot_span(flags)
+{
+	var f = flags | 0;
+	var i, n, active, step, parts, style;
+	var title = attr_escape(contact_status_dot_title(f));
+	var tip = ' title="' + title + '" aria-label="' + title + '"';
+
+	active = [];
+	for(i = 0; i < CONTACT_DOT_ORDER.length; i++)
+	{
+		var o = CONTACT_DOT_ORDER[i];
+		var on = o.negate ? ((f & o.bit) === 0) : ((f & o.bit) !== 0);
+		if(on)
+		{
+			active.push(o);
+		}
+	}
+
+	if(active.length === 0)
+	{
+		return '<span class="contact-status-dot contact-status-dot--ok"' + tip + '></span>';
+	}
+
+	if(active.length === 1)
+	{
+		return '<span class="contact-status-dot ' + active[0].singleClass + '"' + tip + '></span>';
+	}
+
+	n = active.length;
+	step = 360 / n;
+	parts = [];
+	for(i = 0; i < n; i++)
+	{
+		parts.push(active[i].color + ' ' + (i * step) + 'deg ' + ((i + 1) * step) + 'deg');
+	}
+	style = 'background: conic-gradient(from 0deg, ' + parts.join(', ') + ');';
+
+	return '<span class="contact-status-dot contact-status-dot--multi" style="' + style + '"' + tip + '></span>';
+}
+
 function contact_cells_html(c)
 {
 	var html = '';
@@ -1000,7 +1181,7 @@ function contact_cells_html(c)
 
 	if(contacts_column_on('name'))
 	{
-		html += '<td onclick="f_sw_map(event);" onmouseenter="f_sw_img(event);" onmouseleave="gi(\'imgblock\').style.display = \'none\'" onmousemove="f_mv_img(event);" style="cursor: pointer;"' + ((c.flags & PB_CONTACT_WITH_PHOTO) ? ' class="userwithphoto"' : '') + '>' + escapeHtml((c.last_name || '') + ' ' + (c.first_name || '') + ' ' + (c.middle_name || '')) + '</td>';
+		html += '<td onclick="f_sw_map(event);" onmouseenter="f_sw_img(event);" onmouseleave="gi(\'imgblock\').style.display = \'none\'" onmousemove="f_mv_img(event);" style="cursor: pointer;" class="contact-name-cell' + ((c.flags & PB_CONTACT_WITH_PHOTO) ? ' userwithphoto' : '') + '">' + contact_status_dot_span(c.flags) + '<span class="contact-name-text">' + escapeHtml((c.last_name || '') + ' ' + (c.first_name || '') + ' ' + (c.middle_name || '')) + '</span></td>';
 	}
 
 	if(contacts_column_on('phone'))

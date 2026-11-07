@@ -157,6 +157,8 @@
 		'ContactUploadPhoto'		=> 'Change photo',
 		'ContactDeletePhoto'		=> 'Delete photo',
 		'HideDisabledContacts'		=> 'Hide disabled and deleted in AD contacts',
+		'RevealAdminHiddenContacts'	=> 'Show all contacts hidden by administrator (for records OK in AD)',
+		'MessageRevealAdminHidden'	=> 'AD-OK contacts hidden by the administrator are visible again in the phonebook and on the map.',
 		'ShowEnabledContacts'		=> 'Show enabled and not deleted from AD contacts',
 		'PurgeADDeletedContacts'	=> 'Purge contacts deleted from AD',
 		'EditContact'				=> 'Edit local contact',
@@ -172,6 +174,20 @@
 		'ThemeDefault'				=> 'Default theme',
 		'ColumnsAsAdmin'			=> 'Use administrator defaults',
 		'ColumnsRequired'			=> 'At least one column is required',
+
+		'ContactStatusLegendTitle'	=> 'Status dot',
+		'ContactStatusLegendOk'		=> 'OK (synced with AD, no issues below)',
+		'ContactStatusLegendAdDeleted'	=> 'Not found in LDAP sync (removed from catalog or filter)',
+		'ContactStatusLegendAdDisabled'	=> 'Disabled in Active Directory',
+		'ContactStatusLegendListHidden'	=> 'Bulk-hidden (admin action for disabled/deleted in AD)',
+		'ContactStatusLegendNotVisible'	=> 'Hidden from list (manual admin action)',
+		'ContactStatusLegendMulti'	=> 'Multiple colors = several statuses at once.',
+
+		'ContactStatusTooltipOk'	=> 'OK: no deleted/disabled/hidden flags for this indicator.',
+		'ContactStatusTooltipAdDeleted'	=> 'Not found in last AD sync (marked deleted)',
+		'ContactStatusTooltipAdDisabled'	=> 'Account disabled in AD',
+		'ContactStatusTooltipListHidden'	=> 'Bulk-hidden by administrator',
+		'ContactStatusTooltipNotVisible'	=> 'Manually hidden from the phonebook',
 
 		'Loading'					=> 'Loading, please wait...'
 	);

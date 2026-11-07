@@ -316,6 +316,11 @@ body {
     top: 3px;
     left: 43%;
 }
+.page-heading {
+    text-align: center;
+    margin: 0.5em 0 1em 0;
+}
+
 #codedby {
     position: fixed;
     z-index: 100;
@@ -608,6 +613,72 @@ body {
 .userwithphoto {
     color: var(--color-link);
 }
+
+/* Status dot next to name: one solid color per flag state; multiple → conic-gradient (see --multi inline) */
+.contact-name-cell {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    flex-wrap: nowrap;
+}
+.contact-name-text {
+    flex: 1;
+    min-width: 0;
+}
+.contact-status-dot {
+    flex-shrink: 0;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    margin-top: 0.35em;
+    align-self: flex-start;
+    box-sizing: border-box;
+}
+.contact-status-dot--ok {
+    background: #2e7d32;
+}
+.contact-status-dot--del {
+    background: #c62828;
+}
+.contact-status-dot--dis {
+    background: #ef6c00;
+}
+.contact-status-dot--hid {
+    background: #1565c0;
+}
+.contact-status-dot--inv {
+    background: #6a1b9a;
+}
+.contact-status-dot--multi {
+    /* background set inline (conic-gradient) */
+}
+
+.contact-status-legend {
+    font-size: 0.85em;
+    line-height: 1.5;
+    margin: 10px 0 14px 0;
+    color: var(--color-text-muted, var(--color-border));
+}
+.contact-status-legend strong {
+    color: var(--color-text);
+    margin-right: 6px;
+}
+.contact-status-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-right: 14px;
+    white-space: nowrap;
+}
+.contact-status-legend-item:last-child {
+    margin-right: 0;
+    white-space: normal;
+}
+.contact-status-legend .contact-status-dot {
+    margin-top: 0;
+    align-self: center;
+}
+
 .content-box {
     overflow: hidden;
 }
@@ -648,6 +719,21 @@ body {
     overflow-y: auto;
     max-width: 90vw;
     max-height: 90vh;
+}
+#confirm-dialog .modal-content {
+    max-width: min(560px, 92vw);
+}
+.confirm-dialog-warning {
+    color: var(--color-error-text);
+    font-weight: 600;
+    margin-top: 14px;
+}
+.confirm-dialog-actions {
+    margin-top: 22px;
+    text-align: center;
+}
+.confirm-dialog-actions button {
+    margin: 0 8px;
 }
 .form-header {
     width: 500px;

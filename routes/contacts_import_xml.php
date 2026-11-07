@@ -20,6 +20,14 @@ function contacts_import_xml(&$core, $params, $post_data)
 		return;
 	}
 
+	$column_list = contacts_table_column_names($core);
+	if(empty($column_list))
+	{
+		echo '{"code": 1, "message": "Failed to read contacts table columns"}';
+		return;
+	}
+	$allowed_columns = array_flip($column_list);
+
 	if(!$core->db->put(rpv('TRUNCATE TABLE @contacts')))
 	{
 		echo '{"code": 1, "message": "Truncate table failed"}';
@@ -32,7 +40,7 @@ function contacts_import_xml(&$core, $params, $post_data)
 		$values = '';
 		foreach($contact->children() as $key => $value)
 		{
-			if($key != 'id')
+			if($key != 'id' && isset($allowed_columns[$key]))
 			{
 				if(!empty($keys))
 				{
