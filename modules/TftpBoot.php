@@ -1138,6 +1138,11 @@ class TftpBoot
 	public function save_config($filename, $post, $policy)
 	{
 		tftpboot_sanitize_speed_dial_post($post);
+		$err = tftpboot_validate_speed_dial_post($post);
+		if($err !== '')
+		{
+			return array('code' => 1, 'message' => $err);
+		}
 		$path = $this->resolve_path($filename);
 		if(!$path)
 		{
@@ -2125,6 +2130,11 @@ class TftpBoot
 	public function submit_moderation_request($uid, $contact_id, $filename, $post, $policy)
 	{
 		tftpboot_sanitize_speed_dial_post($post);
+		$err = tftpboot_validate_speed_dial_post($post);
+		if($err !== '')
+		{
+			return array('code' => 1, 'message' => $err);
+		}
 		$baseline_cfg = $this->get_config_for_editor($filename, $policy);
 		if(!$baseline_cfg)
 		{
@@ -2376,7 +2386,11 @@ class TftpBoot
 		));
 		log_db('tftpboot moderation approve', $req['filename'].' #'.$id, 0);
 
-		return array('code' => 0, 'message' => LL('TftpBootModerationApproved'));
+		return array(
+			'code' => 0,
+			'message' => LL('TftpBootModerationApproved'),
+			'pending_count' => $this->count_moderation_pending(),
+		);
 	}
 
 	public function reject_moderation($id, $reviewer_uid, $note = '')
@@ -2399,6 +2413,10 @@ class TftpBoot
 		));
 		log_db('tftpboot moderation reject', $rows[0]['filename'].' #'.$id, 0);
 
-		return array('code' => 0, 'message' => LL('TftpBootModerationRejected'));
+		return array(
+			'code' => 0,
+			'message' => LL('TftpBootModerationRejected'),
+			'pending_count' => $this->count_moderation_pending(),
+		);
 	}
 }

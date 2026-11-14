@@ -299,8 +299,13 @@
 		'TftpBootModerationDiffNow'		=> 'Станет',
 		'TftpBootModerationSelfPending'	=> 'Заявка ожидает подтверждения оператором',
 		'TftpBootModerationSelfRejected'=> 'Последняя заявка отклонена',
-		'TftpBootDialNumberHint'		=> 'Цифры (до 11) или *код',
+		'TftpBootDialNumberHint'		=> 'Цифры, *8 или **',
+		'TftpBootStarDialInvalid'		=> 'Допустимы только *8 или **',
+		'TftpBootDialLabelRequired'		=> 'Укажите подпись, если заполнен номер',
+		'TftpBootDialNumberRequired'	=> 'Укажите номер, если заполнена подпись',
 		'TftpBootModerationReview'		=> 'Просмотр',
 		'TftpBootModerationNoDiff'		=> 'Изменений кнопок не обнаружено',
-		'TftpBootModerationLoading'		=> 'Загрузка…'
+		'TftpBootModerationLoading'		=> 'Загрузка…',
+		'TftpBootModerationSettings'	=> 'Модерация',
+		'TftpBootModerationPollInterval'=> 'Интервал опроса очереди (сек)'
 	);

@@ -11,6 +11,22 @@ function tftpboot_keys_bulk_save(&$core, $params, $post_data)
 		exit;
 	}
 
+	foreach($items as $item)
+	{
+		if(!is_array($item))
+		{
+			continue;
+		}
+		$title = isset($item['title']) ? $item['title'] : '';
+		$number = isset($item['number']) ? tftpboot_sanitize_speed_dial_number($item['number']) : '';
+		$err = tftpboot_validate_dial_entry($title, $number);
+		if($err !== '')
+		{
+			tftpboot_json_send(array('code' => 1, 'message' => $err));
+			exit;
+		}
+	}
+
 	$svc = tftpboot_instance($core);
 	list($vendors, $explicit) = tftpboot_bulk_vendors_from_post($post_data, $svc);
 	if($explicit && !count($vendors))

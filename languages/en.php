@@ -299,8 +299,13 @@
 		'TftpBootModerationDiffNow'		=> 'Now',
 		'TftpBootModerationSelfPending'	=> 'Awaiting operator approval',
 		'TftpBootModerationSelfRejected'=> 'Last request was rejected',
-		'TftpBootDialNumberHint'		=> 'Digits (max 11) or *code',
+		'TftpBootDialNumberHint'		=> 'Digits, *8 or **',
+		'TftpBootStarDialInvalid'		=> 'Only *8 or ** allowed',
+		'TftpBootDialLabelRequired'		=> 'Label is required when number is set',
+		'TftpBootDialNumberRequired'	=> 'Number is required when label is set',
 		'TftpBootModerationReview'		=> 'Review',
 		'TftpBootModerationNoDiff'		=> 'No button changes detected',
-		'TftpBootModerationLoading'		=> 'Loading…'
+		'TftpBootModerationLoading'		=> 'Loading…',
+		'TftpBootModerationSettings'	=> 'Moderation',
+		'TftpBootModerationPollInterval'=> 'Moderation queue poll interval (sec)'
 	);

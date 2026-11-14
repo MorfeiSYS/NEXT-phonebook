@@ -33,6 +33,7 @@ function tools(&$core, $params, $post_data)
 			'sync_fields' => $core->Config->get_global('tftpboot_sync_fields', 'dss_title,display_name'),
 			'scan_cache_ttl' => $core->Config->get_global('tftpboot_scan_cache_ttl', '300'),
 			'bulk_page_size' => (string) $svc->get_bulk_page_size(),
+			'moderation_poll_interval' => (string) tftpboot_moderation_poll_interval_sec($core),
 			'sync_cron_key' => $core->Config->get_global('tftpboot_sync_cron_key', ''),
 		);
 	}

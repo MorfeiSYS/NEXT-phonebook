@@ -36,6 +36,9 @@ function tftpboot_init(opts) {
 	if (modApprove) modApprove.onclick = tftpboot_moderation_approve;
 	var modReject = document.getElementById('tftpboot-moderation-reject');
 	if (modReject) modReject.onclick = tftpboot_moderation_reject;
+	if (tftpboot_state.canModerate && typeof tftpboot_moderation_update_count === 'function') {
+		tftpboot_moderation_update_count(parseInt(opts.moderationPendingCount, 10) || 0);
+	}
 	var bulkQ = document.getElementById('tftpboot-bulk-q');
 	if (bulkQ) {
 		bulkQ.oninput = tftpboot_bulk_filter;
@@ -94,16 +97,57 @@ function tftpboot_star_dial_prefix(s) {
 	return /^\*/.test(String(s || '').trim());
 }
 
-function tftpboot_is_star_transfer_dial(s) {
+function tftpboot_normalize_star_dial(star) {
+	star = String(star || '').replace(/[^\d*]/g, '');
+	if (!star.length || star[0] !== '*') return '';
+	if (star.length >= 2 && star[1] === '*') return '**';
+	if (star.length >= 2) {
+		if (star[1] === '8') return star.length > 2 ? '*8' : star.slice(0, 2);
+		return '*';
+	}
+	return star;
+}
+
+function tftpboot_is_valid_star_dial(s) {
 	var t = String(s || '').trim();
-	return tftpboot_star_dial_prefix(t) && /^[\d*]+$/.test(t) && t.length >= 2;
+	return t === '**' || t === '*8';
+}
+
+function tftpboot_is_star_transfer_dial(s) {
+	return tftpboot_is_valid_star_dial(s);
 }
 
 function tftpboot_split_star_dial_value(raw) {
 	var s = String(raw || '').trim();
-	var m = s.match(/^(\*[\d*]+)(@1\/[a-z]+)?$/i);
+	var m = s.match(/^(\*\*|\*8)(@1\/[a-z]+)?$/i);
 	if (!m) return null;
 	return { number: m[1], suffix: m[2] || '' };
+}
+
+function tftpboot_dial_err(key) {
+	var lbl = tftpboot_state.labels || {};
+	if (lbl[key]) return lbl[key];
+	if (typeof LL === 'object' && LL) {
+		if (key === 'starDialInvalid' && LL.TftpBootStarDialInvalid) return LL.TftpBootStarDialInvalid;
+		if (key === 'dialLabelRequired' && LL.TftpBootDialLabelRequired) return LL.TftpBootDialLabelRequired;
+		if (key === 'dialNumberRequired' && LL.TftpBootDialNumberRequired) return LL.TftpBootDialNumberRequired;
+	}
+	if (key === 'starDialInvalid') return 'Only *8 or ** allowed';
+	if (key === 'dialLabelRequired') return 'Label required when number is set';
+	return 'Number required when label is set';
+}
+
+function tftpboot_validate_dial_pair(label, number, spec) {
+	if (spec) return '';
+	var lab = String(label || '').trim();
+	var num = String(number || '').trim();
+	if (!lab && !num) return '';
+	if (lab && !num) return tftpboot_dial_err('dialNumberRequired');
+	if (num && !lab) return tftpboot_dial_err('dialLabelRequired');
+	if (tftpboot_star_dial_prefix(num) && !tftpboot_is_valid_star_dial(num)) {
+		return tftpboot_dial_err('starDialInvalid');
+	}
+	return '';
 }
 
 function tftpboot_sanitize_dial_number(raw) {
@@ -112,10 +156,7 @@ function tftpboot_sanitize_dial_number(raw) {
 	var full = tftpboot_split_star_dial_value(s);
 	if (full) return full.number;
 	if (tftpboot_star_dial_prefix(s)) {
-		var star = s.replace(/[^\d*]/g, '');
-		if (/^\*+$/.test(star) && star.length > 2) star = '**';
-		if (star.length > 12) star = star.slice(0, 12);
-		return star;
+		return tftpboot_normalize_star_dial(s);
 	}
 	var d = s.replace(/\D/g, '');
 	if (d.length > 11) d = d.slice(0, 11);
@@ -237,6 +278,9 @@ function tftpboot_moderation_load_list() {
 		var empty = (tftpboot_state.labels && tftpboot_state.labels.moderationEmpty) || 'No pending requests';
 		if (!items.length) {
 			box.innerHTML = '<p>' + escapeHtml(empty) + '</p>';
+			if (typeof res.pending_count === 'number' && typeof tftpboot_moderation_update_count === 'function') {
+				tftpboot_moderation_update_count(res.pending_count);
+			}
 			return;
 		}
 		var html = '<table class="tftpboot-table"><thead><tr><th>' +
@@ -251,6 +295,9 @@ function tftpboot_moderation_load_list() {
 		});
 		html += '</tbody></table>';
 		box.innerHTML = html;
+		if (typeof res.pending_count === 'number' && typeof tftpboot_moderation_update_count === 'function') {
+			tftpboot_moderation_update_count(res.pending_count);
+		}
 		box.querySelectorAll('.tftpboot-mod-review').forEach(function (btn) {
 			btn.onclick = function () {
 				tftpboot_moderation_open_detail(parseInt(btn.getAttribute('data-id'), 10));
@@ -313,13 +360,8 @@ function tftpboot_moderation_approve() {
 		f_notify(res && res.message ? res.message : 'OK', res && res.code ? 'error' : 'success');
 		if (res && !res.code) {
 			tftpboot_moderation_close();
-			var tab = document.querySelector('.tftpboot-tab-moderation');
-			if (tab) {
-				var m = tab.textContent.match(/\((\d+)\)/);
-				if (m) {
-					var n = Math.max(0, parseInt(m[1], 10) - 1);
-					tab.textContent = tab.textContent.replace(/\s*\(\d+\)/, n > 0 ? ' (' + n + ')' : '');
-				}
+			if (typeof res.pending_count === 'number' && typeof tftpboot_moderation_update_count === 'function') {
+				tftpboot_moderation_update_count(res.pending_count);
 			}
 		}
 	});
@@ -332,7 +374,12 @@ function tftpboot_moderation_reject() {
 	var note = noteEl ? noteEl.value : '';
 	tftpboot_http('tftpboot_moderation_reject', { id: id, note: note }, function (res) {
 		f_notify(res && res.message ? res.message : 'OK', res && res.code ? 'error' : 'success');
-		if (res && !res.code) tftpboot_moderation_close();
+		if (res && !res.code) {
+			tftpboot_moderation_close();
+			if (typeof res.pending_count === 'number' && typeof tftpboot_moderation_update_count === 'function') {
+				tftpboot_moderation_update_count(res.pending_count);
+			}
+		}
 	});
 }
 
@@ -697,7 +744,7 @@ function tftpboot_create_key_card(k, grid) {
 			}
 		}
 		if (!dialSuffix && k.value && !card.dataset.fkeyAuto) {
-			var starVm = String(k.value).trim().match(/^(\*[\d*]+)(.*)$/);
+			var starVm = String(k.value).trim().match(/^(\*\*|\*8)(.*)$/);
 			if (starVm) {
 				dialSuffix = starVm[2] || '';
 				if (!displayNum || displayNum.indexOf('@1/') >= 0) displayNum = starVm[1];
@@ -707,7 +754,8 @@ function tftpboot_create_key_card(k, grid) {
 			}
 		}
 	}
-	if (tftpboot_is_star_transfer_dial(displayNum)) {
+	if (tftpboot_star_dial_prefix(displayNum)) {
+		displayNum = tftpboot_normalize_star_dial(displayNum);
 		card.dataset.starTransfer = '1';
 	}
 	card.dataset.dialSuffix = dialSuffix;
@@ -995,6 +1043,16 @@ function tftpboot_save_editor() {
 			clearIds.push(card.dataset.keyId);
 		}
 	});
+	var vi;
+	for (vi = 0; vi < keys.length; vi++) {
+		var row = keys[vi];
+		var spec = tftpboot_special_line_value(row.number);
+		var verr = tftpboot_validate_dial_pair(row.label, row.number, spec);
+		if (verr) {
+			f_notify(verr, 'error');
+			return;
+		}
+	}
 	var post = { filename: fn, speedDialKeys: keys, clear_key_ids: clearIds };
 	var disp = document.getElementById('tftpboot-sip-display');
 	if (disp) post.displayName = disp.value;
@@ -1225,11 +1283,18 @@ function tftpboot_bulk_save_one(idx) {
 	if (!r) return;
 	var numEl = document.querySelector('.tftpboot-bulk-num[data-idx="' + idx + '"]');
 	var titEl = document.querySelector('.tftpboot-bulk-title[data-idx="' + idx + '"]');
+	var number = tftpboot_sanitize_dial_number(numEl ? numEl.value : r.number);
+	var title = titEl ? titEl.value : r.title;
+	var verr = tftpboot_validate_dial_pair(title, number, '');
+	if (verr) {
+		f_notify(verr, 'error');
+		return;
+	}
 	var item = {
 		old_number: r.old_number || r.number,
 		old_title: r.old_title !== undefined ? r.old_title : r.title,
-		number: tftpboot_sanitize_dial_number(numEl ? numEl.value : r.number),
-		title: titEl ? titEl.value : r.title
+		number: number,
+		title: title
 	};
 	tftpboot_http('tftpboot_keys_bulk_save', { items: [item], vendors: tftpboot_selected_vendors() }, function (res) {
 		var msg = res && res.message ? res.message : 'OK';

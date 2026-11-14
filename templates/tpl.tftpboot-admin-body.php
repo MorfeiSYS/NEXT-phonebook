@@ -17,6 +17,7 @@ if(!isset($tftpboot_settings))
 		'sync_fields' => 'dss_title,display_name',
 		'scan_cache_ttl' => '300',
 		'bulk_page_size' => '50',
+		'moderation_poll_interval' => '60',
 		'sync_cron_key' => '',
 	);
 }
@@ -55,6 +56,9 @@ if(!isset($tftpboot_admin_embedded)) { $tftpboot_admin_embedded = FALSE; }
 	<label><?php L('TftpBootScanTtl') ?> <input type="number" name="scan_cache_ttl" value="<?php eh($tftpboot_settings['scan_cache_ttl']); ?>" /></label><br />
 	<label><?php L('TftpBootBulkPageSize') ?> <input type="number" name="bulk_page_size" value="<?php eh($tftpboot_settings['bulk_page_size']); ?>" min="5" max="500" /></label><br />
 	<p><?php L('TftpBootCronUrl') ?>: <code><?php ln('tftpboot_sync_run') ?>?key=<?php eh($tftpboot_settings['sync_cron_key']); ?></code></p>
+
+	<h4><?php L('TftpBootModerationSettings') ?></h4>
+	<label><?php L('TftpBootModerationPollInterval') ?> <input type="number" name="moderation_poll_interval" value="<?php eh($tftpboot_settings['moderation_poll_interval']); ?>" min="60" step="1" /></label><br />
 
 	<h4><?php L('TftpBootUnknownFiles') ?></h4>
 	<table class="tftpboot-table">
