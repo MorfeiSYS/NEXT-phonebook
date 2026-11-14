@@ -8,17 +8,7 @@ function tftpboot_directory(&$core, $params, $post_data)
 	$refresh = intval(@$post_data['refresh']);
 	if($refresh)
 	{
-		$rows = array();
-		$map = $svc->sync_name_map();
-		foreach($map as $num => $name)
-		{
-			if(!preg_match('/^\d+$/', (string)$num))
-			{
-				continue;
-			}
-			$rows[] = array('number' => $num, 'name' => $name);
-		}
-		usort($rows, function($a, $b) { return strcmp($a['number'], $b['number']); });
+		$rows = tftpboot_directory_rows_from_map($svc->sync_name_map());
 	}
 	else
 	{

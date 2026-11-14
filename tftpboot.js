@@ -1,6 +1,7 @@
 var tftpboot_state = {
 	tree: [], policy: {}, syncDiff: [], bulkRows: [], bulkAllRows: [],
-	bulkFilteredRows: [], bulkPage: 0, bulkPageSize: 50, labels: {}
+	bulkFilteredRows: [], bulkPage: 0, bulkPageSize: 50,
+	directoryAllRows: [], directoryFilteredRows: [], directoryPage: 0, labels: {}
 };
 
 function tftpboot_init(opts) {
@@ -11,8 +12,11 @@ function tftpboot_init(opts) {
 	if (tftpboot_state.bulkPageSize < 5) tftpboot_state.bulkPageSize = 5;
 	if (tftpboot_state.bulkPageSize > 500) tftpboot_state.bulkPageSize = 500;
 	tftpboot_state.labels = opts.labels || {};
+	tftpboot_state.syncApiFetch = !!opts.syncApiFetch;
+	tftpboot_state.syncHasUndo = !!opts.syncHasUndo;
 	tftpboot_bind_tabs();
 	tftpboot_render_bulk_vendors();
+	tftpboot_render_sync_vendors();
 	tftpboot_load_tree();
 	var openBtn = document.getElementById('tftpboot-open-btn');
 	if (openBtn) openBtn.onclick = tftpboot_open_selected;
@@ -22,13 +26,28 @@ function tftpboot_init(opts) {
 		bulkQ.onkeydown = function (e) { if (e.key === 'Enter') { e.preventDefault(); tftpboot_bulk_filter(); } };
 	}
 	var dirOpen = document.getElementById('tftpboot-directory-open');
-	if (dirOpen) dirOpen.onclick = tftpboot_directory_show;
+	if (dirOpen) dirOpen.onclick = function () { tftpboot_directory_show(false); };
 	var dirRefresh = document.getElementById('tftpboot-directory-refresh');
-	if (dirRefresh) dirRefresh.onclick = function () { tftpboot_directory_show(true); };
+	if (dirRefresh) {
+		dirRefresh.style.display = tftpboot_state.syncApiFetch ? '' : 'none';
+		if (tftpboot_state.syncApiFetch) {
+			dirRefresh.onclick = function () { tftpboot_directory_show(true); };
+		}
+	}
+	var dirQ = document.getElementById('tftpboot-directory-q');
+	if (dirQ) {
+		dirQ.oninput = tftpboot_directory_filter;
+		dirQ.onkeydown = function (e) { if (e.key === 'Enter') { e.preventDefault(); tftpboot_directory_filter(); } };
+	}
 	var syncPreview = document.getElementById('tftpboot-sync-preview');
 	if (syncPreview) syncPreview.onclick = tftpboot_sync_preview;
 	var syncApply = document.getElementById('tftpboot-sync-apply');
 	if (syncApply) syncApply.onclick = tftpboot_sync_apply;
+	var syncUndo = document.getElementById('tftpboot-sync-undo');
+	if (syncUndo) {
+		syncUndo.style.display = tftpboot_state.syncHasUndo ? '' : 'none';
+		syncUndo.onclick = tftpboot_sync_undo;
+	}
 }
 
 function tftpboot_bind_admin() {
@@ -51,6 +70,29 @@ function tftpboot_bind_tabs() {
 	});
 }
 
+function tftpboot_render_sync_vendors() {
+	var box = document.getElementById('tftpboot-sync-vendors');
+	if (!box) return;
+	box.innerHTML = '';
+	tftpboot_state.bulkVendors.forEach(function (v) {
+		var lbl = document.createElement('label');
+		var chk = document.createElement('input');
+		chk.type = 'checkbox';
+		chk.className = 'tftpboot-sync-vendor';
+		chk.value = v;
+		chk.checked = String(v).toLowerCase() === 'fanvil';
+		lbl.appendChild(chk);
+		lbl.appendChild(document.createTextNode(' ' + v));
+		box.appendChild(lbl);
+	});
+}
+
+function tftpboot_selected_sync_vendors() {
+	var v = [];
+	document.querySelectorAll('.tftpboot-sync-vendor:checked').forEach(function (el) { v.push(el.value); });
+	return v;
+}
+
 function tftpboot_render_bulk_vendors() {
 	var box = document.getElementById('tftpboot-bulk-vendors');
 	if (!box) return;
@@ -69,8 +111,43 @@ function tftpboot_render_bulk_vendors() {
 	});
 }
 
-function tftpboot_http(action, data, cb) {
-	f_http(g_link_prefix + action, cb, null, 'application/json', JSON.stringify(data || {}));
+function tftpboot_http(action, data, cb, timeoutMs) {
+	if (!timeoutMs) {
+		f_http(g_link_prefix + action, cb, null, 'application/json', JSON.stringify(data || {}));
+		return;
+	}
+	var xhr = typeof f_xhr === 'function' ? f_xhr() : null;
+	if (!xhr) {
+		f_http(g_link_prefix + action, cb, null, 'application/json', JSON.stringify(data || {}));
+		return;
+	}
+	xhr.open('post', g_link_prefix + action, true);
+	xhr.timeout = timeoutMs;
+	xhr.onreadystatechange = function () {
+		if (xhr.readyState !== 4) return;
+		var result;
+		if (xhr.status === 200) {
+			try {
+				result = JSON.parse(xhr.responseText);
+			} catch (e) {
+				result = { code: 1, message: 'Response: ' + xhr.responseText };
+			}
+		} else if (xhr.status === 0) {
+			result = { code: 1, message: 'AJAX error: timeout or connection lost' };
+		} else {
+			result = { code: 1, message: 'AJAX error code: ' + xhr.status };
+		}
+		if (cb) cb(result);
+	};
+	xhr.ontimeout = function () {
+		if (cb) cb({ code: 1, message: 'AJAX error: timeout or connection lost' });
+	};
+	xhr.setRequestHeader('Content-Type', 'application/json');
+	xhr.send(JSON.stringify(data || {}));
+}
+
+function tftpboot_http_long(action, data, cb) {
+	tftpboot_http(action, data, cb, 600000);
 }
 
 function tftpboot_load_tree() {
@@ -396,15 +473,14 @@ function tftpboot_bulk_delete_one(idx) {
 	}
 }
 
-function tftpboot_bulk_render_pager(total, pageCount) {
-	var box = document.getElementById('tftpboot-bulk-pages');
+function tftpboot_render_pager(boxId, total, page, pageCount, onGoto) {
+	var box = document.getElementById(boxId);
 	if (!box) return;
 	if (!total) {
 		box.innerHTML = '';
 		return;
 	}
 	var psz = tftpboot_state.bulkPageSize;
-	var page = tftpboot_state.bulkPage;
 	var from = page * psz + 1;
 	var to = Math.min(total, (page + 1) * psz);
 	var tpl = (tftpboot_state.labels && tftpboot_state.labels.bulkPageInfo) ? tftpboot_state.labels.bulkPageInfo
@@ -426,9 +502,13 @@ function tftpboot_bulk_render_pager(total, pageCount) {
 	box.querySelectorAll('a[data-page]').forEach(function (a) {
 		a.onclick = function (e) {
 			e.preventDefault();
-			tftpboot_bulk_goto_page(a.getAttribute('data-page'));
+			onGoto(a.getAttribute('data-page'));
 		};
 	});
+}
+
+function tftpboot_bulk_render_pager(total, pageCount) {
+	tftpboot_render_pager('tftpboot-bulk-pages', total, tftpboot_state.bulkPage, pageCount, tftpboot_bulk_goto_page);
 }
 
 function tftpboot_bulk_save_one(idx) {
@@ -450,39 +530,143 @@ function tftpboot_bulk_save_one(idx) {
 	});
 }
 
+function tftpboot_directory_goto_page(page) {
+	tftpboot_state.directoryPage = Math.max(0, parseInt(page, 10) || 0);
+	tftpboot_directory_render_page();
+}
+
+function tftpboot_directory_filter() {
+	var qEl = document.getElementById('tftpboot-directory-q');
+	var q = qEl ? qEl.value.trim().toLowerCase() : '';
+	var all = tftpboot_state.directoryAllRows || [];
+	var filtered = all;
+	if (q) {
+		filtered = all.filter(function (r) {
+			var hay = ((r.number || '') + ' ' + (r.name || '')).toLowerCase();
+			return hay.indexOf(q) >= 0;
+		});
+	}
+	tftpboot_state.directoryFilteredRows = filtered;
+	tftpboot_state.directoryPage = 0;
+	tftpboot_directory_render_page();
+}
+
+function tftpboot_directory_render_page() {
+	var rows = tftpboot_state.directoryFilteredRows
+		|| tftpboot_state.directoryAllRows
+		|| [];
+	var psz = tftpboot_state.bulkPageSize;
+	var pageCount = Math.max(1, Math.ceil(rows.length / psz) || 1);
+	if (tftpboot_state.directoryPage >= pageCount) {
+		tftpboot_state.directoryPage = pageCount - 1;
+	}
+	var start = tftpboot_state.directoryPage * psz;
+	var pageRows = rows.length ? rows.slice(start, start + psz) : [];
+	var tb = document.querySelector('#tftpboot-directory-table tbody');
+	if (!tb) return;
+	tb.innerHTML = '';
+	pageRows.forEach(function (row) {
+		var tr = document.createElement('tr');
+		tr.innerHTML = '<td>' + escapeHtml(row.number) + '</td><td>' + escapeHtml(row.name) + '</td>';
+		tb.appendChild(tr);
+	});
+	tftpboot_render_pager('tftpboot-directory-pages', rows.length, tftpboot_state.directoryPage, pageCount, tftpboot_directory_goto_page);
+}
+
 function tftpboot_directory_show(refresh) {
 	tftpboot_http('tftpboot_directory', { refresh: refresh ? 1 : 0 }, function (res) {
 		if (!res || res.code) return;
-		var tb = document.querySelector('#tftpboot-directory-table tbody');
-		tb.innerHTML = '';
-		(res.rows || []).forEach(function (row) {
-			var tr = document.createElement('tr');
-			tr.innerHTML = '<td>' + escapeHtml(row.number) + '</td><td>' + escapeHtml(row.name) + '</td>';
-			tb.appendChild(tr);
-		});
+		tftpboot_state.directoryAllRows = res.rows || [];
+		tftpboot_state.directoryFilteredRows = null;
+		tftpboot_state.directoryPage = 0;
+		var qEl = document.getElementById('tftpboot-directory-q');
+		if (qEl) qEl.value = '';
+		tftpboot_directory_filter();
 		document.getElementById('tftpboot-directory-modal').style.display = 'block';
 	});
 }
 
+function tftpboot_sync_label(key, fallback) {
+	if (tftpboot_state.labels && tftpboot_state.labels[key]) {
+		return tftpboot_state.labels[key];
+	}
+	if (typeof LL === 'object' && LL) {
+		if (key === 'syncNoDiff' && LL.TftpBootSyncNoDiff) return LL.TftpBootSyncNoDiff;
+		if (key === 'syncDiffSummary' && LL.TftpBootSyncDiffSummary) return LL.TftpBootSyncDiffSummary;
+		if (key === 'syncConsensusNote' && LL.TftpBootSyncConsensusNote) return LL.TftpBootSyncConsensusNote;
+	}
+	return fallback;
+}
+
 function tftpboot_sync_preview() {
-	tftpboot_http('tftpboot_sync_preview', {}, function (res) {
-		if (!res || res.code) return;
+	var box = document.getElementById('tftpboot-sync-diff');
+	var applyBtn = document.getElementById('tftpboot-sync-apply');
+	if (box) box.innerHTML = '';
+	if (applyBtn) applyBtn.style.display = 'none';
+	var loading = document.getElementById('loading');
+	if (loading) loading.style.display = 'block';
+	var vendors = tftpboot_selected_sync_vendors();
+	if (!vendors.length) {
+		if (loading) loading.style.display = 'none';
+		var msg = (typeof LL === 'object' && LL && LL.TftpBootBulkNoVendors) ? LL.TftpBootBulkNoVendors : 'Select vendors';
+		f_notify(msg, 'error');
+		return;
+	}
+	tftpboot_http_long('tftpboot_sync_preview', { vendors: vendors }, function (res) {
+		if (loading) loading.style.display = 'none';
+		if (!res || res.code) {
+			f_notify(res && res.message ? res.message : 'Error', 'error');
+			return;
+		}
 		tftpboot_state.syncDiff = res.diff || [];
-		var box = document.getElementById('tftpboot-sync-diff');
+		if (!box) return;
 		box.innerHTML = '';
+		var mapCnt = res.map_count != null ? res.map_count : '—';
+		if (!tftpboot_state.syncDiff.length) {
+			var tplEmpty = tftpboot_sync_label('syncNoDiff', 'No differences (%1).');
+			box.innerHTML = '<p class="tftpboot-sync-msg">' + escapeHtml(tplEmpty.replace('%1', mapCnt)) + '</p>';
+			return;
+		}
+		var tplSum = tftpboot_sync_label('syncDiffSummary', 'Key rows with differences: %1 (source %2).');
+		var sum = document.createElement('p');
+		sum.className = 'tftpboot-sync-msg';
+		sum.textContent = tplSum.replace('%1', tftpboot_state.syncDiff.length).replace('%2', mapCnt);
+		box.appendChild(sum);
+		if (tftpboot_state.syncDiff.some(function (r) { return r.source === 'consensus'; })) {
+			var note = document.createElement('p');
+			note.className = 'tftpboot-sync-msg tftpboot-sync-note';
+			note.textContent = tftpboot_sync_label('syncConsensusNote', 'Rows marked * use majority rule.');
+			box.appendChild(note);
+		}
 		tftpboot_state.syncDiff.forEach(function (row, idx) {
 			var div = document.createElement('div');
-			div.className = 'tftpboot-diff-row';
-			var html = '<label><input type="checkbox" class="tftpboot-sync-chk" data-idx="' + idx + '" checked /> <b>' + escapeHtml(row.label) + '</b></label><ul>';
-			row.changes.forEach(function (ch) {
-				html += '<li>' + escapeHtml(ch.field) + ': ' + escapeHtml(ch.old) + ' → ' + escapeHtml(ch.new) + '</li>';
-			});
-			html += '</ul>';
+			div.className = 'tftpboot-diff-row' + (row.action === 'delete' ? ' tftpboot-diff-delete' : '');
+			var cnt = row.count ? ' (' + row.count + ')' : '';
+			var src = row.source === 'consensus' ? ' *' : '';
+			var delLbl = (tftpboot_state.labels && tftpboot_state.labels.deleteBtn)
+				? tftpboot_state.labels.deleteBtn
+				: ((typeof LL === 'object' && LL && LL.Delete) ? LL.Delete : 'Delete');
+			var html;
+			if (row.action === 'delete') {
+				html = '<label><input type="checkbox" class="tftpboot-sync-chk" data-idx="' + idx + '" checked /> '
+					+ '<b>' + escapeHtml(row.number || '') + '</b>: '
+					+ escapeHtml(delLbl) + ' — ' + escapeHtml(row.old_title || '') + escapeHtml(cnt) + '</label>';
+			} else {
+				html = '<label><input type="checkbox" class="tftpboot-sync-chk" data-idx="' + idx + '" checked /> '
+					+ '<b>' + escapeHtml(row.number || '') + '</b>: '
+					+ escapeHtml(row.old_title || '') + ' → ' + escapeHtml(row.title || '') + escapeHtml(cnt) + escapeHtml(src) + '</label>';
+			}
 			div.innerHTML = html;
 			box.appendChild(div);
 		});
-		document.getElementById('tftpboot-sync-apply').style.display = tftpboot_state.syncDiff.length ? 'inline-block' : 'none';
+		if (applyBtn) applyBtn.style.display = 'inline-block';
 	});
+}
+
+function tftpboot_sync_set_undo_visible(show) {
+	tftpboot_state.syncHasUndo = !!show;
+	var btn = document.getElementById('tftpboot-sync-undo');
+	if (btn) btn.style.display = show ? '' : 'none';
 }
 
 function tftpboot_sync_apply() {
@@ -491,9 +675,66 @@ function tftpboot_sync_apply() {
 		var idx = parseInt(chk.getAttribute('data-idx'), 10);
 		if (tftpboot_state.syncDiff[idx]) items.push(tftpboot_state.syncDiff[idx]);
 	});
-	tftpboot_http('tftpboot_sync_apply', { items: items }, function (res) {
-		f_notify(res && res.message ? res.message : 'OK', res && res.code ? 'error' : 'success');
-	});
+	if (!items.length) {
+		f_notify('—', 'error');
+		return;
+	}
+	var tpl = (tftpboot_state.labels && tftpboot_state.labels.syncApplyConfirm)
+		? tftpboot_state.labels.syncApplyConfirm
+		: 'Apply %1 records?';
+	var msg = tpl.replace('%1', items.length);
+	var go = function () {
+		var vendors = tftpboot_selected_sync_vendors();
+		if (!vendors.length) {
+			f_notify((typeof LL === 'object' && LL && LL.TftpBootBulkNoVendors) ? LL.TftpBootBulkNoVendors : 'Select vendors', 'error');
+			return;
+		}
+		var loading = document.getElementById('loading');
+		if (loading) loading.style.display = 'block';
+		tftpboot_http_long('tftpboot_sync_apply', { items: items, vendors: vendors }, function (res) {
+			if (loading) loading.style.display = 'none';
+			var text = res && res.message ? res.message : 'OK';
+			if (res && res.keys) text += ' (' + res.keys + ')';
+			f_notify(text, res && res.code ? 'error' : 'success');
+			if (res && !res.code) {
+				tftpboot_sync_set_undo_visible(!!res.has_undo);
+				document.getElementById('tftpboot-sync-apply').style.display = 'none';
+				var box = document.getElementById('tftpboot-sync-diff');
+				if (box) box.innerHTML = '';
+			}
+		});
+	};
+	var html = '<p>' + escapeHtml(msg) + '</p>';
+	if (typeof f_confirm_dialog_show === 'function') {
+		f_confirm_dialog_show(html, function (ok) { if (ok) go(); });
+	} else if (window.confirm(msg)) {
+		go();
+	}
+}
+
+function tftpboot_sync_undo() {
+	var tpl = (tftpboot_state.labels && tftpboot_state.labels.syncUndoConfirm)
+		? tftpboot_state.labels.syncUndoConfirm
+		: 'Undo last sync apply?';
+	var go = function () {
+		var loading = document.getElementById('loading');
+		if (loading) loading.style.display = 'block';
+		tftpboot_http_long('tftpboot_sync_undo', {}, function (res) {
+			if (loading) loading.style.display = 'none';
+			var text = res && res.message ? res.message : 'OK';
+			if (res && res.keys) text += ' (' + res.keys + ')';
+			f_notify(text, res && res.code ? 'error' : 'success');
+			if (res && !res.code) {
+				tftpboot_sync_set_undo_visible(!!res.has_undo);
+			}
+		});
+	};
+	var html = '<p>' + escapeHtml(tpl) + '</p>';
+	if (typeof f_confirm_dialog_show === 'function') {
+		f_confirm_dialog_show(html, function (ok) { if (ok) go(); });
+	} else if (window.confirm(tpl)) {
+		go();
+	}
 }
 
 function tftpboot_admin_save(form) {

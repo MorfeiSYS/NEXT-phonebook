@@ -1186,6 +1186,17 @@ ul.tree-menu:before {
 }
 .tftpboot-tab.active { font-weight: bold; }
 .tftpboot-panel label { display: block; margin: 0.5em 0; }
+.tftpboot-sync-actions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.5em;
+	margin: 0.5em 0 1em;
+}
+.tftpboot-sync-actions .tftpboot-sync-preview-btn { margin-left: auto; }
+.tftpboot-sync-msg { margin: 0.75em 0; }
+#tftpboot-sync-diff { margin-top: 0.5em; max-height: 60vh; overflow: auto; }
+.tftpboot-diff-delete label { color: var(--color-button-decline); }
 .tftpboot-table { width: 100%; border-collapse: collapse; margin-top: 1em; }
 .tftpboot-table th, .tftpboot-table td { border: 1px solid var(--color-border-2); padding: 4px 8px; }
 #tftpboot-bulk-table th:last-child,
@@ -1212,5 +1223,26 @@ ul.tree-menu:before {
 .tftpboot-key-card.tftpboot-dragging { opacity: 0.5; }
 .tftpboot-key-slot { font-weight: bold; display: block; margin-bottom: 4px; }
 .tftpboot-editor-modal .modal-content { max-width: 90vw; max-height: 90vh; overflow: auto; }
+#tftpboot-directory-modal .tftpboot-directory-modal-content {
+	max-width: 640px;
+	max-height: 90vh;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+}
+#tftpboot-directory-modal .tftpboot-directory-q {
+	width: 100%;
+	box-sizing: border-box;
+	margin: 0.5em 0;
+}
+#tftpboot-directory-modal .tftpboot-directory-scroll {
+	flex: 1 1 auto;
+	min-height: 0;
+	max-height: calc(90vh - 10em);
+	overflow: auto;
+}
+#tftpboot-directory-modal .tftpboot-bulk-pages {
+	flex-shrink: 0;
+}
 .tftpboot-diff-row { margin: 0.5em 0; padding: 0.5em; border: 1px solid var(--color-border-3); }
 .tftpboot-vendor-chks label { margin-right: 1em; display: inline-block; }

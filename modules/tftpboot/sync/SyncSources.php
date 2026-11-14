@@ -16,9 +16,8 @@ class TftpSyncSources
 			{
 				foreach($contacts as $c)
 				{
-					$num = preg_replace('/[^0-9]/', '', $c['phone_internal']);
-					$map[$num] = tftpboot_format_initials($c['last_name'], $c['first_name'], $c['middle_name']);
-					$map[$c['phone_internal']] = $map[$num];
+					$name = tftpboot_format_initials($c['last_name'], $c['first_name'], $c['middle_name']);
+					tftpboot_map_put_contact($map, $c['phone_internal'], $name);
 				}
 			}
 
@@ -47,8 +46,11 @@ class TftpSyncSources
 					continue;
 				}
 
-				$num = preg_replace('/[^0-9]/', '', (string)$row['number']);
-				$map[$num] = (string)$row['name'];
+				$name = (string)$row['name'];
+				foreach(tftpboot_extract_phone_numbers($row['number']) as $num)
+				{
+					$map[$num] = $name;
+				}
 			}
 
 			return $map;
@@ -68,26 +70,23 @@ class TftpSyncSources
 			{
 				foreach($phones as $p)
 				{
-					$num = preg_replace('/[^0-9]/', '', $p['phone_internal']);
-					if(strlen($num) < 3)
+					foreach(tftpboot_extract_phone_numbers($p['phone_internal']) as $num)
 					{
-						continue;
-					}
+						$url = str_replace(array('{NUMBER}', '{API_KEY}'), array(rawurlencode($num), rawurlencode($key)), $base);
+						if(strpos($url, 'API_KEY') === FALSE && $key !== '')
+						{
+							$url .= (strpos($url, '?') === FALSE ? '?' : '&').'API_KEY='.rawurlencode($key);
+						}
+						if(strpos($url, 'NUMBER') === FALSE)
+						{
+							$url .= (strpos($url, '?') === FALSE ? '?' : '&').'NUMBER='.rawurlencode($num);
+						}
 
-					$url = str_replace(array('{NUMBER}', '{API_KEY}'), array(rawurlencode($num), rawurlencode($key)), $base);
-					if(strpos($url, 'API_KEY') === FALSE && $key !== '')
-					{
-						$url .= (strpos($url, '?') === FALSE ? '?' : '&').'API_KEY='.rawurlencode($key);
-					}
-					if(strpos($url, 'NUMBER') === FALSE)
-					{
-						$url .= (strpos($url, '?') === FALSE ? '?' : '&').'NUMBER='.rawurlencode($num);
-					}
-
-					$name = trim(self::http_get($url, 5));
-					if($name !== '' && $name !== $num)
-					{
-						$map[$num] = $name;
+						$name = trim(self::http_get($url, 5));
+						if($name !== '' && $name !== $num)
+						{
+							$map[$num] = $name;
+						}
 					}
 				}
 			}

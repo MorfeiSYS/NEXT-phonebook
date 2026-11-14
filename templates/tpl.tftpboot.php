@@ -23,7 +23,6 @@ if(!isset($tftpboot_is_admin))
 <div class="tftpboot-tabs">
 	<button type="button" class="tftpboot-tab active" data-tab="pick"><?php L('TftpBootTabPick') ?></button>
 	<button type="button" class="tftpboot-tab" data-tab="bulk"><?php L('TftpBootTabBulk') ?></button>
-	<button type="button" class="tftpboot-tab" data-tab="directory"><?php L('TftpBootTabDirectory') ?></button>
 	<button type="button" class="tftpboot-tab" data-tab="sync"><?php L('TftpBootTabSync') ?></button>
 	<?php if($tftpboot_is_admin) { ?>
 		<a class="tftpboot-tab-link" href="<?php ln('tftpboot_admin') ?>"><?php L('TftpBootAdmin') ?></a>
@@ -54,14 +53,16 @@ if(!isset($tftpboot_is_admin))
 	<div id="tftpboot-bulk-pages" class="tftpboot-bulk-pages"></div>
 </div>
 
-<div id="tftpboot-panel-directory" class="tftpboot-panel" style="display:none">
-	<button type="button" class="button-other" id="tftpboot-directory-open"><?php L('TftpBootTabDirectory') ?></button>
-	<button type="button" class="button-other" id="tftpboot-directory-refresh"><?php L('TftpBootFetchNames') ?></button>
-</div>
-
 <div id="tftpboot-panel-sync" class="tftpboot-panel" style="display:none">
-	<button type="button" class="button-accept" id="tftpboot-sync-preview"><?php L('TftpBootFetchNames') ?></button>
-	<button type="button" class="button-accept" id="tftpboot-sync-apply" style="display:none"><?php L('TftpBootApplySync') ?></button>
+	<p class="tftpboot-sync-hint"><?php L('TftpBootSyncHint') ?></p>
+	<div id="tftpboot-sync-vendors" class="tftpboot-vendor-chks"></div>
+	<div class="tftpboot-sync-actions">
+		<button type="button" class="button-other" id="tftpboot-directory-open" title="<?php eh(LL('TftpBootHintDirectory')); ?>"><?php L('TftpBootTabDirectory') ?></button>
+		<button type="button" class="button-other" id="tftpboot-directory-refresh"<?php if(empty($tftpboot_sync_api_fetch)) echo ' style="display:none"'; ?> title="<?php eh(LL('TftpBootHintFetchNames')); ?>"><?php L('TftpBootFetchNames') ?></button>
+		<button type="button" class="button-other" id="tftpboot-sync-undo"<?php if(empty($tftpboot_sync_has_undo)) echo ' style="display:none"'; ?> title="<?php eh(LL('TftpBootHintSyncUndo')); ?>"><?php L('TftpBootSyncUndo') ?></button>
+		<button type="button" class="button-decline" id="tftpboot-sync-apply" style="display:none" title="<?php eh(LL('TftpBootHintApplySync')); ?>"><?php L('TftpBootApplySync') ?></button>
+		<button type="button" class="button-accept tftpboot-sync-preview-btn" id="tftpboot-sync-preview" title="<?php eh(LL('TftpBootHintSyncPreview')); ?>"><?php L('TftpBootSyncPreview') ?></button>
+	</div>
 	<div id="tftpboot-sync-diff"></div>
 </div>
 
@@ -79,9 +80,13 @@ if(!isset($tftpboot_is_admin))
 
 <div id="tftpboot-directory-modal" class="modal-container" style="display:none">
 	<span class="close white" onclick="document.getElementById('tftpboot-directory-modal').style.display='none'">&times;</span>
-	<div class="modal-content">
+	<div class="modal-content tftpboot-directory-modal-content">
 		<h3><?php L('TftpBootTabDirectory') ?></h3>
-		<table class="tftpboot-table" id="tftpboot-directory-table"><thead><tr><th><?php L('TftpBootNumber') ?></th><th><?php L('TftpBootName') ?></th></tr></thead><tbody></tbody></table>
+		<input type="search" id="tftpboot-directory-q" class="tftpboot-directory-q" placeholder="<?php L('TftpBootSearchPlaceholder') ?>" />
+		<div class="tftpboot-directory-scroll">
+			<table class="tftpboot-table" id="tftpboot-directory-table"><thead><tr><th><?php L('TftpBootNumber') ?></th><th><?php L('TftpBootName') ?></th></tr></thead><tbody></tbody></table>
+		</div>
+		<div id="tftpboot-directory-pages" class="tftpboot-bulk-pages"></div>
 	</div>
 </div>
 
@@ -92,13 +97,20 @@ if(!isset($tftpboot_is_admin))
 		isAdmin: <?php echo $tftpboot_is_admin ? '1' : '0'; ?>,
 		bulkVendors: <?php echo json_encode($tftpboot_enabled_bulk, JSON_UNESCAPED_UNICODE); ?>,
 		bulkPageSize: <?php echo intval($tftpboot_bulk_page_size); ?>,
+		syncApiFetch: <?php echo !empty($tftpboot_sync_api_fetch) ? '1' : '0'; ?>,
+		syncHasUndo: <?php echo !empty($tftpboot_sync_has_undo) ? '1' : '0'; ?>,
 		labels: {
 			save: <?php echo json_encode(LL('Save'), JSON_UNESCAPED_UNICODE); ?>,
 			bulkEmpty: <?php echo json_encode(LL('TftpBootBulkEmpty'), JSON_UNESCAPED_UNICODE); ?>,
 			bulkPageInfo: <?php echo json_encode(LL('TftpBootBulkPageInfo'), JSON_UNESCAPED_UNICODE); ?>,
 			deleteBtn: <?php echo json_encode(LL('Delete'), JSON_UNESCAPED_UNICODE); ?>,
 			bulkDeleteConfirm: <?php echo json_encode(LL('TftpBootBulkDeleteConfirm'), JSON_UNESCAPED_UNICODE); ?>,
-			bulkLocHint: <?php echo json_encode(LL('TftpBootBulkLocHint'), JSON_UNESCAPED_UNICODE); ?>
+			bulkLocHint: <?php echo json_encode(LL('TftpBootBulkLocHint'), JSON_UNESCAPED_UNICODE); ?>,
+			syncNoDiff: <?php echo json_encode(LL('TftpBootSyncNoDiff'), JSON_UNESCAPED_UNICODE); ?>,
+			syncDiffSummary: <?php echo json_encode(LL('TftpBootSyncDiffSummary'), JSON_UNESCAPED_UNICODE); ?>,
+			syncApplyConfirm: <?php echo json_encode(LL('TftpBootSyncApplyConfirm'), JSON_UNESCAPED_UNICODE); ?>,
+			syncUndoConfirm: <?php echo json_encode(LL('TftpBootSyncUndoConfirm'), JSON_UNESCAPED_UNICODE); ?>,
+			syncConsensusNote: <?php echo json_encode(LL('TftpBootSyncConsensusNote'), JSON_UNESCAPED_UNICODE); ?>
 		}
 	});
 </script>

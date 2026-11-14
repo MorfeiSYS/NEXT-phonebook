@@ -618,6 +618,7 @@ function exception_handler_ajax($exception)
 			$core->Router->add_route('tftpboot_directory', 'tftpboot_directory', TRUE);
 			$core->Router->add_route('tftpboot_sync_preview', 'tftpboot_sync_preview', TRUE);
 			$core->Router->add_route('tftpboot_sync_apply', 'tftpboot_sync_apply', TRUE);
+			$core->Router->add_route('tftpboot_sync_undo', 'tftpboot_sync_undo', TRUE);
 			$core->Router->add_route('tftpboot_rescan', 'tftpboot_rescan', TRUE);
 		}
 

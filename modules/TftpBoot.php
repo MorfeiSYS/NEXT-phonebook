@@ -472,77 +472,105 @@ class TftpBoot
 				continue;
 			}
 
-			$path = $dir.$name;
-			if(!is_file($path))
-			{
-				continue;
-			}
-
-			if(!preg_match('/\.(cfg|xml)$/i', $name))
-			{
-				continue;
-			}
-
-			if(preg_match('/^(F0V|f0v)/i', $name))
-			{
-				continue;
-			}
-
-			if(!preg_match('/^[0-9a-f]{12}\.cfg$/i', $name)
-				&& !preg_match('/^SEP[0-9A-F]{12}\.cnf\.xml$/i', $name)
-				&& !preg_match('/^cfg[0-9A-F]{12}\.xml$/i', $name)
-				&& !preg_match('/^([0-9A-F]{2}\.){5}[0-9A-F]{2}\.cfg$/i', $name)
-			)
-			{
-				continue;
-			}
-
-			$filename = $name;
-			$content = @file_get_contents($path);
-			if($content === FALSE)
-			{
-				continue;
-			}
-
-			$override = $this->get_override($filename);
-			$vendor = $override ? $override['vendor'] : $this->detect_vendor($filename, $content);
-			$parsed = $this->parse_content($vendor, $content);
-			$hint = isset($parsed['model_hint']) ? $parsed['model_hint'] : '';
-			if($vendor === 'fanvil' && $hint === '')
-			{
-				$hint = $this->fanvil_vendor_class_id($content);
-			}
-			$model = $override ? $override['model'] : $this->match_model($vendor, $hint, $catalog);
-			if($vendor === 'fanvil' && $model === 'unknown')
-			{
-				$model = 'other';
-			}
-			$mac = $this->mac_from_filename(basename($filename));
-			$phone = isset($parsed['phone']) ? $parsed['phone'] : '';
-			$parser = $this->parser_for($vendor);
-			$dss = $parser ? $parser->build_dss_search($parsed) : '';
-			$dial_keys_json = json_encode($this->dial_keys_compact($parsed), JSON_UNESCAPED_UNICODE);
-			$mtime = filemtime($path);
-
-			$this->core->db->put(rpv(
-				"INSERT INTO `@tftpboot_file` (`filename`, `mac`, `vendor`, `model`, `phone`, `dss_search`, `dial_keys_json`, `mtime`, `auto_detected`) ".
-				"VALUES (!, !, !, !, !, !, !, #, #) ON DUPLICATE KEY UPDATE `mac`=VALUES(`mac`), `vendor`=VALUES(`vendor`), ".
-				"`model`=VALUES(`model`), `phone`=VALUES(`phone`), `dss_search`=VALUES(`dss_search`), `dial_keys_json`=VALUES(`dial_keys_json`), ".
-				"`mtime`=VALUES(`mtime`), `auto_detected`=VALUES(`auto_detected`)",
-				$filename,
-				$mac,
-				$vendor,
-				$model,
-				$phone,
-				$dss,
-				$dial_keys_json,
-				$mtime,
-				$override ? 0 : 1
-			));
-
+			$this->index_disk_file($name, $catalog);
 		}
 
 		return TRUE;
+	}
+
+	private function is_tftpboot_filename($name)
+	{
+		if(!preg_match('/\.(cfg|xml)$/i', $name))
+		{
+			return FALSE;
+		}
+
+		if(preg_match('/^(F0V|f0v)/i', $name))
+		{
+			return FALSE;
+		}
+
+		return preg_match('/^[0-9a-f]{12}\.cfg$/i', $name)
+			|| preg_match('/^SEP[0-9A-F]{12}\.cnf\.xml$/i', $name)
+			|| preg_match('/^cfg[0-9A-F]{12}\.xml$/i', $name)
+			|| preg_match('/^([0-9A-F]{2}\.){5}[0-9A-F]{2}\.cfg$/i', $name);
+	}
+
+	private function index_disk_file($filename, $catalog = NULL)
+	{
+		if(!$this->is_tftpboot_filename($filename))
+		{
+			return FALSE;
+		}
+
+		$path = tftpboot_dir().$filename;
+		if(!is_file($path))
+		{
+			return FALSE;
+		}
+
+		$content = @file_get_contents($path);
+		if($content === FALSE)
+		{
+			return FALSE;
+		}
+
+		if($catalog === NULL)
+		{
+			$catalog = $this->get_catalog();
+		}
+
+		$override = $this->get_override($filename);
+		$vendor = $override ? $override['vendor'] : $this->detect_vendor($filename, $content);
+		$parsed = $this->parse_content($vendor, $content);
+		$hint = isset($parsed['model_hint']) ? $parsed['model_hint'] : '';
+		if($vendor === 'fanvil' && $hint === '')
+		{
+			$hint = $this->fanvil_vendor_class_id($content);
+		}
+		$model = $override ? $override['model'] : $this->match_model($vendor, $hint, $catalog);
+		if($vendor === 'fanvil' && $model === 'unknown')
+		{
+			$model = 'other';
+		}
+		$mac = $this->mac_from_filename(basename($filename));
+		$phone = isset($parsed['phone']) ? $parsed['phone'] : '';
+		$parser = $this->parser_for($vendor);
+		$dss = $parser ? $parser->build_dss_search($parsed) : '';
+		$dial_keys_json = json_encode($this->dial_keys_compact($parsed), JSON_UNESCAPED_UNICODE);
+		$mtime = filemtime($path);
+
+		$this->core->db->put(rpv(
+			"INSERT INTO `@tftpboot_file` (`filename`, `mac`, `vendor`, `model`, `phone`, `dss_search`, `dial_keys_json`, `mtime`, `auto_detected`) ".
+			"VALUES (!, !, !, !, !, !, !, #, #) ON DUPLICATE KEY UPDATE `mac`=VALUES(`mac`), `vendor`=VALUES(`vendor`), ".
+			"`model`=VALUES(`model`), `phone`=VALUES(`phone`), `dss_search`=VALUES(`dss_search`), `dial_keys_json`=VALUES(`dial_keys_json`), ".
+			"`mtime`=VALUES(`mtime`), `auto_detected`=VALUES(`auto_detected`)",
+			$filename,
+			$mac,
+			$vendor,
+			$model,
+			$phone,
+			$dss,
+			$dial_keys_json,
+			$mtime,
+			$override ? 0 : 1
+		));
+
+		return TRUE;
+	}
+
+	private function reindex_files($filenames)
+	{
+		if(!is_array($filenames) || !count($filenames))
+		{
+			return;
+		}
+
+		$catalog = $this->get_catalog();
+		foreach(array_unique($filenames) as $filename)
+		{
+			$this->index_disk_file($filename, $catalog);
+		}
 	}
 
 	private function fetch_tftpboot_vendor_rows($vendors)
@@ -554,7 +582,7 @@ class TftpBoot
 		}
 
 		$this->core->db->select_assoc_ex($rows, rpv(
-			'SELECT `filename`, `vendor`, `dial_keys_json` FROM `@tftpboot_file` WHERE `vendor` IN ({r0}) ORDER BY `filename`',
+			'SELECT `filename`, `vendor`, `phone`, `dial_keys_json` FROM `@tftpboot_file` WHERE `vendor` IN ({r0}) ORDER BY `filename`',
 			$this->vendors_in_sql($vendors)
 		));
 
@@ -614,10 +642,17 @@ class TftpBoot
 				continue;
 			}
 
+			$file_phone = $this->normalize_dial_number(isset($r['phone']) ? $r['phone'] : '');
+
 			foreach($keys as $k)
 			{
 				$num = $this->normalize_dial_number(isset($k['number']) ? $k['number'] : '');
 				if($num === '')
+				{
+					continue;
+				}
+
+				if($file_phone !== '' && $num === $file_phone)
 				{
 					continue;
 				}
@@ -828,7 +863,7 @@ class TftpBoot
 			return array('code' => 1, 'message' => 'Write failed');
 		}
 
-		$this->scan(TRUE);
+		$this->index_disk_file($filename);
 		log_db('tftpboot save', $filename, 0);
 
 		return array('code' => 0, 'message' => LL('Save'));
@@ -959,7 +994,7 @@ class TftpBoot
 
 	public function bulk_save_keys($items, $vendors)
 	{
-		$this->scan(FALSE);
+		$this->ensure_dial_keys_column();
 		$rows = array();
 		if(!count($vendors) || !count($items))
 		{
@@ -973,41 +1008,42 @@ class TftpBoot
 
 		$files_ok = 0;
 		$keys_ok = 0;
+		$touched = array();
 
-		foreach($items as $item)
+		foreach($rows as $r)
 		{
-			$old_number = isset($item['old_number']) ? $item['old_number'] : (isset($item['number']) ? $item['number'] : '');
-			$old_title = isset($item['old_title']) ? $item['old_title'] : (isset($item['title']) ? $item['title'] : '');
-			$new_number = isset($item['number']) ? trim($item['number']) : '';
-			$new_title = isset($item['title']) ? trim($item['title']) : '';
-
-			if($this->normalize_dial_number($old_number) === '')
+			if(!in_array($r['vendor'], $vendors, TRUE))
 			{
 				continue;
 			}
 
-			if($new_number === $old_number && $this->normalize_dial_title($new_title) === $this->normalize_dial_title($old_title))
+			$path = $this->resolve_path($r['filename']);
+			if(!$path)
 			{
 				continue;
 			}
 
-			foreach($rows as $r)
+			$content = file_get_contents($path);
+			$vendor = $r['vendor'];
+			$parsed = $this->parse_content($vendor, $content);
+			$dirty = FALSE;
+
+			foreach($items as $item)
 			{
-				if(!in_array($r['vendor'], $vendors, TRUE))
+				$old_number = isset($item['old_number']) ? $item['old_number'] : (isset($item['number']) ? $item['number'] : '');
+				$old_title = isset($item['old_title']) ? $item['old_title'] : (isset($item['title']) ? $item['title'] : '');
+				$new_number = isset($item['number']) ? trim($item['number']) : '';
+				$new_title = isset($item['title']) ? trim($item['title']) : '';
+
+				if($this->normalize_dial_number($old_number) === '')
 				{
 					continue;
 				}
 
-				$path = $this->resolve_path($r['filename']);
-				if(!$path)
+				if($new_number === $old_number && $this->normalize_dial_title($new_title) === $this->normalize_dial_title($old_title))
 				{
 					continue;
 				}
-
-				$content = file_get_contents($path);
-				$vendor = $r['vendor'];
-				$parsed = $this->parse_content($vendor, $content);
-				$dirty = FALSE;
 
 				foreach($parsed['speedDialKeys'] as &$k)
 				{
@@ -1043,46 +1079,47 @@ class TftpBoot
 					$keys_ok++;
 				}
 				unset($k);
+			}
 
-				if(!$dirty)
-				{
-					continue;
-				}
+			if(!$dirty)
+			{
+				continue;
+			}
 
-				$this->backup_file($path);
+			$this->backup_file($path);
 
-				if($vendor === 'fanvil')
-				{
-					$new = $this->fanvil->apply_speed_dials($parsed['lines'], $parsed['keys_raw'], $parsed['speedDialKeys']);
-				}
-				elseif($vendor === 'cisco')
-				{
-					$new = $this->cisco->apply_speed_dials($content, $parsed['speedDialKeys']);
-				}
-				elseif($vendor === 'yealink')
-				{
-					$new = $this->yealink->apply_linekey($content, $parsed['speedDialKeys']);
-				}
-				else
-				{
-					continue;
-				}
+			if($vendor === 'fanvil')
+			{
+				$new = $this->fanvil->apply_speed_dials($parsed['lines'], $parsed['keys_raw'], $parsed['speedDialKeys']);
+			}
+			elseif($vendor === 'cisco')
+			{
+				$new = $this->cisco->apply_speed_dials($content, $parsed['speedDialKeys']);
+			}
+			elseif($vendor === 'yealink')
+			{
+				$new = $this->yealink->apply_linekey($content, $parsed['speedDialKeys']);
+			}
+			else
+			{
+				continue;
+			}
 
-				if(file_put_contents($path, $new))
-				{
-					$files_ok++;
-				}
+			if(file_put_contents($path, $new))
+			{
+				$files_ok++;
+				$touched[] = $r['filename'];
 			}
 		}
 
-		$this->scan(TRUE);
+		$this->reindex_files($touched);
 
 		return $keys_ok > 0 ? $keys_ok : $files_ok;
 	}
 
 	public function bulk_delete_keys($items, $vendors)
 	{
-		$this->scan(FALSE);
+		$this->ensure_dial_keys_column();
 		$rows = array();
 		if(!count($vendors) || !count($items))
 		{
@@ -1096,34 +1133,35 @@ class TftpBoot
 
 		$files_ok = 0;
 		$keys_ok = 0;
+		$touched = array();
 
-		foreach($items as $item)
+		foreach($rows as $r)
 		{
-			$old_number = isset($item['old_number']) ? $item['old_number'] : '';
-			$old_title = isset($item['old_title']) ? $item['old_title'] : '';
-
-			if($this->normalize_dial_number($old_number) === '')
+			if(!in_array($r['vendor'], $vendors, TRUE))
 			{
 				continue;
 			}
 
-			foreach($rows as $r)
+			$path = $this->resolve_path($r['filename']);
+			if(!$path)
 			{
-				if(!in_array($r['vendor'], $vendors, TRUE))
+				continue;
+			}
+
+			$content = file_get_contents($path);
+			$vendor = $r['vendor'];
+			$parsed = $this->parse_content($vendor, $content);
+			$to_clear = array();
+
+			foreach($items as $item)
+			{
+				$old_number = isset($item['old_number']) ? $item['old_number'] : '';
+				$old_title = isset($item['old_title']) ? $item['old_title'] : '';
+
+				if($this->normalize_dial_number($old_number) === '')
 				{
 					continue;
 				}
-
-				$path = $this->resolve_path($r['filename']);
-				if(!$path)
-				{
-					continue;
-				}
-
-				$content = file_get_contents($path);
-				$vendor = $r['vendor'];
-				$parsed = $this->parse_content($vendor, $content);
-				$to_clear = array();
 
 				foreach($parsed['speedDialKeys'] as $k)
 				{
@@ -1134,36 +1172,38 @@ class TftpBoot
 
 					if(isset($k['key_id']))
 					{
-						$to_clear[] = $k['key_id'];
+						$to_clear[$k['key_id']] = $k['key_id'];
 					}
 				}
+			}
 
-				if(!count($to_clear))
-				{
-					continue;
-				}
+			$to_clear = array_values($to_clear);
+			if(!count($to_clear))
+			{
+				continue;
+			}
 
-				$this->backup_file($path);
+			$this->backup_file($path);
 
-				if($vendor === 'fanvil')
-				{
-					$this->fanvil->clear_dss_keys($parsed['lines'], $parsed['keys_raw'], $to_clear);
-					$new = implode("\n", $parsed['lines']);
-				}
-				else
-				{
-					continue;
-				}
+			if($vendor === 'fanvil')
+			{
+				$this->fanvil->clear_dss_keys($parsed['lines'], $parsed['keys_raw'], $to_clear);
+				$new = implode("\n", $parsed['lines']);
+			}
+			else
+			{
+				continue;
+			}
 
-				if(file_put_contents($path, $new))
-				{
-					$files_ok++;
-					$keys_ok += count($to_clear);
-				}
+			if(file_put_contents($path, $new))
+			{
+				$files_ok++;
+				$keys_ok += count($to_clear);
+				$touched[] = $r['filename'];
 			}
 		}
 
-		$this->scan(TRUE);
+		$this->reindex_files($touched);
 
 		return $keys_ok;
 	}
@@ -1179,12 +1219,24 @@ class TftpBoot
 		{
 			foreach($contacts as $c)
 			{
-				$rows[] = array(
-					'number' => $c['phone_internal'],
-					'name' => tftpboot_format_initials($c['last_name'], $c['first_name'], $c['middle_name']),
-				);
+				$name = tftpboot_format_initials($c['last_name'], $c['first_name'], $c['middle_name']);
+				foreach(tftpboot_extract_phone_numbers($c['phone_internal']) as $num)
+				{
+					$rows[] = array('number' => $num, 'name' => $name);
+				}
 			}
 		}
+
+		usort($rows, function($a, $b) {
+			$na = strlen($a['number']);
+			$nb = strlen($b['number']);
+			if($na !== $nb)
+			{
+				return $na - $nb;
+			}
+
+			return strcmp($a['number'], $b['number']);
+		});
 
 		return $rows;
 	}
@@ -1194,131 +1246,371 @@ class TftpBoot
 		return TftpSyncSources::fetch_map($this->core);
 	}
 
-	public function build_sync_diff($name_map)
+	private function extract_surname_from_title($title)
 	{
-		$this->scan(FALSE);
-		$diff = array();
-		$files = array();
-		if(!$this->core->db->select_assoc_ex($files, rpv('SELECT `filename`, `phone`, `mac`, `vendor` FROM `@tftpboot_file` WHERE `phone` <> \'\'')))
+		$title = trim((string)$title);
+		if($title === '')
 		{
-			return $diff;
+			return '';
+		}
+		if(preg_match('/^([\p{L}\-]+)/u', $title, $m))
+		{
+			return mb_strtolower($m[1], 'UTF-8');
 		}
 
-		$fields = explode(',', $this->core->Config->get_global('tftpboot_sync_fields', 'dss_title,display_name'));
+		return '';
+	}
 
-		foreach($files as $f)
+	public function build_sync_phonebook_index($name_map)
+	{
+		$index = array(
+			'tails_7' => array(),
+			'by_surname' => array(),
+		);
+
+		foreach($name_map as $num => $name)
 		{
-			$phone = preg_replace('/[^0-9]/', '', $f['phone']);
-			$expected = '';
-			foreach($name_map as $num => $nm)
+			$num = (string)$num;
+			if(!preg_match('/^\d+$/', $num) || strlen($num) < 2)
 			{
-				if($num === $phone || $num === $f['phone'])
-				{
-					$expected = $nm;
-					break;
-				}
+				continue;
 			}
 
+			if($num[0] === '7')
+			{
+				$tail = substr($num, 1);
+				if(!isset($index['tails_7'][$tail]))
+				{
+					$index['tails_7'][$tail] = array();
+				}
+				$index['tails_7'][$tail][] = $num;
+			}
+		}
+
+		$contacts = array();
+		if($this->core->db->select_assoc_ex($contacts, rpv(
+			'SELECT `phone_internal`, `last_name`, `first_name`, `middle_name` FROM `@contacts` '.
+			'WHERE (`flags` & 1) = 1 AND `phone_internal` <> \'\''
+		)))
+		{
+			foreach($contacts as $c)
+			{
+				$fmt = tftpboot_format_initials($c['last_name'], $c['first_name'], $c['middle_name']);
+				$surnames = array();
+				$ln = trim((string)$c['last_name']);
+				if($ln !== '')
+				{
+					$surnames[mb_strtolower($ln, 'UTF-8')] = TRUE;
+				}
+				elseif(trim((string)$c['first_name']) !== '')
+				{
+					$parts = preg_split('/\s+/u', trim($c['first_name']), -1, PREG_SPLIT_NO_EMPTY);
+					if(count($parts))
+					{
+						$surnames[mb_strtolower($parts[0], 'UTF-8')] = TRUE;
+					}
+				}
+
+				$nums = tftpboot_extract_phone_numbers($c['phone_internal']);
+				foreach(array_keys($surnames) as $sn)
+				{
+					if($sn === '')
+					{
+						continue;
+					}
+					if(!isset($index['by_surname'][$sn]))
+					{
+						$index['by_surname'][$sn] = array();
+					}
+					$index['by_surname'][$sn][] = array('numbers' => $nums, 'name' => $fmt);
+				}
+			}
+		}
+
+		return $index;
+	}
+
+	private function resolve_sync_title_for_dial($num, $title, $name_map, $index)
+	{
+		if(isset($name_map[$num]) && trim((string)$name_map[$num]) !== '')
+		{
+			return array('title' => (string)$name_map[$num], 'source' => 'phonebook');
+		}
+
+		if(strlen($num) < 4 || $num[0] !== '6')
+		{
+			return array('title' => '', 'source' => '');
+		}
+
+		$tail = substr($num, 1);
+		if($tail === '')
+		{
+			return array('title' => '', 'source' => '');
+		}
+
+		if(!empty($index['tails_7'][$tail]))
+		{
+			$book_num = $index['tails_7'][$tail][0];
+
+			return array(
+				'title' => (string)$name_map[$book_num],
+				'source' => 'tail7',
+			);
+		}
+
+		$sn = $this->extract_surname_from_title($title);
+		if($sn !== '' && !empty($index['by_surname'][$sn]))
+		{
+			foreach($index['by_surname'][$sn] as $c)
+			{
+				foreach($c['numbers'] as $pn)
+				{
+					$dig = $this->normalize_dial_number($pn);
+					if($dig !== '' && strlen($dig) > 1 && substr($dig, 1) === $tail)
+					{
+						return array('title' => $c['name'], 'source' => 'surname');
+					}
+				}
+			}
+		}
+
+		return array('title' => '', 'source' => '');
+	}
+
+	private function should_sync_delete_six_dial($num, $name_map, $index, $resolved_title)
+	{
+		if($resolved_title !== '')
+		{
+			return FALSE;
+		}
+		if(strlen($num) < 4 || $num[0] !== '6')
+		{
+			return FALSE;
+		}
+		if(isset($name_map[$num]))
+		{
+			return FALSE;
+		}
+
+		$tail = substr($num, 1);
+		if($tail !== '' && !empty($index['tails_7'][$tail]))
+		{
+			return FALSE;
+		}
+
+		foreach($name_map as $book_num => $nm)
+		{
+			$book_num = (string)$book_num;
+			if(!preg_match('/^\d+$/', $book_num) || strlen($book_num) < 2)
+			{
+				continue;
+			}
+			if($book_num[0] === '6' && substr($book_num, 1) === $tail)
+			{
+				return FALSE;
+			}
+		}
+
+		return TRUE;
+	}
+
+	private function sync_canonical_title_for_number($num, $rows, $name_map)
+	{
+		if(isset($name_map[$num]) && trim((string)$name_map[$num]) !== '')
+		{
+			return (string)$name_map[$num];
+		}
+
+		if(count($rows) < 2)
+		{
+			return '';
+		}
+
+		$variants = array();
+		foreach($rows as $row)
+		{
+			$norm = $this->normalize_dial_title($row['title']);
+			if($norm === '')
+			{
+				continue;
+			}
+
+			if(!isset($variants[$norm]))
+			{
+				$variants[$norm] = array(
+					'title' => $row['title'],
+					'count' => 0,
+				);
+			}
+
+			$variants[$norm]['count'] += isset($row['count']) ? intval($row['count']) : 0;
+		}
+
+		if(count($variants) < 2)
+		{
+			return '';
+		}
+
+		$best = '';
+		$best_cnt = -1;
+		foreach($variants as $v)
+		{
+			$c = $v['count'];
+			$t = $v['title'];
+			if($c > $best_cnt
+				|| ($c === $best_cnt && mb_strlen($this->normalize_dial_title($t), 'UTF-8') > mb_strlen($this->normalize_dial_title($best), 'UTF-8')))
+			{
+				$best = $t;
+				$best_cnt = $c;
+			}
+		}
+
+		return $best;
+	}
+
+	public function build_sync_diff($name_map, $vendors = array())
+	{
+		if(!count($vendors))
+		{
+			$vendors = $this->get_enabled_vendors('bulk');
+			if(!count($vendors))
+			{
+				$vendors = array('fanvil', 'cisco', 'yealink', 'grandstream', 'eltex');
+			}
+		}
+
+		$index = $this->build_sync_phonebook_index($name_map);
+		$keys = $this->list_unique_dial_keys($vendors, '');
+		$by_num = array();
+		$diff = array();
+
+		foreach($keys as $row)
+		{
+			$num = $this->normalize_dial_number($row['number']);
+			if($num === '')
+			{
+				continue;
+			}
+
+			$resolved = $this->resolve_sync_title_for_dial($num, $row['title'], $name_map, $index);
+			if($resolved['title'] !== '')
+			{
+				if($this->normalize_dial_title($row['title']) !== $this->normalize_dial_title($resolved['title']))
+				{
+					$diff[] = array(
+						'action' => 'update',
+						'number' => $row['number'],
+						'title' => $resolved['title'],
+						'old_number' => $row['old_number'],
+						'old_title' => $row['old_title'],
+						'count' => isset($row['count']) ? intval($row['count']) : 0,
+						'source' => $resolved['source'],
+					);
+				}
+
+				continue;
+			}
+
+			if($this->should_sync_delete_six_dial($num, $name_map, $index, ''))
+			{
+				$diff[] = array(
+					'action' => 'delete',
+					'number' => $row['number'],
+					'title' => '',
+					'old_number' => $row['old_number'],
+					'old_title' => $row['old_title'],
+					'count' => isset($row['count']) ? intval($row['count']) : 0,
+					'source' => 'orphan6',
+				);
+				continue;
+			}
+
+			if(!isset($by_num[$num]))
+			{
+				$by_num[$num] = array();
+			}
+
+			$by_num[$num][] = $row;
+		}
+
+		foreach($by_num as $num => $rows)
+		{
+			$expected = $this->sync_canonical_title_for_number($num, $rows, $name_map);
 			if($expected === '')
 			{
 				continue;
 			}
 
-			$path = $this->resolve_path($f['filename']);
-			if(!$path)
+			$exp_norm = $this->normalize_dial_title($expected);
+			foreach($rows as $row)
 			{
-				continue;
-			}
-
-			$parsed = $this->parse_content($f['vendor'], file_get_contents($path));
-			$changes = array();
-
-			if(in_array('display_name', $fields, TRUE))
-			{
-				$cur = isset($parsed['displayName']) ? $parsed['displayName'] : '';
-				if($cur !== $expected)
+				if($this->normalize_dial_title($row['title']) === $exp_norm)
 				{
-					$changes[] = array('field' => 'display_name', 'old' => $cur, 'new' => $expected);
+					continue;
 				}
-			}
 
-			if(in_array('dss_title', $fields, TRUE))
-			{
-				foreach($parsed['speedDialKeys'] as $k)
-				{
-					if($k['number'] === $phone || preg_replace('/[^0-9]/', '', $k['number']) === $phone)
-					{
-						if($k['label'] !== $expected)
-						{
-							$changes[] = array('field' => 'dss_title', 'slot' => $k['slot'], 'old' => $k['label'], 'new' => $expected);
-						}
-					}
-				}
-			}
-
-			if(count($changes))
-			{
 				$diff[] = array(
-					'filename' => $f['filename'],
-					'label' => tftpboot_display_label($f['phone'], $f['mac']),
-					'phone' => $f['phone'],
-					'changes' => $changes,
+					'action' => 'update',
+					'number' => $row['number'],
+					'title' => $expected,
+					'old_number' => $row['old_number'],
+					'old_title' => $row['old_title'],
+					'count' => isset($row['count']) ? intval($row['count']) : 0,
+					'source' => isset($name_map[$num]) ? 'phonebook' : 'consensus',
 				);
 			}
 		}
 
+		usort($diff, function($a, $b) {
+			return strnatcasecmp($a['number'], $b['number']);
+		});
+
 		return $diff;
 	}
 
-	public function apply_sync_diff($items, $policy)
+	public function apply_sync_diff($items, $vendors)
 	{
-		$applied = 0;
+		if(!is_array($vendors))
+		{
+			$vendors = array();
+		}
+		if(!count($vendors))
+		{
+			$vendors = $this->get_enabled_vendors('bulk');
+		}
+
+		$updates = array();
+		$deletes = array();
 		foreach($items as $item)
 		{
-			$fn = $item['filename'];
-			$path = $this->resolve_path($fn);
-			if(!$path)
+			if(!is_array($item))
 			{
 				continue;
 			}
 
-			$content = file_get_contents($path);
-			$vendor = $this->detect_vendor(basename($fn), $content);
-			$parsed = $this->parse_content($vendor, $content);
-			$this->backup_file($path);
-
-			$save = array('speedDialKeys' => $parsed['speedDialKeys'], 'sip' => array());
-			foreach($item['changes'] as $ch)
+			if(!empty($item['action']) && $item['action'] === 'delete')
 			{
-				if($ch['field'] === 'display_name')
-				{
-					$save['displayName'] = $ch['new'];
-					if($vendor === 'fanvil')
-					{
-						$save['sip']['SIP1 Display Name'] = $ch['new'];
-					}
-				}
-				if($ch['field'] === 'dss_title' && isset($ch['slot']))
-				{
-					foreach($save['speedDialKeys'] as &$k)
-					{
-						if(intval($k['slot']) === intval($ch['slot']))
-						{
-							$k['label'] = $ch['new'];
-						}
-					}
-					unset($k);
-				}
+				$deletes[] = array(
+					'old_number' => isset($item['old_number']) ? $item['old_number'] : '',
+					'old_title' => isset($item['old_title']) ? $item['old_title'] : '',
+				);
+				continue;
 			}
 
-			$res = $this->save_config($fn, $save, $policy);
-			if($res['code'] === 0)
-			{
-				$applied++;
-			}
+			$updates[] = $item;
 		}
 
-		return $applied;
+		$n = 0;
+		if(count($updates))
+		{
+			$n += $this->bulk_save_keys($updates, $vendors);
+		}
+		if(count($deletes))
+		{
+			$n += $this->bulk_delete_keys($deletes, $vendors);
+		}
+
+		return $n;
 	}
 
 	public function list_unknown_files()

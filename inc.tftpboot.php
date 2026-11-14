@@ -170,17 +170,154 @@ function tftpboot_merge_post($post_data)
 
 function tftpboot_format_initials($last_name, $first_name, $middle_name)
 {
-	$name = trim($last_name);
+	$last_name = trim((string)$last_name);
+	$first_name = trim((string)$first_name);
+	$middle_name = trim((string)$middle_name);
+
+	if($last_name === '' && $first_name !== '' && preg_match('/\s/u', $first_name))
+	{
+		$parts = preg_split('/\s+/u', $first_name, -1, PREG_SPLIT_NO_EMPTY);
+		if(count($parts) >= 2)
+		{
+			$last_name = $parts[0];
+			$first_name = $parts[1];
+			$middle_name = isset($parts[2]) ? $parts[2] : '';
+		}
+	}
+
+	$name = $last_name;
+	if($name === '' && $first_name !== '')
+	{
+		$name = $first_name;
+		$first_name = '';
+	}
 	if($first_name !== '')
 	{
-		$name .= ' '.mb_substr(trim($first_name), 0, 1, 'UTF-8').'.';
+		$name .= ' '.mb_substr($first_name, 0, 1, 'UTF-8').'.';
 	}
 	if($middle_name !== '')
 	{
-		$name .= mb_substr(trim($middle_name), 0, 1, 'UTF-8').'.';
+		$name .= mb_substr($middle_name, 0, 1, 'UTF-8').'.';
 	}
 
 	return trim($name);
+}
+
+/** Skip VoIP URI / bare IP — not internal extension directory entries. */
+function tftpboot_phone_field_ignored($phone_internal)
+{
+	$s = trim((string)$phone_internal);
+	if($s === '')
+	{
+		return TRUE;
+	}
+	if(preg_match('/^(h323|sip|sips|tel|ldap|http|https):/i', $s))
+	{
+		return TRUE;
+	}
+	if(preg_match('/\bh323:/i', $s))
+	{
+		return TRUE;
+	}
+	if(preg_match('/^\d{1,3}(\.\d{1,3}){3}(:\d+)?$/', $s))
+	{
+		return TRUE;
+	}
+
+	return FALSE;
+}
+
+/** Digit groups from free-text internal phone field (211 (Мск) 8989 → 211, 8989). */
+function tftpboot_extract_phone_numbers($phone_internal)
+{
+	if(tftpboot_phone_field_ignored($phone_internal))
+	{
+		return array();
+	}
+	if(!preg_match_all('/\d+/', (string)$phone_internal, $m))
+	{
+		return array();
+	}
+	$out = array();
+	foreach($m[0] as $num)
+	{
+		if(strlen($num) < 3)
+		{
+			continue;
+		}
+		$out[$num] = TRUE;
+	}
+
+	return array_keys($out);
+}
+
+function tftpboot_map_put_contact(&$map, $phone_internal, $name)
+{
+	foreach(tftpboot_extract_phone_numbers($phone_internal) as $num)
+	{
+		$map[$num] = $name;
+	}
+}
+
+function tftpboot_directory_rows_from_map($map)
+{
+	$rows = array();
+	foreach($map as $num => $name)
+	{
+		if(!preg_match('/^\d+$/', (string)$num))
+		{
+			continue;
+		}
+		$rows[] = array('number' => (string)$num, 'name' => (string)$name);
+	}
+	usort($rows, function($a, $b) {
+		$na = strlen($a['number']);
+		$nb = strlen($b['number']);
+		if($na !== $nb)
+		{
+			return $na - $nb;
+		}
+
+		return strcmp($a['number'], $b['number']);
+	});
+
+	return $rows;
+}
+
+function tftpboot_sync_undo_load(&$core)
+{
+	$raw = $core->Config->get_global('tftpboot_sync_undo_json', '');
+	$data = json_decode($raw, TRUE);
+
+	return is_array($data) && !empty($data['items']) ? $data : NULL;
+}
+
+function tftpboot_sync_undo_save(&$core, $data)
+{
+	$core->Config->set_global('tftpboot_sync_undo_json', json_encode($data, JSON_UNESCAPED_UNICODE));
+}
+
+function tftpboot_sync_undo_clear(&$core)
+{
+	$core->Config->set_global('tftpboot_sync_undo_json', '');
+}
+
+function tftpboot_sync_api_configured(&$core)
+{
+	if($core->Config->get_global('tftpboot_sync_source', 'phonebook') !== 'api')
+	{
+		return FALSE;
+	}
+	if(trim($core->Config->get_global('tftpboot_sync_api_url', '')) !== '')
+	{
+		return TRUE;
+	}
+	if(defined('WEB_URL') && trim(WEB_URL) !== '')
+	{
+		return TRUE;
+	}
+
+	return FALSE;
 }
 
 function tftpboot_display_label($phone, $mac)
