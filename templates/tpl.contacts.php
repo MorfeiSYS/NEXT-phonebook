@@ -46,7 +46,7 @@ include(TEMPLATES_DIR.'tpl.header.php');
 			<input class="button-other" type="submit" value="<?php L('Search') ?>" /><br />
 		</form>
 
-		<?php if(user_is_admin()) { ?>
+		<?php if(user_is_operator()) { ?>
 		<div class="contact-status-legend">
 			<strong><?php L('ContactStatusLegendTitle'); ?>:</strong>
 			<span class="contact-status-legend-item"><span class="contact-status-dot contact-status-dot--ok" aria-hidden="true"></span> <?php L('ContactStatusLegendOk'); ?></span>
