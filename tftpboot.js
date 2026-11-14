@@ -1,7 +1,8 @@
 var tftpboot_state = {
 	tree: [], policy: {}, syncDiff: [], bulkRows: [], bulkAllRows: [],
 	bulkFilteredRows: [], bulkPage: 0, bulkPageSize: 50,
-	directoryAllRows: [], directoryFilteredRows: [], directoryPage: 0, labels: {}
+	directoryAllRows: [], directoryFilteredRows: [], directoryPage: 0,
+	pickIndex: [], pickFilteredRows: [], pickMatchLimit: 50, labels: {}
 };
 
 function tftpboot_init(opts) {
@@ -31,6 +32,17 @@ function tftpboot_init(opts) {
 		tftpboot_load_tree();
 		var openBtn = document.getElementById('tftpboot-open-btn');
 		if (openBtn) openBtn.onclick = tftpboot_open_selected;
+		var pickQ = document.getElementById('tftpboot-pick-q');
+		if (pickQ) {
+			pickQ.oninput = tftpboot_pick_filter;
+			pickQ.onkeydown = function (e) {
+				if (e.key === 'Enter') {
+					e.preventDefault();
+					var rows = tftpboot_state.pickFilteredRows || [];
+					if (rows.length) tftpboot_pick_open(rows[0].filename);
+				}
+			};
+		}
 	}
 	var modOpen = document.getElementById('tftpboot-moderation-open');
 	if (modOpen) modOpen.onclick = tftpboot_moderation_open_modal;
@@ -627,6 +639,163 @@ function tftpboot_fill_vendor_select() {
 	if (defVi >= 0) {
 		sel.onchange();
 	}
+	tftpboot_pick_build_index();
+}
+
+function tftpboot_pick_build_index() {
+	var out = [];
+	(tftpboot_state.tree || []).forEach(function (v) {
+		(v.models || []).forEach(function (m) {
+			(m.files || []).forEach(function (f) {
+				out.push({
+					filename: f.filename,
+					label: f.label || '',
+					phone: f.phone || '',
+					mac: f.mac || '',
+					vendorTitle: v.title || '',
+					modelTitle: m.title || ''
+				});
+			});
+		});
+	});
+	tftpboot_state.pickIndex = out;
+}
+
+function tftpboot_pick_label(key, fallback) {
+	if (tftpboot_state.labels && tftpboot_state.labels[key]) {
+		return tftpboot_state.labels[key];
+	}
+	if (typeof LL === 'object' && LL) {
+		if (key === 'pickSearchEmpty' && LL.TftpBootPickSearchEmpty) return LL.TftpBootPickSearchEmpty;
+		if (key === 'pickSearchLimit' && LL.TftpBootPickSearchLimit) return LL.TftpBootPickSearchLimit;
+	}
+	return fallback;
+}
+
+function tftpboot_pick_match(row, q) {
+	q = String(q || '').trim();
+	if (!q) return false;
+	var parts = q.indexOf(' - ') >= 0 ? q.split(' - ') : [q];
+	var phoneDigits = String(row.phone || '').replace(/\D/g, '');
+	var mac = String(row.mac || '').toUpperCase();
+	var pi;
+	for (pi = 0; pi < parts.length; pi++) {
+		var part = String(parts[pi] || '').trim();
+		if (!part) continue;
+		var qDigits = part.replace(/\D/g, '');
+		if (qDigits.length >= 2 && phoneDigits.indexOf(qDigits) >= 0) return true;
+		var qHex = part.replace(/[^0-9A-Fa-f]/g, '').toUpperCase();
+		if (qHex.length >= 2 && mac.indexOf(qHex) >= 0) return true;
+	}
+	return false;
+}
+
+function tftpboot_pick_filter() {
+	var qEl = document.getElementById('tftpboot-pick-q');
+	var box = document.getElementById('tftpboot-pick-results');
+	if (!qEl || !box) return;
+	var q = qEl.value.trim();
+	if (q.length < 2) {
+		tftpboot_state.pickFilteredRows = [];
+		box.innerHTML = '';
+		box.style.display = 'none';
+		return;
+	}
+	var matched = [];
+	var idx = tftpboot_state.pickIndex || [];
+	var i;
+	for (i = 0; i < idx.length; i++) {
+		if (tftpboot_pick_match(idx[i], q)) matched.push(idx[i]);
+	}
+	var limit = tftpboot_state.pickMatchLimit || 50;
+	var truncated = matched.length > limit;
+	var show = truncated ? matched.slice(0, limit) : matched;
+	tftpboot_state.pickFilteredRows = show;
+	tftpboot_pick_render_results(show, truncated ? matched.length : 0);
+}
+
+function tftpboot_pick_render_results(rows, totalMatched) {
+	var box = document.getElementById('tftpboot-pick-results');
+	if (!box) return;
+	box.innerHTML = '';
+	if (!rows.length) {
+		var empty = document.createElement('p');
+		empty.className = 'tftpboot-pick-results-msg';
+		empty.textContent = tftpboot_pick_label('pickSearchEmpty', 'No matches');
+		box.appendChild(empty);
+		box.style.display = 'block';
+		return;
+	}
+	var ul = document.createElement('ul');
+	ul.className = 'tftpboot-pick-results-list';
+	rows.forEach(function (row) {
+		var li = document.createElement('li');
+		var btn = document.createElement('button');
+		btn.type = 'button';
+		btn.className = 'tftpboot-pick-result';
+		btn.setAttribute('data-filename', row.filename);
+		var main = document.createElement('span');
+		main.className = 'tftpboot-pick-result-label';
+		main.textContent = row.label || row.filename;
+		btn.appendChild(main);
+		if (row.vendorTitle || row.modelTitle) {
+			var sub = document.createElement('span');
+			sub.className = 'tftpboot-pick-result-meta';
+			sub.textContent = [row.vendorTitle, row.modelTitle].filter(Boolean).join(' · ');
+			btn.appendChild(sub);
+		}
+		btn.onclick = function () {
+			tftpboot_pick_open(row.filename);
+		};
+		li.appendChild(btn);
+		ul.appendChild(li);
+	});
+	box.appendChild(ul);
+	if (totalMatched > rows.length) {
+		var note = document.createElement('p');
+		note.className = 'tftpboot-pick-results-msg';
+		var tmpl = tftpboot_pick_label('pickSearchLimit', 'Showing first %d of %d');
+		note.textContent = tftpboot_format(tmpl, rows.length, totalMatched);
+		box.appendChild(note);
+	}
+	box.style.display = 'block';
+}
+
+function tftpboot_format(tmpl, a, b) {
+	return String(tmpl).replace('%d', String(a)).replace('%d', String(b));
+}
+
+function tftpboot_pick_focus_file(filename) {
+	var sel = document.getElementById('tftpboot-vendor');
+	var msel = document.getElementById('tftpboot-model');
+	var fsel = document.getElementById('tftpboot-file');
+	if (!sel || !msel || !fsel) return false;
+	var tree = tftpboot_state.tree || [];
+	var vi, mi, fi;
+	for (vi = 0; vi < tree.length; vi++) {
+		var v = tree[vi];
+		var models = v.models || [];
+		for (mi = 0; mi < models.length; mi++) {
+			var files = models[mi].files || [];
+			for (fi = 0; fi < files.length; fi++) {
+				if (files[fi].filename === filename) {
+					sel.value = String(vi);
+					sel.onchange();
+					msel.value = String(mi);
+					msel.onchange();
+					fsel.value = filename;
+					return true;
+				}
+			}
+		}
+	}
+	return false;
+}
+
+function tftpboot_pick_open(filename) {
+	if (!filename) return;
+	tftpboot_pick_focus_file(filename);
+	tftpboot_open_editor(filename);
 }
 
 function tftpboot_open_selected() {

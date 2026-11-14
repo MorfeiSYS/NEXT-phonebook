@@ -53,6 +53,10 @@ $tftpboot_editor_save_label = $tftpboot_self_only ? LL('TftpBootSubmitModeration
 </div>
 
 <div id="tftpboot-panel-pick" class="tftpboot-panel">
+	<label class="tftpboot-pick-search-label"><?php L('Find') ?>
+		<input type="search" id="tftpboot-pick-q" class="tftpboot-pick-q" placeholder="<?php L('TftpBootPickSearchPlaceholder') ?>" autocomplete="off" />
+	</label>
+	<div id="tftpboot-pick-results" class="tftpboot-pick-results" style="display:none"></div>
 	<label><?php L('TftpBootVendor') ?>
 		<select id="tftpboot-vendor"></select>
 	</label>
@@ -196,7 +200,9 @@ $tftpboot_editor_save_label = $tftpboot_self_only ? LL('TftpBootSubmitModeration
 			dialNumberRequired: <?php echo json_encode(LL('TftpBootDialNumberRequired'), JSON_UNESCAPED_UNICODE); ?>,
 			moderationReview: <?php echo json_encode(LL('TftpBootModerationReview'), JSON_UNESCAPED_UNICODE); ?>,
 			moderationLoading: <?php echo json_encode(LL('TftpBootModerationLoading'), JSON_UNESCAPED_UNICODE); ?>,
-			moderationNoDiff: <?php echo json_encode(LL('TftpBootModerationNoDiff'), JSON_UNESCAPED_UNICODE); ?>
+			moderationNoDiff: <?php echo json_encode(LL('TftpBootModerationNoDiff'), JSON_UNESCAPED_UNICODE); ?>,
+			pickSearchEmpty: <?php echo json_encode(LL('TftpBootPickSearchEmpty'), JSON_UNESCAPED_UNICODE); ?>,
+			pickSearchLimit: <?php echo json_encode(LL('TftpBootPickSearchLimit'), JSON_UNESCAPED_UNICODE); ?>
 		}
 	});
 </script>
