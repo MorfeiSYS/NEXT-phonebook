@@ -247,27 +247,70 @@ function tftpboot_card_star_transfer(card) {
 	return tftpboot_is_star_transfer_dial(numEl.value);
 }
 
-function tftpboot_self_init() {
-	var openBtn = document.getElementById('tftpboot-self-open-btn');
-	if (openBtn) openBtn.onclick = tftpboot_self_open_selected;
+var g_tftpboot_self_poll_timer = null;
+
+function tftpboot_self_poll_interval_sec() {
+	var sec = parseInt(window.g_tftpboot_moderation_poll_sec, 10);
+	if (isNaN(sec) || sec < 60) sec = 60;
+	return sec;
+}
+
+function tftpboot_self_reload_files(notifyOnError) {
 	var sel = document.getElementById('tftpboot-self-file');
-	if (sel) sel.onchange = tftpboot_self_update_status;
+	var prev = sel ? sel.value : '';
 	tftpboot_http('tftpboot_self_files', {}, function (res) {
 		if (!res || res.code) {
-			f_notify(res && res.message ? res.message : 'Error', 'error');
+			if (notifyOnError) f_notify(res && res.message ? res.message : 'Error', 'error');
 			return;
 		}
 		tftpboot_state.selfFiles = res.files || [];
 		if (!sel) return;
+		var had = false;
 		sel.innerHTML = '';
 		tftpboot_state.selfFiles.forEach(function (f) {
 			var o = document.createElement('option');
 			o.value = f.filename;
 			o.textContent = f.label || f.filename;
+			if (prev && f.filename === prev) {
+				o.selected = true;
+				had = true;
+			}
 			sel.appendChild(o);
 		});
+		if (!had && sel.options.length) sel.selectedIndex = 0;
 		tftpboot_self_update_status();
 	});
+}
+
+function tftpboot_self_poll_tick() {
+	if (!tftpboot_state.selfOnly) return;
+	if (typeof document.hidden !== 'undefined' && document.hidden) return;
+	var editor = document.getElementById('tftpboot-editor');
+	if (editor && editor.style.display !== 'none' && editor.style.display !== '') return;
+	tftpboot_self_reload_files(false);
+}
+
+function tftpboot_self_poll_start() {
+	if (!tftpboot_state.selfOnly) return;
+	tftpboot_self_poll_stop();
+	var sec = tftpboot_self_poll_interval_sec();
+	g_tftpboot_self_poll_timer = setInterval(tftpboot_self_poll_tick, sec * 1000);
+}
+
+function tftpboot_self_poll_stop() {
+	if (g_tftpboot_self_poll_timer) {
+		clearInterval(g_tftpboot_self_poll_timer);
+		g_tftpboot_self_poll_timer = null;
+	}
+}
+
+function tftpboot_self_init() {
+	var openBtn = document.getElementById('tftpboot-self-open-btn');
+	if (openBtn) openBtn.onclick = tftpboot_self_open_selected;
+	var sel = document.getElementById('tftpboot-self-file');
+	if (sel) sel.onchange = tftpboot_self_update_status;
+	tftpboot_self_reload_files(true);
+	tftpboot_self_poll_start();
 }
 
 function tftpboot_self_update_status() {

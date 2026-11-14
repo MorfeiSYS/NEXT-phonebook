@@ -16,7 +16,15 @@
 			is_admin = <?php echo (user_is_admin() ? '1' : '0'); ?>;
 			is_operator = <?php echo (user_is_operator() ? '1' : '0'); ?>;
 			g_tftpboot_can_moderate = <?php echo ($core->UserAuth->get_id() && user_can_tftpboot_moderate($core) ? '1' : '0'); ?>;
-			g_tftpboot_moderation_poll_sec = <?php echo ($core->UserAuth->get_id() && user_can_tftpboot_moderate($core)) ? intval(tftpboot_moderation_poll_interval_sec($core)) : 60; ?>;
+			g_tftpboot_moderation_poll_sec = <?php
+				$tftpboot_poll_sec = 60;
+				if($core->UserAuth->get_id()
+					&& (user_can_tftpboot_moderate($core) || tftpboot_is_self_only_user($core)))
+				{
+					$tftpboot_poll_sec = tftpboot_moderation_poll_interval_sec($core);
+				}
+				echo intval($tftpboot_poll_sec);
+			?>;
 			g_link_prefix = <?php echo json_encode(WEB_LINK_PREFIX, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); ?>;
 			g_link_static_prefix = <?php echo json_encode(WEB_LINK_STATIC_PREFIX, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); ?>;
 			g_map_image_urls = <?php echo json_encode(isset($g_maps_catalog_js_urls) ? $g_maps_catalog_js_urls : array(), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); ?>;
