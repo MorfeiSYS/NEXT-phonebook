@@ -134,6 +134,25 @@ class UserAuth
 		}
 	}
 
+	private function ldap_resolve_account($bind_login, $sam_guess)
+	{
+		$records = array();
+		$esc_guess = ldap_escape($sam_guess, '', LDAP_ESCAPE_FILTER);
+		$esc_bind = ldap_escape($bind_login, '', LDAP_ESCAPE_FILTER);
+		$filter = '(&(objectCategory=person)(objectClass=user)(|(sAMAccountName='.$esc_guess.')(userPrincipalName='.$esc_bind.')))';
+
+		if($this->ldap->search($records, $filter, array('samaccountname', 'mail')) >= 1
+			&& !empty($records[0]['samaccountname'][0]))
+		{
+			return array(
+				'login' => $records[0]['samaccountname'][0],
+				'mail' => empty($records[0]['mail'][0]) ? '' : $records[0]['mail'][0]
+			);
+		}
+
+		return array('login' => $sam_guess, 'mail' => '');
+	}
+
 	public function logon($login, $passwd)
 	{
 		$this->logoff();
@@ -153,14 +172,12 @@ class UserAuth
 			}
 
 			$sam_account_name = $login;
-			$user_data = array();
-			$records = array();
 
-			if(strpos($login, '\\'))
+			if(strpos($login, '\\') !== FALSE)
 			{
 				list($domain, $sam_account_name) = explode('\\', $login, 2);
 			}
-			else if(strpos($login, '@'))
+			else if(strpos($login, '@') !== FALSE)
 			{
 				list($sam_account_name, $domain) = explode('@', $login, 2);
 			}
@@ -170,6 +187,10 @@ class UserAuth
 				$this->core->error_ex($this->core->get_last_error(), $this->rise_exception);
 				return FALSE;
 			}
+
+			$resolved = $this->ldap_resolve_account($login, $sam_account_name);
+			$sam_account_name = $resolved['login'];
+			$user_data = array();
 
 			if($this->core->db->select_ex($user_data, rpv("
 					SELECT
@@ -182,20 +203,32 @@ class UserAuth
 						`@users` AS m
 					WHERE
 						m.`login` = !
-						AND (m.`flags` & ({%UA_LDAP})) = {%UA_LDAP}
+						AND (m.`flags` & ({%UA_DELETED})) = 0
 					LIMIT 1
 				", $sam_account_name
 			)))
 			{
-				if(!empty($user_data[0][4]))
+				$uid = intval($user_data[0][0]);
+				$flags = intval($user_data[0][2]);
+
+				if(($flags & UA_LDAP) == 0)
 				{
-					//$this->error('Неверное имя пользователя или пароль!');
-					return FALSE;
+					if(!$this->core->db->put(rpv('UPDATE `@users` SET `flags` = (`flags` | {%UA_LDAP}), `passwd` = \'\' WHERE `id` = # LIMIT 1', $uid)))
+					{
+						$this->core->error_ex($this->core->get_last_error(), $this->rise_exception);
+						$this->ldap->restore_service_credentials();
+						return FALSE;
+					}
+					$flags |= UA_LDAP;
+				}
+				else if(!empty($user_data[0][4]))
+				{
+					$this->core->db->put(rpv('UPDATE `@users` SET `passwd` = \'\' WHERE `id` = # LIMIT 1', $uid));
 				}
 
-				$_SESSION[DB_PREFIX.'uid'] = $user_data[0][0];
+				$_SESSION[DB_PREFIX.'uid'] = $uid;
 				$this->login = $user_data[0][1];
-				$this->flags = intval($user_data[0][2]);
+				$this->flags = $flags;
 				$this->token = $user_data[0][3];
 			}
 			else // add new LDAP user
@@ -203,9 +236,16 @@ class UserAuth
 				$this->token = bin2hex(random_bytes(8));
 				$this->login = $sam_account_name;
 				$this->flags = UA_LDAP;
-				$this->core->db->put(rpv('INSERT INTO @users (login, passwd, mail, sid, flags) VALUES (!, \'\', !, !, #)', $this->login, @$records[0]['mail'][0], $this->token, $this->flags));
+				if(!$this->core->db->put(rpv('INSERT INTO @users (login, passwd, mail, sid, flags) VALUES (!, \'\', !, !, #)', $this->login, $resolved['mail'], $this->token, $this->flags)))
+				{
+					$this->core->error_ex($this->core->get_last_error(), $this->rise_exception);
+					$this->ldap->restore_service_credentials();
+					return FALSE;
+				}
 				$_SESSION[DB_PREFIX.'uid'] = $this->core->db->last_id();
 			}
+
+			$this->ldap->restore_service_credentials();
 		}
 		else  // internal authorization method
 		{

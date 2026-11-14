@@ -6,6 +6,11 @@ function logon(&$core, $params, $post_data)
 	{
 		$return_url = @$post_data['return'];
 		$error_msg = LL('InvalidUserPasswd');
+		$login_field = trim((string) @$post_data['login']);
+		if($login_field !== '' && strpbrk($login_field, '\\@') === FALSE && defined('USE_LDAP') && USE_LDAP)
+		{
+			$error_msg = LL('LoginNeedDomainFormat');
+		}
 		include(TEMPLATES_DIR.'tpl.login.php');
 		exit;
 	}

@@ -95,6 +95,15 @@ class LDAP
 		$this->disconnect();
 	}
 
+	/** Restore service-account settings after user bind (e.g. after logon). */
+	public function restore_service_credentials()
+	{
+		$this->ldap_user = LDAP_USER;
+		$this->ldap_passwd = LDAP_PASSWD;
+		$this->use_gssapi = (defined('USE_GSSAPI') && USE_GSSAPI);
+		$this->disconnect();
+	}
+
 	// needed for check user password
 	public function reset_user($ldap_user, $ldap_passwd, $force_connect = FALSE)
 	{
@@ -102,18 +111,17 @@ class LDAP
 		$this->ldap_user = $ldap_user;
 		$this->ldap_passwd = $ldap_passwd;
 
-		if($this->link)
+		if($force_connect || !$this->link)
 		{
-			if(!@ldap_bind($this->link, $this->ldap_user, $this->ldap_passwd))
-			{
-				$this->core->error_ex(ldap_error($this->link), $this->rise_exception);
-				$this->link = NULL;
-				return FALSE;
-			}
-		}
-		else if($force_connect)
-		{
+			$this->disconnect();
 			return $this->connect();
+		}
+
+		if(!@ldap_bind($this->link, $this->ldap_user, $this->ldap_passwd))
+		{
+			$this->core->error_ex(ldap_error($this->link), $this->rise_exception);
+			$this->disconnect();
+			return FALSE;
 		}
 
 		return TRUE;
