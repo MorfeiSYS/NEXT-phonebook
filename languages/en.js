@@ -6,7 +6,7 @@ const LL = {
 	ConfirmOperation:		'Do you confirm the operation?',
 	ConfirmHideDisabledContacts1:	'Hide contacts that are disabled or marked deleted in AD?',
 	ConfirmHideDisabledMapWarning:	'Important: contacts will disappear from the map and will not be shown on the main phonebook — even if they reappear in the list after AD sync, they will not reappear on the map and will have to be placed again.',
-	ConfirmHideDisabledSuggestExport:	'Before continuing, we recommend exporting contacts to XML first (Tools → Export XML) to keep a backup.',
+	ConfirmHideDisabledSuggestExport:	'Before continuing, we recommend exporting contacts to XML first (Settings → Export XML) to keep a backup.',
 	ConfirmHideDisabledContacts2:	'Continue with bulk hide?',
 	ConfirmRevealAdminHiddenContacts:	'Make visible all records previously hidden by an administrator (manually or in bulk) for contacts that are OK in AD?',
 	OutputParameters:		'Output parameters',
@@ -19,5 +19,8 @@ const LL = {
 
 	Save:						'Save',
 	TftpBootBulkEmpty:			'No data. Use Rescan in phone settings.',
-	TftpBootBulkPageInfo:		'Records %1–%2 of %3'
+	TftpBootBulkPageInfo:		'Records %1–%2 of %3',
+	TftpBootNewModelsIntro:		'Scan found configs for models missing from the catalog. Add them to config/tftpboot_catalog.json?',
+	TftpBootNewModelsLine:		'%1 — %2 (id: %3, DSS: %4, files: %5)',
+	TftpBootCatalogModelsAdded:	'Models added to catalog'
 };

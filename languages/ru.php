@@ -46,7 +46,12 @@
 		'Permissions'				=> 'Разрешения',
 		'UpLevel'					=> 'Уровень выше',
 		'AdvancedSettings'			=> 'Расширенные настройки',
-		'Name'						=> 'Название',
+		'SettingsOpen'				=> 'Открыть',
+		'SettingsCardToolsDesc'		=> 'Синхронизация AD, экспорт и импорт, токен API, кэш, пароль.',
+		'SettingsCardDefaultsDesc'	=> 'Колонки и тема оформления по умолчанию для справочника.',
+		'SettingsCardPhoneDesc'		=> 'Каталог телефонов, синхронизация имён, политики LDAP.',
+		'SettingsDefaultsTitle'		=> 'Настройки по умолчанию',
+		'ConfigName'				=> 'Название',
 		'CurrentFolder'				=> 'Текущая папка',
 		'Date'						=> 'Дата',
 		'UsageExample'				=> 'Пример использования',
@@ -255,5 +260,8 @@
 		'TftpBootModeButtons'		=> 'Только кнопки',
 		'TftpBootModeCustom'		=> 'Настраиваемые',
 		'TftpBootModeFull'			=> 'Полные',
-		'TftpBootRescan'			=> 'Пересканировать каталог'
+		'TftpBootRescan'			=> 'Пересканировать каталог',
+		'TftpBootNewModelsIntro'	=> 'При сканировании найдены конфиги моделей, которых нет в каталоге. Добавить их в config/tftpboot_catalog.json?',
+		'TftpBootNewModelsLine'		=> '%1 — %2 (id: %3, DSS: %4, файлов: %5)',
+		'TftpBootCatalogModelsAdded'	=> 'Модели добавлены в каталог'
 	);

@@ -12,5 +12,11 @@ function tftpboot_rescan(&$core, $params, $post_data)
 
 	$svc = tftpboot_instance($core);
 	$svc->scan(TRUE);
-	tftpboot_json_send(array('code' => 0, 'message' => LL('Save')));
+	$new_models = $svc->get_scan_suggestions();
+	$out = array('code' => 0, 'message' => LL('Save'));
+	if(count($new_models))
+	{
+		$out['new_models'] = $new_models;
+	}
+	tftpboot_json_send($out);
 }

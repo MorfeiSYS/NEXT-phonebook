@@ -780,9 +780,53 @@ function tftpboot_policy_save() {
 	});
 }
 
+function tftpboot_rescan_label(key, fallback) {
+	if (tftpboot_state.labels && tftpboot_state.labels[key]) {
+		return tftpboot_state.labels[key];
+	}
+	if (typeof LL === 'object' && LL && LL[key]) {
+		return LL[key];
+	}
+	return fallback;
+}
+
 function tftpboot_rescan_admin() {
 	tftpboot_http('tftpboot_rescan', {}, function (res) {
 		f_notify(res && res.message ? res.message : 'OK', res && res.code ? 'error' : 'success');
+		if (!res || res.code) return;
+		var models = res.new_models;
+		if (!models || !models.length) return;
+
+		var intro = tftpboot_rescan_label('catalogNewModelsIntro',
+			'Scan found models missing from the catalog. Add to tftpboot_catalog.json?');
+		var lineTpl = tftpboot_rescan_label('catalogNewModelsLine',
+			'%1 — %2 (id: %3, DSS: %4, files: %5)');
+		var html = '<p>' + escapeHtml(intro) + '</p><ul class="tftpboot-new-models">';
+		models.forEach(function (m) {
+			var vendor = m.vendor || '';
+			var title = m.suggested_title || m.hint || '';
+			var id = m.suggested_id || '';
+			var dss = m.dss_slots != null ? String(m.dss_slots) : '';
+			var cnt = m.file_count != null ? String(m.file_count) : '';
+			var line = lineTpl.replace('%1', vendor).replace('%2', title).replace('%3', id)
+				.replace('%4', dss).replace('%5', cnt);
+			html += '<li>' + escapeHtml(line) + '</li>';
+		});
+		html += '</ul>';
+		var go = function () {
+			tftpboot_http_long('tftpboot_catalog_add_suggested', { models: models }, function (res2) {
+				var text = res2 && res2.message
+					? res2.message
+					: tftpboot_rescan_label('catalogModelsAdded', 'Models added');
+				f_notify(text, res2 && res2.code ? 'error' : 'success');
+				if (res2 && !res2.code) window.location.reload();
+			});
+		};
+		if (typeof f_confirm_dialog_show === 'function') {
+			f_confirm_dialog_show(html, function (ok) { if (ok) go(); });
+		} else if (window.confirm(intro)) {
+			go();
+		}
 	});
 	return false;
 }

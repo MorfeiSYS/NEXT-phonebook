@@ -48,20 +48,7 @@
 			<?php if($core->UserAuth->get_id()) { ?>
 				<?php if(user_is_admin()) { ?>
 				<li><a href="<?php ln('handshakes') ?>"><?php L('Handshakes') ?></a></li>
-				<li class="menu-item">
-					<a href="<?php ln('tools') ?>"><?php L('Tools') ?></a>
-					<ul class="submenu submenu-left">
-						<li><a href="<?php ln('contacts_sync') ?>" onclick="return f_confirm_async(this);"><?php L('Sync') ?></a></li>
-						<li><a href="<?php ln('contacts_hide_disabled') ?>" onclick="return f_confirm_hide_disabled_async(this);"><?php L('HideDisabledContacts') ?></a></li>
-						<li><a href="<?php ln('contacts_show_all_enabled') ?>" onclick="return f_confirm_async(this);"><?php L('ShowEnabledContacts') ?></a></li>
-						<li><a href="<?php ln('contacts_reveal_admin_hidden') ?>" onclick="return f_confirm_reveal_admin_hidden_async(this);"><?php L('RevealAdminHiddenContacts') ?></a></li>
-						<li><a href="<?php ln('contacts_purge_deleted') ?>" onclick="return f_confirm_async(this);"><?php L('PurgeADDeletedContacts') ?></a></li>
-						<li><a href="<?php ln('contacts_export') ?>"><?php L('Export') ?></a></li>
-						<li><a href="<?php ln('contacts_dump_db') ?>"><?php L('DumpDB') ?></a></li>
-						<li><a href="<?php ln('contacts_export_xml') ?>"><?php L('ExportXML') ?></a></li>
-						<li><a href="#" onclick="f_import_xml(); return false;"><?php L('ImportXML') ?></a></li>
-					</ul>
-				</li>
+				<li><a href="<?php ln('tools') ?>"><?php L('Settings') ?></a></li>
 				<li><a href="<?php ln('permissions') ?>"><?php L('Permissions') ?></a></li>
 				<li><a href="<?php ln('users') ?>"><?php L('Users') ?></a></li>
 				<?php } ?>

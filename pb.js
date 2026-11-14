@@ -1251,6 +1251,66 @@ function f_columns_dialog()
 	return false;
 }
 
+var g_settings_phone_admin_bound = false;
+
+function f_settings_modal_close(id)
+{
+	var el = gi(id);
+	if(el)
+	{
+		el.style.display = 'none';
+	}
+}
+
+function f_settings_modal_open(id, bindPhoneAdmin)
+{
+	var el = gi(id);
+	if(!el)
+	{
+		return false;
+	}
+	el.style.display = 'block';
+	if(bindPhoneAdmin && !g_settings_phone_admin_bound)
+	{
+		if(typeof tftpboot_bind_admin === 'function')
+		{
+			tftpboot_bind_admin();
+			g_settings_phone_admin_bound = true;
+		}
+	}
+	return false;
+}
+
+function f_settings_modal_backdrop_close(ev, id)
+{
+	if(ev.target && ev.target.id === id)
+	{
+		f_settings_modal_close(id);
+	}
+}
+
+(function()
+{
+	document.addEventListener('keydown', function(ev)
+	{
+		if(ev.key !== 'Escape')
+		{
+			return;
+		}
+		var modals = document.querySelectorAll('.settings-modal');
+		var i;
+		for(i = 0; i < modals.length; i++)
+		{
+			if(modals[i].style.display === 'block')
+			{
+				f_settings_modal_close(modals[i].id);
+				ev.preventDefault();
+				break;
+			}
+		}
+	});
+})();
+
 function f_save_contacts_columns(form)
 {
 	var cols = f_collect_columns(form);

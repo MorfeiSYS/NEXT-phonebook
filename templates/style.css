@@ -1241,6 +1241,76 @@ ul.tree-menu:before {
 	max-height: calc(90vh - 10em);
 	overflow: auto;
 }
+.settings-hub {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+	gap: 16px;
+	margin: 20px 0 28px;
+}
+.settings-card {
+	border: 1px solid var(--color-border-2);
+	border-radius: 6px;
+	padding: 16px 18px;
+	background: var(--color-bg-3);
+}
+.settings-card h4 {
+	margin: 0 0 8px;
+}
+.settings-card-desc {
+	margin: 0 0 14px;
+	font-size: 0.95em;
+	line-height: 1.45;
+	color: var(--color-text-muted, var(--color-text));
+	opacity: 0.9;
+}
+.settings-modal .settings-modal-content {
+	max-width: min(720px, 92vw);
+	text-align: left;
+}
+.settings-phone-modal .settings-phone-modal-content {
+	max-width: min(960px, 94vw);
+}
+.settings-tools-links {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	margin-bottom: 1em;
+}
+.settings-tools-links a {
+	display: block;
+}
+.settings-tools-pre {
+	overflow-x: auto;
+	font-size: 0.85em;
+	white-space: pre-wrap;
+	word-break: break-all;
+}
+details.settings-advanced {
+	margin: 8px 0 24px;
+	border: 1px solid var(--color-border-2);
+	border-radius: 6px;
+	padding: 4px 12px 12px;
+	background: var(--color-bg-3);
+}
+details.settings-advanced summary {
+	cursor: pointer;
+	font-weight: 600;
+	padding: 10px 4px;
+	list-style: disclosure-closed;
+}
+details.settings-advanced[open] summary {
+	list-style: disclosure-open;
+	margin-bottom: 8px;
+}
+.settings-config-table pre.settings-config-pre {
+	margin: 0;
+	max-height: 8em;
+	overflow: auto;
+	font-size: 0.85em;
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+
 #tftpboot-directory-modal .tftpboot-bulk-pages {
 	flex-shrink: 0;
 }

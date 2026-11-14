@@ -1,137 +1,285 @@
 {
-  "vendors": [
-    {
-      "id": "fanvil",
-      "title": "Fanvil",
-      "sort": 10,
-      "models": [
+    "vendors": [
         {
-          "id": "x1s",
-          "title": "X1S / X1SP",
-          "match": ["Fanvil X1S/X1SP", "Fanvil X1S", "Fanvil X1SP"],
-          "dss_slots": 8,
-          "sections": ["sip", "dss", "net"]
+            "id": "fanvil",
+            "title": "Fanvil",
+            "sort": 10,
+            "models": [
+                {
+                    "id": "x1s",
+                    "title": "X1S \/ X1SP",
+                    "match": [
+                        "Fanvil X1S\/X1SP",
+                        "Fanvil X1S",
+                        "Fanvil X1SP"
+                    ],
+                    "dss_slots": 8,
+                    "sections": [
+                        "sip",
+                        "dss",
+                        "net"
+                    ]
+                },
+                {
+                    "id": "x210i",
+                    "title": "X210i",
+                    "match": [
+                        "Fanvil X210i"
+                    ],
+                    "dss_slots": 60,
+                    "sections": [
+                        "sip",
+                        "dss",
+                        "net"
+                    ]
+                },
+                {
+                    "id": "x3s",
+                    "title": "X3S",
+                    "match": [
+                        "Fanvil X3S"
+                    ],
+                    "dss_slots": 16,
+                    "sections": [
+                        "sip",
+                        "dss",
+                        "net"
+                    ]
+                },
+                {
+                    "id": "x210",
+                    "title": "X210",
+                    "match": [
+                        "Fanvil X210"
+                    ],
+                    "dss_slots": 60,
+                    "sections": [
+                        "sip",
+                        "dss",
+                        "net"
+                    ]
+                },
+                {
+                    "id": "x301",
+                    "title": "X301(P)",
+                    "match": [
+                        "Fanvil X301"
+                    ],
+                    "dss_slots": 24,
+                    "sections": [
+                        "sip",
+                        "dss",
+                        "net"
+                    ]
+                },
+                {
+                    "id": "x5u",
+                    "title": "X5U",
+                    "match": [
+                        "Fanvil X5U"
+                    ],
+                    "dss_slots": 32,
+                    "sections": [
+                        "sip",
+                        "dss",
+                        "net"
+                    ]
+                },
+                {
+                    "id": "x6u",
+                    "title": "X6U",
+                    "match": [
+                        "Fanvil X6U"
+                    ],
+                    "dss_slots": 32,
+                    "sections": [
+                        "sip",
+                        "dss",
+                        "net"
+                    ]
+                },
+                {
+                    "id": "x7a",
+                    "title": "X7A",
+                    "match": [
+                        "Fanvil X7A"
+                    ],
+                    "dss_slots": 29,
+                    "sections": [
+                        "sip",
+                        "dss",
+                        "net"
+                    ]
+                },
+                {
+                    "id": "x4u",
+                    "title": "X4U",
+                    "match": [
+                        "Fanvil X4U"
+                    ],
+                    "dss_slots": 10,
+                    "sections": [
+                        "sip",
+                        "dss",
+                        "net"
+                    ]
+                },
+                {
+                    "id": "h5w",
+                    "title": "H5W",
+                    "match": [
+                        "Fanvil H5W"
+                    ],
+                    "dss_slots": 10,
+                    "sections": [
+                        "sip",
+                        "dss",
+                        "net"
+                    ]
+                },
+                {
+                    "id": "other",
+                    "title": "Прочие Fanvil",
+                    "match": [
+                        "Fanvil"
+                    ],
+                    "dss_slots": 32,
+                    "sections": [
+                        "sip",
+                        "dss",
+                        "net"
+                    ]
+                },
+                {
+                    "id": "x303g",
+                    "title": "X303G",
+                    "match": [
+                        "Fanvil X303G",
+                        "Fanvil X303"
+                    ],
+                    "dss_slots": 10,
+                    "sections": [
+                        "sip",
+                        "dss",
+                        "net"
+                    ]
+                }
+            ]
         },
         {
-          "id": "x3s",
-          "title": "X3S",
-          "match": ["Fanvil X3S"],
-          "dss_slots": 16,
-          "sections": ["sip", "dss", "net"]
+            "id": "cisco",
+            "title": "Cisco",
+            "sort": 20,
+            "models": [
+                {
+                    "id": "sip",
+                    "title": "SIP",
+                    "match": [
+                        "cisco"
+                    ],
+                    "dss_slots": 8,
+                    "sections": [
+                        "sip",
+                        "dss"
+                    ]
+                }
+            ]
         },
         {
-          "id": "x210",
-          "title": "X210",
-          "match": ["Fanvil X210"],
-          "dss_slots": 60,
-          "sections": ["sip", "dss", "net"]
+            "id": "yealink",
+            "title": "Yealink",
+            "sort": 30,
+            "models": [
+                {
+                    "id": "model",
+                    "title": "yealink",
+                    "match": [
+                        "yealink"
+                    ],
+                    "dss_slots": 16,
+                    "sections": [
+                        "sip",
+                        "dss"
+                    ]
+                },
+                {
+                    "id": "generic",
+                    "title": "Yealink",
+                    "match": [
+                        "yealink"
+                    ],
+                    "dss_slots": 16,
+                    "sections": [
+                        "sip",
+                        "dss"
+                    ]
+                }
+            ]
         },
         {
-          "id": "x210i",
-          "title": "X210i",
-          "match": ["Fanvil X210i"],
-          "dss_slots": 60,
-          "sections": ["sip", "dss", "net"]
+            "id": "grandstream",
+            "title": "Grandstream",
+            "sort": 40,
+            "models": [
+                {
+                    "id": "model",
+                    "title": "grandstream",
+                    "match": [
+                        "grandstream"
+                    ],
+                    "dss_slots": 16,
+                    "sections": [
+                        "sip"
+                    ]
+                },
+                {
+                    "id": "generic",
+                    "title": "Grandstream",
+                    "match": [
+                        "grandstream",
+                        "gs_provision"
+                    ],
+                    "dss_slots": 8,
+                    "sections": [
+                        "sip"
+                    ]
+                }
+            ]
         },
         {
-          "id": "x301",
-          "title": "X301(P)",
-          "match": ["Fanvil X301"],
-          "dss_slots": 24,
-          "sections": ["sip", "dss", "net"]
+            "id": "eltex",
+            "title": "Eltex",
+            "sort": 50,
+            "models": [
+                {
+                    "id": "gateway",
+                    "title": "FXS Gateway",
+                    "match": [
+                        "eltex",
+                        "FXS"
+                    ],
+                    "dss_slots": 0,
+                    "sections": [
+                        "sip"
+                    ]
+                }
+            ]
         },
         {
-          "id": "x5u",
-          "title": "X5U",
-          "match": ["Fanvil X5U"],
-          "dss_slots": 32,
-          "sections": ["sip", "dss", "net"]
-        },
-        {
-          "id": "x6u",
-          "title": "X6U",
-          "match": ["Fanvil X6U"],
-          "dss_slots": 32,
-          "sections": ["sip", "dss", "net"]
-        },
-        {
-          "id": "other",
-          "title": "Прочие Fanvil",
-          "match": ["Fanvil"],
-          "dss_slots": 32,
-          "sections": ["sip", "dss", "net"]
+            "id": "unknown",
+            "title": "Не определён",
+            "sort": 99,
+            "models": [
+                {
+                    "id": "unknown",
+                    "title": "Не определён",
+                    "match": [],
+                    "dss_slots": 16,
+                    "sections": [
+                        "dss"
+                    ]
+                }
+            ]
         }
-      ]
-    },
-    {
-      "id": "cisco",
-      "title": "Cisco",
-      "sort": 20,
-      "models": [
-        {
-          "id": "sip",
-          "title": "SIP",
-          "match": ["cisco"],
-          "dss_slots": 8,
-          "sections": ["sip", "dss"]
-        }
-      ]
-    },
-    {
-      "id": "yealink",
-      "title": "Yealink",
-      "sort": 30,
-      "models": [
-        {
-          "id": "generic",
-          "title": "Yealink",
-          "match": ["yealink"],
-          "dss_slots": 16,
-          "sections": ["sip", "dss"]
-        }
-      ]
-    },
-    {
-      "id": "grandstream",
-      "title": "Grandstream",
-      "sort": 40,
-      "models": [
-        {
-          "id": "generic",
-          "title": "Grandstream",
-          "match": ["grandstream", "gs_provision"],
-          "dss_slots": 8,
-          "sections": ["sip"]
-        }
-      ]
-    },
-    {
-      "id": "eltex",
-      "title": "Eltex",
-      "sort": 50,
-      "models": [
-        {
-          "id": "gateway",
-          "title": "FXS Gateway",
-          "match": ["eltex", "FXS"],
-          "dss_slots": 0,
-          "sections": ["sip"]
-        }
-      ]
-    },
-    {
-      "id": "unknown",
-      "title": "Не определён",
-      "sort": 99,
-      "models": [
-        {
-          "id": "unknown",
-          "title": "Не определён",
-          "match": [],
-          "dss_slots": 16,
-          "sections": ["dss"]
-        }
-      ]
-    }
-  ]
+    ]
 }

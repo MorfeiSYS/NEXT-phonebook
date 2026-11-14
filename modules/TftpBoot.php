@@ -15,6 +15,7 @@ class TftpBoot
 	private $yealink;
 	private $grandstream;
 	private $eltex;
+	private $scan_suggested_models = array();
 
 	public function __construct(&$core)
 	{
@@ -312,6 +313,270 @@ class TftpBoot
 		}
 	}
 
+	private function is_catalog_fallback_model_id($model_id)
+	{
+		return in_array($model_id, array('other', 'unknown', 'generic'), TRUE);
+	}
+
+	public function catalog_hint_matched_specific($vendor, $model_hint, $catalog)
+	{
+		$model_hint = trim($model_hint);
+		if($model_hint === '')
+		{
+			return FALSE;
+		}
+
+		foreach($catalog['vendors'] as $v)
+		{
+			if($v['id'] !== $vendor)
+			{
+				continue;
+			}
+
+			foreach($v['models'] as $m)
+			{
+				if($this->is_catalog_fallback_model_id($m['id']))
+				{
+					continue;
+				}
+
+				if(!isset($m['match']) || !is_array($m['match']))
+				{
+					continue;
+				}
+
+				foreach($m['match'] as $needle)
+				{
+					if($needle !== '' && stripos($model_hint, $needle) !== FALSE)
+					{
+						return TRUE;
+					}
+				}
+			}
+		}
+
+		return FALSE;
+	}
+
+	public function fanvil_max_fkey_slot($content)
+	{
+		$max = 0;
+		if(preg_match_all('/^Fkey(\d+)\s+/m', $content, $m))
+		{
+			foreach($m[1] as $slot)
+			{
+				$n = intval($slot);
+				if($n > $max)
+				{
+					$max = $n;
+				}
+			}
+		}
+
+		return $max;
+	}
+
+	private function model_id_from_hint($vendor, $hint)
+	{
+		$hint = trim($hint);
+		$id = strtolower(preg_replace('/[^a-z0-9]+/i', '', $hint));
+		if(strpos($id, $vendor) === 0)
+		{
+			$id = substr($id, strlen($vendor));
+		}
+
+		$id = trim($id, '-_');
+		if($id === '')
+		{
+			$id = 'model';
+		}
+
+		return substr($id, 0, 32);
+	}
+
+	private function model_title_from_hint($hint)
+	{
+		$hint = trim($hint);
+		if(preg_match('/Fanvil\s+(.+)$/i', $hint, $m))
+		{
+			return trim($m[1]);
+		}
+
+		return $hint;
+	}
+
+	private function default_sections_for_vendor($vendor)
+	{
+		switch($vendor)
+		{
+			case 'fanvil': return array('sip', 'dss', 'net');
+			case 'cisco':
+			case 'yealink': return array('sip', 'dss');
+			case 'grandstream':
+			case 'eltex': return array('sip');
+			default: return array('dss');
+		}
+	}
+
+	public function reset_scan_suggestions()
+	{
+		$this->scan_suggested_models = array();
+	}
+
+	public function get_scan_suggestions()
+	{
+		return array_values($this->scan_suggested_models);
+	}
+
+	private function note_scan_suggestion($vendor, $model_hint, $content, $assigned_model)
+	{
+		$model_hint = trim($model_hint);
+		if($model_hint === '' || !$this->is_catalog_fallback_model_id($assigned_model))
+		{
+			return;
+		}
+
+		$catalog = $this->get_catalog();
+		if($this->catalog_hint_matched_specific($vendor, $model_hint, $catalog))
+		{
+			return;
+		}
+
+		$key = $vendor."\0".$model_hint;
+		if(!isset($this->scan_suggested_models[$key]))
+		{
+			$dss_slots = 16;
+			if($vendor === 'fanvil')
+			{
+				$n = $this->fanvil_max_fkey_slot($content);
+				if($n > 0)
+				{
+					$dss_slots = $n;
+				}
+			}
+
+			$mid = $this->model_id_from_hint($vendor, $model_hint);
+			$this->scan_suggested_models[$key] = array(
+				'vendor' => $vendor,
+				'hint' => $model_hint,
+				'suggested_id' => $mid,
+				'suggested_title' => $this->model_title_from_hint($model_hint),
+				'dss_slots' => $dss_slots,
+				'sections' => $this->default_sections_for_vendor($vendor),
+				'match' => array($model_hint),
+				'file_count' => 0,
+			);
+		}
+
+		$this->scan_suggested_models[$key]['file_count']++;
+	}
+
+	public function add_catalog_suggested_models($models)
+	{
+		if(!is_array($models) || !count($models))
+		{
+			return 0;
+		}
+
+		$catalog = $this->get_catalog();
+		$added = 0;
+
+		foreach($models as $entry)
+		{
+			if(!is_array($entry))
+			{
+				continue;
+			}
+
+			$vendor = isset($entry['vendor']) ? $entry['vendor'] : '';
+			$model_id = isset($entry['suggested_id']) ? $entry['suggested_id'] : '';
+			if($vendor === '' || $model_id === '' || $this->is_catalog_fallback_model_id($model_id))
+			{
+				continue;
+			}
+
+			$vi = NULL;
+			foreach($catalog['vendors'] as $i => $v)
+			{
+				if($v['id'] === $vendor)
+				{
+					$vi = $i;
+					break;
+				}
+			}
+
+			if($vi === NULL)
+			{
+				continue;
+			}
+
+			$exists = FALSE;
+			foreach($catalog['vendors'][$vi]['models'] as $m)
+			{
+				if($m['id'] === $model_id)
+				{
+					$exists = TRUE;
+					break;
+				}
+			}
+
+			if($exists)
+			{
+				continue;
+			}
+
+			$match = isset($entry['match']) && is_array($entry['match']) ? $entry['match'] : array();
+			if(!count($match) && isset($entry['hint']))
+			{
+				$match = array($entry['hint']);
+			}
+
+			$new_model = array(
+				'id' => $model_id,
+				'title' => isset($entry['suggested_title']) ? $entry['suggested_title'] : $model_id,
+				'match' => $match,
+				'dss_slots' => isset($entry['dss_slots']) ? intval($entry['dss_slots']) : 16,
+				'sections' => isset($entry['sections']) && is_array($entry['sections'])
+					? $entry['sections']
+					: $this->default_sections_for_vendor($vendor),
+			);
+
+			$insert_at = count($catalog['vendors'][$vi]['models']);
+			foreach($catalog['vendors'][$vi]['models'] as $mi => $m)
+			{
+				if($this->is_catalog_fallback_model_id($m['id']))
+				{
+					$insert_at = $mi;
+					break;
+				}
+			}
+
+			array_splice($catalog['vendors'][$vi]['models'], $insert_at, 0, array($new_model));
+			$added++;
+		}
+
+		if($added > 0)
+		{
+			$this->save_catalog($catalog);
+			$this->write_catalog_file($catalog);
+			$this->scan(TRUE);
+		}
+
+		return $added;
+	}
+
+	private function write_catalog_file($catalog)
+	{
+		$path = ROOT_DIR.'config/tftpboot_catalog.json';
+		$json = json_encode($catalog, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+		if($json === FALSE)
+		{
+			return FALSE;
+		}
+
+		return @file_put_contents($path, $json."\n") !== FALSE;
+	}
+
 	public function match_model($vendor, $model_hint, $catalog)
 	{
 		foreach($catalog['vendors'] as $v)
@@ -452,6 +717,11 @@ class TftpBoot
 			return TRUE;
 		}
 
+		if($force)
+		{
+			$this->reset_scan_suggestions();
+		}
+
 		$dir = tftpboot_dir();
 		if(!is_dir($dir))
 		{
@@ -532,6 +802,10 @@ class TftpBoot
 		if($vendor === 'fanvil' && $model === 'unknown')
 		{
 			$model = 'other';
+		}
+		if(!$override)
+		{
+			$this->note_scan_suggestion($vendor, $hint, $content, $model);
 		}
 		$mac = $this->mac_from_filename(basename($filename));
 		$phone = isset($parsed['phone']) ? $parsed['phone'] : '';

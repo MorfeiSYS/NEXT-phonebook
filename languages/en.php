@@ -46,7 +46,12 @@
 		'Permissions'				=> 'Permissions',
 		'UpLevel'					=> 'Up level',
 		'AdvancedSettings'			=> 'Advanced settings',
-		'Name'						=> 'Name',
+		'SettingsOpen'				=> 'Open',
+		'SettingsCardToolsDesc'		=> 'AD sync, export and import, API token, cache, password.',
+		'SettingsCardDefaultsDesc'	=> 'Default columns and theme for the directory.',
+		'SettingsCardPhoneDesc'		=> 'Phone catalog, name sync, LDAP policies.',
+		'SettingsDefaultsTitle'		=> 'Default settings',
+		'ConfigName'				=> 'Name',
 		'CurrentFolder'				=> 'Current folder',
 		'Date'						=> 'Date',
 		'UsageExample'				=> 'Usage example',
@@ -255,5 +260,8 @@
 		'TftpBootModeButtons'		=> 'Buttons only',
 		'TftpBootModeCustom'		=> 'Custom sections',
 		'TftpBootModeFull'			=> 'Full',
-		'TftpBootRescan'			=> 'Rescan tftpboot'
+		'TftpBootRescan'			=> 'Rescan tftpboot',
+		'TftpBootNewModelsIntro'	=> 'Scan found configs for models missing from the catalog. Add them to config/tftpboot_catalog.json?',
+		'TftpBootNewModelsLine'		=> '%1 — %2 (id: %3, DSS: %4, files: %5)',
+		'TftpBootCatalogModelsAdded'	=> 'Models added to catalog'
 	);

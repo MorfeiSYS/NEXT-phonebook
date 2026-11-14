@@ -24,9 +24,6 @@ if(!isset($tftpboot_is_admin))
 	<button type="button" class="tftpboot-tab active" data-tab="pick"><?php L('TftpBootTabPick') ?></button>
 	<button type="button" class="tftpboot-tab" data-tab="bulk"><?php L('TftpBootTabBulk') ?></button>
 	<button type="button" class="tftpboot-tab" data-tab="sync"><?php L('TftpBootTabSync') ?></button>
-	<?php if($tftpboot_is_admin) { ?>
-		<a class="tftpboot-tab-link" href="<?php ln('tftpboot_admin') ?>"><?php L('TftpBootAdmin') ?></a>
-	<?php } ?>
 </div>
 
 <div id="tftpboot-panel-pick" class="tftpboot-panel">
@@ -110,7 +107,10 @@ if(!isset($tftpboot_is_admin))
 			syncDiffSummary: <?php echo json_encode(LL('TftpBootSyncDiffSummary'), JSON_UNESCAPED_UNICODE); ?>,
 			syncApplyConfirm: <?php echo json_encode(LL('TftpBootSyncApplyConfirm'), JSON_UNESCAPED_UNICODE); ?>,
 			syncUndoConfirm: <?php echo json_encode(LL('TftpBootSyncUndoConfirm'), JSON_UNESCAPED_UNICODE); ?>,
-			syncConsensusNote: <?php echo json_encode(LL('TftpBootSyncConsensusNote'), JSON_UNESCAPED_UNICODE); ?>
+			syncConsensusNote: <?php echo json_encode(LL('TftpBootSyncConsensusNote'), JSON_UNESCAPED_UNICODE); ?>,
+			catalogNewModelsIntro: <?php echo json_encode(LL('TftpBootNewModelsIntro'), JSON_UNESCAPED_UNICODE); ?>,
+			catalogNewModelsLine: <?php echo json_encode(LL('TftpBootNewModelsLine'), JSON_UNESCAPED_UNICODE); ?>,
+			catalogModelsAdded: <?php echo json_encode(LL('TftpBootCatalogModelsAdded'), JSON_UNESCAPED_UNICODE); ?>
 		}
 	});
 </script>
