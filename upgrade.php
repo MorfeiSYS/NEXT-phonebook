@@ -97,6 +97,11 @@ require_once(ROOT_DIR.'inc.config.php');
 	require_once(ROOT_DIR.'inc.utils.php');
 	require_once(ROOT_DIR.'modules'.DIRECTORY_SEPARATOR.'Core.php');
 
+	if(!defined('DB_VERSION'))
+	{
+		define('DB_VERSION', 13);
+	}
+
 	$core = new Core(TRUE);
 	$core->load_ex('db', 'MySQLDB');
 	$core->load('UserAuth');
@@ -121,10 +126,11 @@ require_once(ROOT_DIR.'inc.config.php');
 	}
 	*/
 
-	echo "Upgrading...\n";
+	$upgrade_from = intval($core->Config->get_global('db_version', 0));
+	echo "Upgrading from DB version {$upgrade_from} to ".DB_VERSION."...\n";
 
-	//switch(intval($config['db_version']))
-	switch(intval($core->Config->get_global('db_version', 0)))
+	// Fall-through: from the current case through the latest schema step (one request).
+	switch($upgrade_from)
 	{
 		case 0:
 		{
@@ -561,7 +567,6 @@ require_once(ROOT_DIR.'inc.config.php');
 			}
 			echo "\n\nUpgrade to version 7 complete!\n";
 		}
-		break;
 
 		case 7:
 		{
@@ -579,7 +584,7 @@ require_once(ROOT_DIR.'inc.config.php');
 				echo 'ERROR['.__LINE__.']: '.$core->db->get_last_error().PHP_EOL;
 			}
 			echo "Set db_version = '8'...\n";
-			if(!$core->db->put(rpv("UPDATE @config SET `value` = 8, `description` = 'DB schema version. Do not change{!' WHERE `name` = 'db_version' LIMIT 1")))
+			if(!$core->db->put(rpv("UPDATE @config SET `value` = 8, `description` = 'DB schema version. Do not change!' WHERE `name` = 'db_version' LIMIT 1")))
 			{
 				echo 'ERROR['.__LINE__.']: '.$core->db->get_last_error().PHP_EOL;
 			}
@@ -590,7 +595,6 @@ require_once(ROOT_DIR.'inc.config.php');
 				copy(ROOT_DIR.'templates'.DIRECTORY_SEPARATOR.'map'.$i.'.png', ROOT_DIR.'photos'.DIRECTORY_SEPARATOR.'map'.$i.'.png');
 			}
 		}
-		break;
 
 		case 8:
 		{
@@ -611,7 +615,6 @@ require_once(ROOT_DIR.'inc.config.php');
 			}
 			echo "\n\nUpgrade to version 9 complete!\n";
 		}
-		break;
 
 		case 9:
 		{
@@ -632,7 +635,6 @@ require_once(ROOT_DIR.'inc.config.php');
 			}
 			echo "\n\nUpgrade to version 10 complete!\n";
 		}
-		break;
 
 		case 10:
 		{
@@ -648,10 +650,14 @@ require_once(ROOT_DIR.'inc.config.php');
 			}
 			echo "\n\nUpgrade to version 11 complete!\n";
 		}
-		break;
 
 		case 11:
 		{
+			echo "Widen @config.value for large JSON (tftpboot catalog)...\n";
+			if(!$core->db->put(rpv('ALTER TABLE `@config` MODIFY COLUMN `value` MEDIUMTEXT NOT NULL')))
+			{
+				echo 'ERROR['.__LINE__.']: '.$core->db->get_last_error().PHP_EOL;
+			}
 			echo "Create tftpboot tables...\n";
 			if(!$core->db->put(rpv('
 				CREATE TABLE IF NOT EXISTS `@tftpboot_file` (
@@ -723,18 +729,27 @@ require_once(ROOT_DIR.'inc.config.php');
 				'editor' => array('fanvil', 'cisco', 'yealink', 'grandstream', 'eltex'),
 				'bulk' => array('fanvil', 'cisco', 'yealink', 'grandstream', 'eltex'),
 			));
-			$core->db->put(rpv("INSERT INTO @config (`uid`, `name`, `value`, `description`) VALUES (0, 'tftpboot_catalog_json', {s0}, {s1}) ON DUPLICATE KEY UPDATE `value` = `value`", $default_catalog, 'TFTP phone vendor/model catalog'));
-			$core->db->put(rpv("INSERT INTO @config (`uid`, `name`, `value`, `description`) VALUES (0, 'tftpboot_vendor_enabled_json', {s0}, {s1}) ON DUPLICATE KEY UPDATE `value` = `value`", $default_vendors, 'Enabled vendors for editor and bulk'));
-			$core->db->put(rpv("INSERT INTO @config (`uid`, `name`, `value`, `description`) VALUES (0, 'tftpboot_sync_source', 'phonebook', {s0}) ON DUPLICATE KEY UPDATE `value` = `value`", 'Name sync source: api|phonebook|custom_url'));
-			$core->db->put(rpv("INSERT INTO @config (`uid`, `name`, `value`, `description`) VALUES (0, 'tftpboot_sync_api_url', '', {s0}) ON DUPLICATE KEY UPDATE `value` = `value`", 'API URL template with {NUMBER}'));
-			$core->db->put(rpv("INSERT INTO @config (`uid`, `name`, `value`, `description`) VALUES (0, 'tftpboot_sync_api_key', '', {s0}) ON DUPLICATE KEY UPDATE `value` = `value`", 'API key for sync'));
-			$core->db->put(rpv("INSERT INTO @config (`uid`, `name`, `value`, `description`) VALUES (0, 'tftpboot_sync_custom_url', '', {s0}) ON DUPLICATE KEY UPDATE `value` = `value`", 'Custom JSON URL for sync'));
-			$core->db->put(rpv("INSERT INTO @config (`uid`, `name`, `value`, `description`) VALUES (0, 'tftpboot_sync_auto', '0', {s0}) ON DUPLICATE KEY UPDATE `value` = `value`", 'Auto sync 0/1'));
-			$core->db->put(rpv("INSERT INTO @config (`uid`, `name`, `value`, `description`) VALUES (0, 'tftpboot_sync_auto_interval', '60', {s0}) ON DUPLICATE KEY UPDATE `value` = `value`", 'Auto sync interval minutes'));
-			$core->db->put(rpv("INSERT INTO @config (`uid`, `name`, `value`, `description`) VALUES (0, 'tftpboot_sync_fields', 'dss_title,display_name', {s0}) ON DUPLICATE KEY UPDATE `value` = `value`", 'Fields to sync'));
-			$core->db->put(rpv("INSERT INTO @config (`uid`, `name`, `value`, `description`) VALUES (0, 'tftpboot_scan_cache_ttl', '300', {s0}) ON DUPLICATE KEY UPDATE `value` = `value`", 'Scan cache TTL seconds'));
+			$tftpboot_cfg = array(
+				array('tftpboot_catalog_json', $default_catalog, 'TFTP phone vendor/model catalog'),
+				array('tftpboot_vendor_enabled_json', $default_vendors, 'Enabled vendors for editor and bulk'),
+				array('tftpboot_sync_source', 'phonebook', 'Name sync source: api|phonebook|custom_url'),
+				array('tftpboot_sync_api_url', '', 'API URL template with {NUMBER}'),
+				array('tftpboot_sync_api_key', '', 'API key for sync'),
+				array('tftpboot_sync_custom_url', '', 'Custom JSON URL for sync'),
+				array('tftpboot_sync_auto', '0', 'Auto sync 0/1'),
+				array('tftpboot_sync_auto_interval', '60', 'Auto sync interval minutes'),
+				array('tftpboot_sync_fields', 'dss_title,display_name', 'Fields to sync'),
+				array('tftpboot_scan_cache_ttl', '300', 'Scan cache TTL seconds'),
+			);
 			$cron_key = function_exists('random_bytes') ? bin2hex(random_bytes(16)) : md5(uniqid('tftpboot', TRUE));
-			$core->db->put(rpv("INSERT INTO @config (`uid`, `name`, `value`, `description`) VALUES (0, 'tftpboot_sync_cron_key', {s0}, {s1}) ON DUPLICATE KEY UPDATE `value` = `value`", $cron_key, 'Cron key for tftpboot_sync_run'));
+			$tftpboot_cfg[] = array('tftpboot_sync_cron_key', $cron_key, 'Cron key for tftpboot_sync_run');
+			foreach($tftpboot_cfg as $cfg_row)
+			{
+				if(!$core->db->put(rpv("INSERT INTO @config (`uid`, `name`, `value`, `description`) VALUES (0, {s0}, {s1}, {s2}) ON DUPLICATE KEY UPDATE `value` = {s1}", $cfg_row[0], $cfg_row[1], $cfg_row[2])))
+				{
+					echo 'ERROR['.__LINE__.']: '.$core->db->get_last_error().PHP_EOL;
+				}
+			}
 			echo "Set db_version = '12'...\n";
 			if(!$core->db->put(rpv("UPDATE @config SET `value` = 12 WHERE `uid` = 0 AND `name` = 'db_version' LIMIT 1")))
 			{
@@ -742,7 +757,6 @@ require_once(ROOT_DIR.'inc.config.php');
 			}
 			echo "\n\nUpgrade to version 12 complete!\n";
 		}
-		break;
 
 		case 12:
 		{
@@ -763,11 +777,10 @@ require_once(ROOT_DIR.'inc.config.php');
 			}
 			echo "\n\nUpgrade to version 13 complete!\n";
 		}
-		break;
 
 		case 13:
 		{
-			echo "Upgrade doesn't required\n";
+			echo "\nDatabase schema is up to date (version ".DB_VERSION.").\n";
 		}
 		break;
 

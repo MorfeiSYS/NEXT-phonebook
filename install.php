@@ -125,7 +125,7 @@ EOT
 CREATE TABLE `#DB_NAME#`.`pb_config` (
   `uid` int(10) unsigned NOT NULL,
   `name` varchar(255) NOT NULL DEFAULT '',
-  `value` varchar(8192) NOT NULL DEFAULT '',
+  `value` mediumtext NOT NULL,
   `description` varchar(2048) DEFAULT NULL,
   PRIMARY KEY (`name`,`uid`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;

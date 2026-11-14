@@ -22,6 +22,7 @@
 
 ### Fixed
 
+- `upgrade.php`: одним запуском — все шаги с текущей `db_version` до `DB_VERSION` (fall-through); расширение `pb_config.value` до MEDIUMTEXT; исправлен SQL описания `db_version` на шаге 8.
 - TFTP синхронизация (Fanvil): при «Применить изменения» пустые DSS-ячейки сбрасываются в Type 0; AUTO / F_SMS / F_MWI / F_RECORD приводятся к Type 2/3 как в редакторе «Выбор телефона».
 - Настройки → «Очистить memcached»: исправлен URL (`memcached_flush` вместо несуществующего `flush_memcached`).
 
