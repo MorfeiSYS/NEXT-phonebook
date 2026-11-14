@@ -69,7 +69,7 @@ require_once(ROOT_DIR.'inc.config.php');
 		exit;
 	}
 
-	header("Content-Type: text/plain; charset=utf-8");
+	ob_start();
 
 	if(!defined('DB_RW_HOST') || !defined('DB_USER') || !defined('DB_PASSWD') || !defined('DB_NAME') || !defined('DB_CPAGE') || !defined('DB_PREFIX') || !defined('USE_LDAP') || !defined('PB_LDAP_FILTER') || !defined('WEB_URL'))
 	{
@@ -789,3 +789,22 @@ require_once(ROOT_DIR.'inc.config.php');
 			echo "ERROR: Unknown DB version\n";
 		}
 	}
+
+	$upgrade_output = ob_get_clean();
+	$redirect_url = defined('WEB_URL') ? rtrim(WEB_URL, '/').'/' : './';
+	header('Content-Type: text/html; charset=utf-8');
+?><!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8" />
+		<title>Upgrade LDAP phonebook</title>
+	</head>
+	<body>
+		<pre><?php echo htmlspecialchars($upgrade_output, ENT_QUOTES, 'UTF-8'); ?></pre>
+		<p>Redirecting to the home page in 10 seconds… <a href="<?php echo htmlspecialchars($redirect_url, ENT_QUOTES, 'UTF-8'); ?>">Go now</a></p>
+		<script>
+			setTimeout(function () { window.location.href = <?php echo json_encode($redirect_url); ?>; }, 10000);
+		</script>
+	</body>
+</html>
+<?php
