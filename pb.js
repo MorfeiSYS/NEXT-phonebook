@@ -34,6 +34,61 @@ function escapeHtml(text)
       .replace(/'/g, "&#039;");
 }
 
+function tftpboot_moderation_update_count(n) {
+	n = parseInt(n, 10);
+	if (isNaN(n) || n < 0) n = 0;
+	var tab = document.querySelector('.tftpboot-tab-moderation');
+	if (tab) {
+		var countEl = tab.querySelector('.tftpboot-moderation-tab-count');
+		if (countEl) {
+			countEl.textContent = n > 0 ? ' (' + n + ')' : '';
+		}
+		tab.classList.toggle('tftpboot-moderation-pending', n > 0);
+	}
+	var menu = document.getElementById('menu-tftpboot-link');
+	if (menu) {
+		var badge = menu.querySelector('.menu-tftpboot-badge');
+		if (!badge) {
+			badge = document.createElement('span');
+			badge.className = 'menu-tftpboot-badge';
+			menu.appendChild(document.createTextNode(' '));
+			menu.appendChild(badge);
+		}
+		badge.textContent = n > 0 ? '(' + n + ')' : '';
+		badge.style.display = n > 0 ? '' : 'none';
+		menu.classList.toggle('menu-tftpboot-pending', n > 0);
+	}
+}
+
+var g_tftpboot_moderation_poll_timer = null;
+
+function tftpboot_moderation_poll_tick() {
+	if (!window.g_tftpboot_can_moderate) return;
+	if (typeof document.hidden !== 'undefined' && document.hidden) return;
+	f_http(
+		g_link_prefix + 'tftpboot_moderation_pending',
+		function (res) {
+			if (res && res.code === 0 && typeof res.pending_count === 'number') {
+				tftpboot_moderation_update_count(res.pending_count);
+			}
+		},
+		null,
+		'application/json',
+		'{}'
+	);
+}
+
+function tftpboot_moderation_poll_start() {
+	if (!window.g_tftpboot_can_moderate) return;
+	var sec = parseInt(window.g_tftpboot_moderation_poll_sec, 10);
+	if (isNaN(sec) || sec < 60) sec = 60;
+	if (g_tftpboot_moderation_poll_timer) {
+		clearInterval(g_tftpboot_moderation_poll_timer);
+		g_tftpboot_moderation_poll_timer = null;
+	}
+	g_tftpboot_moderation_poll_timer = setInterval(tftpboot_moderation_poll_tick, sec * 1000);
+}
+
 function json2url(data)
 {
 	return Object.keys(data).map(
@@ -2135,7 +2190,7 @@ function autocomplete_destroy(e)
         if (!readyFired) {
             // this must be set to true before we start calling callbacks
             readyFired = true;
-            // TODO: Enter your code here
+            tftpboot_moderation_poll_start();
 
 			/*execute a function when someone clicks in the document:*/
         	if(document.addEventListener)

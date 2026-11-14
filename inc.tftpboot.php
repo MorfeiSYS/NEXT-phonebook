@@ -347,6 +347,95 @@ function tftpboot_special_dial_token($number)
 	return '';
 }
 
+function tftpboot_normalize_star_dial_core($core)
+{
+	$core = preg_replace('/[^\d*]/', '', (string)$core);
+	if($core === '' || $core[0] !== '*')
+	{
+		return '';
+	}
+	if(strlen($core) >= 2 && $core[1] === '*')
+	{
+		return '**';
+	}
+	if(strlen($core) >= 2)
+	{
+		return $core[1] === '8' ? '*8' : '*';
+	}
+
+	return '*';
+}
+
+function tftpboot_is_valid_star_dial($core)
+{
+	return $core === '**' || $core === '*8';
+}
+
+function tftpboot_validate_dial_entry($label, $number)
+{
+	$label = trim((string)$label);
+	$number = trim((string)$number);
+	$spec = tftpboot_special_dial_token($number);
+	if($spec !== '')
+	{
+		return '';
+	}
+	if($number !== '' && preg_match('/^(\*[\d*]+)(@1\/[a-z]+)?$/i', $number, $m))
+	{
+		$core = tftpboot_normalize_star_dial_core($m[1]);
+		if($core !== '' && !tftpboot_is_valid_star_dial($core))
+		{
+			return LL('TftpBootStarDialInvalid');
+		}
+	}
+	elseif(preg_match('/^\*/', $number))
+	{
+		$core = tftpboot_normalize_star_dial_core($number);
+		if($core !== '' && !tftpboot_is_valid_star_dial($core))
+		{
+			return LL('TftpBootStarDialInvalid');
+		}
+	}
+	if($label === '' && $number === '')
+	{
+		return '';
+	}
+	if($label !== '' && $number === '')
+	{
+		return LL('TftpBootDialNumberRequired');
+	}
+	if($number !== '' && $label === '')
+	{
+		return LL('TftpBootDialLabelRequired');
+	}
+
+	return '';
+}
+
+function tftpboot_validate_speed_dial_post(&$post)
+{
+	$err = '';
+	if(isset($post['speedDialKeys']) && is_array($post['speedDialKeys']))
+	{
+		foreach($post['speedDialKeys'] as $k)
+		{
+			if(!is_array($k))
+			{
+				continue;
+			}
+			$label = isset($k['label']) ? $k['label'] : '';
+			$number = isset($k['number']) ? $k['number'] : '';
+			$err = tftpboot_validate_dial_entry($label, $number);
+			if($err !== '')
+			{
+				return $err;
+			}
+		}
+	}
+
+	return '';
+}
+
 function tftpboot_sanitize_dial_suffix($suffix)
 {
 	$suffix = trim((string)$suffix);
@@ -375,15 +464,7 @@ function tftpboot_sanitize_speed_dial_number($number, $allow_special = TRUE)
 	}
 	if(preg_match('/^(\*[\d*]+)(@1\/[a-z]+)?$/i', $raw, $m))
 	{
-		$core = preg_replace('/[^\d*]/', '', $m[1]);
-		if(preg_match('/^\*+$/', $core) && strlen($core) > 2)
-		{
-			$core = '**';
-		}
-		if(strlen($core) > 12)
-		{
-			$core = substr($core, 0, 12);
-		}
+		$core = tftpboot_normalize_star_dial_core($m[1]);
 		if(!empty($m[2]))
 		{
 			return $core.tftpboot_sanitize_dial_suffix($m[2]);
@@ -393,17 +474,7 @@ function tftpboot_sanitize_speed_dial_number($number, $allow_special = TRUE)
 	}
 	if(preg_match('/^\*/', $raw))
 	{
-		$core = preg_replace('/[^\d*]/', '', $raw);
-		if(preg_match('/^\*+$/', $core) && strlen($core) > 2)
-		{
-			$core = '**';
-		}
-		if(strlen($core) > 12)
-		{
-			$core = substr($core, 0, 12);
-		}
-
-		return $core;
+		return tftpboot_normalize_star_dial_core($raw);
 	}
 	$digits = preg_replace('/\D+/', '', $raw);
 	if(strlen($digits) > 11)
@@ -437,6 +508,17 @@ function tftpboot_sanitize_speed_dial_post(&$post)
 		}
 	}
 	unset($k);
+}
+
+function tftpboot_assert_valid_speed_dial_post(&$post)
+{
+	tftpboot_sanitize_speed_dial_post($post);
+	$err = tftpboot_validate_speed_dial_post($post);
+	if($err !== '')
+	{
+		tftpboot_json_send(array('code' => 1, 'message' => $err));
+		exit;
+	}
 }
 
 function tftpboot_self_contact(&$core)
@@ -609,6 +691,27 @@ function user_can_tftpboot_moderate(&$core)
 	}
 
 	return user_is_operator() && user_has_tftpboot_access($core);
+}
+
+function tftpboot_moderation_pending_count(&$core)
+{
+	if(!user_can_tftpboot_moderate($core))
+	{
+		return 0;
+	}
+
+	return tftpboot_instance($core)->count_moderation_pending();
+}
+
+function tftpboot_moderation_poll_interval_sec(&$core)
+{
+	$n = intval($core->Config->get_global('tftpboot_moderation_poll_interval', '60'));
+	if($n < 60)
+	{
+		$n = 60;
+	}
+
+	return $n;
 }
 
 function assert_tftpboot_moderate_ajax(&$core)

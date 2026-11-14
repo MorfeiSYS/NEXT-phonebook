@@ -117,13 +117,12 @@ class TftpFanvilParser
 
 		if(preg_match('/^(\*[\d*]+)(@1\/[a-z]+)?$/i', $val, $m))
 		{
-			$core = $m[1];
-			if(preg_match('/^\*+$/', $core) && strlen($core) > 2)
+			if(function_exists('tftpboot_normalize_star_dial_core'))
 			{
-				$core = '**';
+				return tftpboot_normalize_star_dial_core($m[1]);
 			}
 
-			return $core;
+			return $m[1];
 		}
 
 		if(preg_match('/^(\d+)/', $val, $m))

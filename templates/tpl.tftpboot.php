@@ -48,7 +48,7 @@ $tftpboot_editor_save_label = $tftpboot_self_only ? LL('TftpBootSubmitModeration
 	<button type="button" class="tftpboot-tab" data-tab="bulk"><?php L('TftpBootTabBulk') ?></button>
 	<button type="button" class="tftpboot-tab" data-tab="sync"><?php L('TftpBootTabSync') ?></button>
 	<?php if($tftpboot_can_moderate) { ?>
-	<button type="button" class="tftpboot-tab tftpboot-tab-moderation" data-tab="moderation"><?php L('TftpBootTabModeration') ?><?php if($tftpboot_pending_count > 0) { ?> (<?php echo intval($tftpboot_pending_count); ?>)<?php } ?></button>
+	<button type="button" class="tftpboot-tab tftpboot-tab-moderation<?php if($tftpboot_pending_count > 0) echo ' tftpboot-moderation-pending'; ?>" data-tab="moderation" data-moderation-label="<?php eh(LL('TftpBootTabModeration')); ?>"><span class="tftpboot-moderation-tab-label"><?php L('TftpBootTabModeration') ?></span><span class="tftpboot-moderation-tab-count"><?php if($tftpboot_pending_count > 0) { ?> (<?php echo intval($tftpboot_pending_count); ?>)<?php } ?></span></button>
 	<?php } ?>
 </div>
 
@@ -151,6 +151,7 @@ $tftpboot_editor_save_label = $tftpboot_self_only ? LL('TftpBootSubmitModeration
 		isAdmin: <?php echo $tftpboot_is_admin ? '1' : '0'; ?>,
 		selfOnly: <?php echo $tftpboot_self_only ? '1' : '0'; ?>,
 		canModerate: <?php echo $tftpboot_can_moderate ? '1' : '0'; ?>,
+		moderationPendingCount: <?php echo intval($tftpboot_pending_count); ?>,
 		bulkVendors: <?php echo json_encode($tftpboot_enabled_bulk, JSON_UNESCAPED_UNICODE); ?>,
 		bulkPageSize: <?php echo intval($tftpboot_bulk_page_size); ?>,
 		syncApiFetch: <?php echo !empty($tftpboot_sync_api_fetch) ? '1' : '0'; ?>,
@@ -190,6 +191,9 @@ $tftpboot_editor_save_label = $tftpboot_self_only ? LL('TftpBootSubmitModeration
 			selfStatusPending: <?php echo json_encode(LL('TftpBootModerationSelfPending'), JSON_UNESCAPED_UNICODE); ?>,
 			selfStatusRejected: <?php echo json_encode(LL('TftpBootModerationSelfRejected'), JSON_UNESCAPED_UNICODE); ?>,
 			dialNumberHint: <?php echo json_encode(LL('TftpBootDialNumberHint'), JSON_UNESCAPED_UNICODE); ?>,
+			starDialInvalid: <?php echo json_encode(LL('TftpBootStarDialInvalid'), JSON_UNESCAPED_UNICODE); ?>,
+			dialLabelRequired: <?php echo json_encode(LL('TftpBootDialLabelRequired'), JSON_UNESCAPED_UNICODE); ?>,
+			dialNumberRequired: <?php echo json_encode(LL('TftpBootDialNumberRequired'), JSON_UNESCAPED_UNICODE); ?>,
 			moderationReview: <?php echo json_encode(LL('TftpBootModerationReview'), JSON_UNESCAPED_UNICODE); ?>,
 			moderationLoading: <?php echo json_encode(LL('TftpBootModerationLoading'), JSON_UNESCAPED_UNICODE); ?>,
 			moderationNoDiff: <?php echo json_encode(LL('TftpBootModerationNoDiff'), JSON_UNESCAPED_UNICODE); ?>

@@ -53,6 +53,17 @@ function tftpboot_admin_catalog_save(&$core, $params, $post_data)
 		$core->Config->set_global('tftpboot_bulk_page_size', (string) $n);
 	}
 
+	if(isset($post_data['moderation_poll_interval']))
+	{
+		$n = intval($post_data['moderation_poll_interval']);
+		if($n < 60)
+		{
+			$n = 60;
+		}
+
+		$core->Config->set_global('tftpboot_moderation_poll_interval', (string) $n);
+	}
+
 	log_db('tftpboot admin catalog save', '', 0);
 	tftpboot_json_send(array('code' => 0, 'message' => LL('Save')));
 }

@@ -657,6 +657,7 @@ function exception_handler_ajax($exception)
 			$core->Router->add_route('tftpboot_moderation_get', 'tftpboot_moderation_get', TRUE);
 			$core->Router->add_route('tftpboot_moderation_approve', 'tftpboot_moderation_approve', TRUE);
 			$core->Router->add_route('tftpboot_moderation_reject', 'tftpboot_moderation_reject', TRUE);
+			$core->Router->add_route('tftpboot_moderation_pending', 'tftpboot_moderation_pending', TRUE);
 		}
 
 		if(user_is_admin())

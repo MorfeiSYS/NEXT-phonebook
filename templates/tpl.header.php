@@ -15,6 +15,8 @@
 		<script>
 			is_admin = <?php echo (user_is_admin() ? '1' : '0'); ?>;
 			is_operator = <?php echo (user_is_operator() ? '1' : '0'); ?>;
+			g_tftpboot_can_moderate = <?php echo ($core->UserAuth->get_id() && user_can_tftpboot_moderate($core) ? '1' : '0'); ?>;
+			g_tftpboot_moderation_poll_sec = <?php echo ($core->UserAuth->get_id() && user_can_tftpboot_moderate($core)) ? intval(tftpboot_moderation_poll_interval_sec($core)) : 60; ?>;
 			g_link_prefix = '<?php echo WEB_LINK_PREFIX; ?>';
 			g_link_static_prefix = '<?php echo WEB_LINK_STATIC_PREFIX; ?>';
 			g_map_image_urls = <?php echo json_encode(isset($g_maps_catalog_js_urls) ? $g_maps_catalog_js_urls : array(), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); ?>;
@@ -42,8 +44,11 @@
 				</ul>
 			</li>
 			<li><a href="<?php ln('all') ?>"><?php L('ShowAll') ?></a></li>
-			<?php if($core->UserAuth->get_id() && user_has_tftpboot_menu($core)) { ?>
-				<li><a href="<?php ln('tftpboot') ?>"><?php L('TftpBootTitle') ?></a></li>
+			<?php if($core->UserAuth->get_id() && user_has_tftpboot_menu($core)) {
+				$__tftpboot_menu_pending = tftpboot_moderation_pending_count($core);
+				$__tftpboot_menu_mod = user_can_tftpboot_moderate($core);
+			?>
+				<li><a href="<?php ln('tftpboot') ?>" id="menu-tftpboot-link" class="<?php if($__tftpboot_menu_mod && $__tftpboot_menu_pending > 0) echo 'menu-tftpboot-pending'; ?>" data-menu-label="<?php eh(LL('TftpBootTitle')); ?>"><?php L('TftpBootTitle') ?><?php if($__tftpboot_menu_mod && $__tftpboot_menu_pending > 0) { ?> <span class="menu-tftpboot-badge">(<?php echo intval($__tftpboot_menu_pending); ?>)</span><?php } ?></a></li>
 			<?php } ?>
 			<?php if($core->UserAuth->get_id()) { ?>
 				<?php if(user_is_admin()) { ?>
