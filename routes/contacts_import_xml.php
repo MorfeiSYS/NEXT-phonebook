@@ -62,6 +62,8 @@ function contacts_import_xml(&$core, $params, $post_data)
 		}
 	}
 
+	log_db('Import XML', '{ok='.$result_ok.',fail='.$result_fail.'}', 0);
+
 	echo '{"code": 0, "ok": '.$result_ok.', "fail": '.$result_fail.', "message": "XML imported (OK: '.$result_ok.', FAIL: '.$result_fail.')"}';
 }
 

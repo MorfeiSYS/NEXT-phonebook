@@ -8,6 +8,8 @@ function contact_hide(&$core, $params, $post_data)
 
 	$core->db->put(rpv('UPDATE `@contacts` SET `flags` = (`flags` & ~{%PB_CONTACT_VISIBLE}) WHERE `id` = # LIMIT 1', $id));
 
+	log_db('Hide contact', '{id='.$id.'}', 0);
+
 	echo '{"code": 0, "message": "Successful hide (ID '.$id.')"}';
 }
 

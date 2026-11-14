@@ -20,6 +20,7 @@ function tftpboot_catalog_add_suggested(&$core, $params, $post_data)
 		exit;
 	}
 
+	log_db('tftpboot catalog add models', '{added='.$n.'}', 0);
 	tftpboot_json_send(array(
 		'code' => 0,
 		'message' => LL('TftpBootCatalogModelsAdded').' ('.$n.')',

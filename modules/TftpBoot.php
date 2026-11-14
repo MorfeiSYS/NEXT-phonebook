@@ -9,15 +9,16 @@ require_once MODULES_DIR.'tftpboot'.DIRECTORY_SEPARATOR.'sync'.DIRECTORY_SEPARAT
 
 class TftpBoot
 {
-	private $core;
-	private $fanvil;
-	private $cisco;
-	private $yealink;
-	private $grandstream;
-	private $eltex;
-	private $scan_suggested_models = array();
+	private Core $core;
+	private TftpFanvilParser $fanvil;
+	private TftpCiscoXmlParser $cisco;
+	private TftpYealinkParser $yealink;
+	private TftpGrandstreamParser $grandstream;
+	private TftpEltexParser $eltex;
+	/** @var list<array<string, mixed>> */
+	private array $scan_suggested_models = array();
 
-	public function __construct(&$core)
+	public function __construct(Core &$core)
 	{
 		$this->core = $core;
 		$this->fanvil = new TftpFanvilParser();
@@ -965,21 +966,71 @@ class TftpBoot
 		return $uniq;
 	}
 
+	private function vendor_tree_title($vendor)
+	{
+		$title = isset($vendor['title']) ? trim($vendor['title']) : '';
+		if($title === '' && isset($vendor['id']))
+		{
+			$title = $vendor['id'];
+		}
+
+		if($title === '')
+		{
+			return '';
+		}
+
+		return mb_strtoupper(mb_substr($title, 0, 1, 'UTF-8'), 'UTF-8').mb_substr($title, 1, NULL, 'UTF-8');
+	}
+
+	private function sort_tree_models(&$models)
+	{
+		usort($models, function($a, $b)
+		{
+			if($a['id'] === 'other')
+			{
+				return 1;
+			}
+
+			if($b['id'] === 'other')
+			{
+				return -1;
+			}
+
+			return strnatcasecmp($a['title'], $b['title']);
+		});
+	}
+
 	public function get_tree()
 	{
 		$this->scan(FALSE);
 		$catalog = $this->get_catalog();
 		$enabled = $this->get_enabled_vendors('editor');
 		$tree = array();
+		$vendors = isset($catalog['vendors']) && is_array($catalog['vendors']) ? $catalog['vendors'] : array();
 
-		foreach($catalog['vendors'] as $v)
+		usort($vendors, function($a, $b)
+		{
+			$sa = isset($a['sort']) ? intval($a['sort']) : 50;
+			$sb = isset($b['sort']) ? intval($b['sort']) : 50;
+			if($sa !== $sb)
+			{
+				return $sa - $sb;
+			}
+
+			return strnatcasecmp(
+				isset($a['title']) ? $a['title'] : $a['id'],
+				isset($b['title']) ? $b['title'] : $b['id']
+			);
+		});
+
+		foreach($vendors as $v)
 		{
 			if(!in_array($v['id'], $enabled, TRUE) && $v['id'] !== 'unknown')
 			{
 				continue;
 			}
 
-			$vnode = array('id' => $v['id'], 'title' => $v['title'], 'models' => array());
+			$vnode = array('id' => $v['id'], 'title' => $this->vendor_tree_title($v), 'models' => array());
 			foreach($v['models'] as $m)
 			{
 				$files = array();
@@ -1009,6 +1060,7 @@ class TftpBoot
 				);
 			}
 
+			$this->sort_tree_models($vnode['models']);
 			$tree[] = $vnode;
 		}
 
@@ -1034,6 +1086,12 @@ class TftpBoot
 		$parsed = $this->parse_content($vendor, $content);
 		$mac = $this->mac_from_filename(basename($filename));
 
+		$editor_keys = isset($parsed['speedDialKeys']) ? $parsed['speedDialKeys'] : array();
+		if($vendor === 'fanvil')
+		{
+			$editor_keys = $this->fanvil->editor_speed_dial_keys($parsed);
+		}
+
 		$out = array(
 			'filename' => $filename,
 			'vendor' => $vendor,
@@ -1041,7 +1099,7 @@ class TftpBoot
 			'label' => tftpboot_display_label($parsed['phone'], $mac),
 			'phone' => $parsed['phone'],
 			'displayName' => isset($parsed['displayName']) ? $parsed['displayName'] : '',
-			'speedDialKeys' => isset($parsed['speedDialKeys']) ? $parsed['speedDialKeys'] : array(),
+			'speedDialKeys' => $editor_keys,
 			'policy' => $policy,
 		);
 
@@ -1094,13 +1152,29 @@ class TftpBoot
 		$new_content = $content;
 		$mode = $policy['mode'];
 
-		if(isset($post['speedDialKeys']) && is_array($post['speedDialKeys']))
+		if($vendor === 'fanvil')
 		{
-			if($vendor === 'fanvil')
+			$lines = $parsed['lines'];
+			$keys_raw = $parsed['keys_raw'];
+
+			if(isset($post['clear_key_ids']) && is_array($post['clear_key_ids']) && count($post['clear_key_ids']))
 			{
-				$new_content = $this->fanvil->apply_speed_dials($parsed['lines'], $parsed['keys_raw'], $post['speedDialKeys'], $parsed['dss_index']);
+				$this->fanvil->clear_dss_keys($lines, $keys_raw, $post['clear_key_ids']);
 			}
-			elseif($vendor === 'cisco')
+
+			if(isset($post['speedDialKeys']) && is_array($post['speedDialKeys']))
+			{
+				$new_content = $this->fanvil->apply_speed_dials($lines, $keys_raw, $post['speedDialKeys'], $parsed['dss_index']);
+			}
+			elseif(isset($post['clear_key_ids']) && is_array($post['clear_key_ids']) && count($post['clear_key_ids']))
+			{
+				$new_content = implode("\n", $lines);
+			}
+		}
+
+		if(isset($post['speedDialKeys']) && is_array($post['speedDialKeys']) && $vendor !== 'fanvil')
+		{
+			if($vendor === 'cisco')
 			{
 				$new_content = $this->cisco->apply_speed_dials($content, $post['speedDialKeys']);
 			}
@@ -1115,12 +1189,6 @@ class TftpBoot
 		{
 			$lines = preg_split('/\r\n|\r|\n/', $new_content);
 			$new_content = $this->fanvil->apply_sip_fields($lines, $post['sip']);
-		}
-
-		if(isset($post['slot_order']) && is_array($post['slot_order']) && $vendor === 'fanvil')
-		{
-			$reparsed = $this->fanvil->parse($new_content);
-			$new_content = $this->fanvil->remap_slots($reparsed, $post['slot_order']);
 		}
 
 		if(isset($post['displayName']) && ($mode === 'full' || in_array('sip', $policy['sections'], TRUE)))
@@ -1478,6 +1546,69 @@ class TftpBoot
 		}
 
 		$this->reindex_files($touched);
+
+		return $keys_ok;
+	}
+
+	/**
+	 * @param list<string> $vendors
+	 */
+	public function sync_normalize_fkeys(array $vendors): int
+	{
+		$this->ensure_dial_keys_column();
+		if(!count($vendors))
+		{
+			return 0;
+		}
+
+		$rows = array();
+		if(!$this->core->db->select_assoc_ex($rows, rpv(
+			'SELECT `filename`, `vendor` FROM `@tftpboot_file` WHERE `vendor` IN ({r0}) ORDER BY `filename`',
+			$this->vendors_in_sql($vendors)
+		)))
+		{
+			return 0;
+		}
+
+		$keys_ok = 0;
+		$touched = array();
+
+		foreach($rows as $r)
+		{
+			if($r['vendor'] !== 'fanvil')
+			{
+				continue;
+			}
+
+			$path = $this->resolve_path($r['filename']);
+			if(!$path)
+			{
+				continue;
+			}
+
+			$content = file_get_contents($path);
+			$parsed = $this->parse_content('fanvil', $content);
+			$lines = $parsed['lines'];
+			$keys_raw = $parsed['keys_raw'];
+			$n = $this->fanvil->normalize_editable_fkeys($lines, $keys_raw);
+			if($n <= 0)
+			{
+				continue;
+			}
+
+			$this->backup_file($path);
+			$new = implode("\n", $lines);
+			if(file_put_contents($path, $new))
+			{
+				$keys_ok += $n;
+				$touched[] = $r['filename'];
+			}
+		}
+
+		if(count($touched))
+		{
+			$this->reindex_files($touched);
+		}
 
 		return $keys_ok;
 	}
@@ -1842,7 +1973,11 @@ class TftpBoot
 		return $diff;
 	}
 
-	public function apply_sync_diff($items, $vendors)
+	/**
+	 * @param list<array<string, mixed>> $items
+	 * @param list<string> $vendors
+	 */
+	public function apply_sync_diff(array $items, array $vendors): int
 	{
 		if(!is_array($vendors))
 		{
@@ -1883,6 +2018,8 @@ class TftpBoot
 		{
 			$n += $this->bulk_delete_keys($deletes, $vendors);
 		}
+
+		$n += $this->sync_normalize_fkeys($vendors);
 
 		return $n;
 	}

@@ -2,14 +2,93 @@
 
 class TftpFanvilParser
 {
-	private function section_id($name)
+	private function section_id($name, $dss_index = 0)
 	{
-		return preg_replace('/\s+/', ' ', strtolower(trim($name)));
+		$id = preg_replace('/\s+/', ' ', strtolower(trim($name)));
+
+		return 'm'.intval($dss_index).'/'.$id;
+	}
+
+	private function dial_suffix_from_value($val)
+	{
+		$val = trim((string)$val);
+		if($val !== '' && preg_match('/^\d+(.*)$/', $val, $m))
+		{
+			return $m[1];
+		}
+
+		return '';
+	}
+
+	private function section_is_dial_editable($section_title)
+	{
+		$t = strtolower(trim((string)$section_title));
+		if($t === '')
+		{
+			return FALSE;
+		}
+
+		if(strpos($t, 'softdss') !== FALSE)
+		{
+			return TRUE;
+		}
+
+		if(strpos($t, 'sidekey') !== FALSE)
+		{
+			return TRUE;
+		}
+
+		if(preg_match('/dsskey\s*config/', $t))
+		{
+			return TRUE;
+		}
+
+		return FALSE;
 	}
 
 	private function key_id($section, $slot)
 	{
 		return $section.'#'.$slot;
+	}
+
+	private function normalize_type2_line_value($raw)
+	{
+		$v = strtoupper(trim((string)$raw));
+		if($v === 'AUTO')
+		{
+			return 'AUTO';
+		}
+
+		if(preg_match('/^SIP\d+$/', $v))
+		{
+			return $v;
+		}
+
+		return NULL;
+	}
+
+	private function normalize_type3_line_value($raw)
+	{
+		$v = strtoupper(trim((string)$raw));
+		static $codes = array('F_SMS', 'F_MWI', 'F_RECORD');
+		if(in_array($v, $codes, TRUE))
+		{
+			return $v;
+		}
+
+		return NULL;
+	}
+
+	private function default_title_type3($code)
+	{
+		$code = strtoupper(trim((string)$code));
+		static $map = array(
+			'F_SMS' => 'СМС',
+			'F_MWI' => 'Почта',
+			'F_RECORD' => 'Запись',
+		);
+
+		return isset($map[$code]) ? $map[$code] : '';
 	}
 
 	private function number_from_value($val)
@@ -20,12 +99,82 @@ class TftpFanvilParser
 			return '';
 		}
 
+		$t2 = $this->normalize_type2_line_value($val);
+		if($t2 !== NULL)
+		{
+			return $t2;
+		}
+
+		$t3 = $this->normalize_type3_line_value($val);
+		if($t3 !== NULL)
+		{
+			return $t3;
+		}
+
 		if(preg_match('/^(\d+)/', $val, $m))
 		{
 			return $m[1];
 		}
 
 		return $val;
+	}
+
+	private function is_type2_line_fkey($k)
+	{
+		$val = isset($k['value']) ? $k['value'] : '';
+		$type = isset($k['type']) ? intval($k['type']) : 0;
+
+		return $type === 2 && $this->normalize_type2_line_value($val) !== NULL;
+	}
+
+	private function is_type3_line_fkey($k)
+	{
+		$val = isset($k['value']) ? $k['value'] : '';
+		$type = isset($k['type']) ? intval($k['type']) : 0;
+
+		return $type === 3 && $this->normalize_type3_line_value($val) !== NULL;
+	}
+
+	private function is_special_line_fkey($k)
+	{
+		return $this->is_type2_line_fkey($k) || $this->is_type3_line_fkey($k);
+	}
+
+	private function fkey_row_is_empty($row)
+	{
+		return trim((string)$row['number']) === '' && trim((string)$row['label']) === '';
+	}
+
+	private function fkey_empty_needs_fix($k)
+	{
+		$type = isset($k['type']) ? intval($k['type']) : 0;
+		$val = trim(isset($k['value']) ? (string)$k['value'] : '');
+		$title = trim(isset($k['title']) ? (string)$k['title'] : '');
+
+		return $type !== 0 || $val !== '' || $title !== '';
+	}
+
+	private function fkey_special_needs_fix($k, $row)
+	{
+		$type = isset($k['type']) ? intval($k['type']) : 0;
+		$val = strtoupper(trim(isset($k['value']) ? (string)$k['value'] : ''));
+		$title = trim(isset($k['title']) ? (string)$k['title'] : '');
+
+		$t2 = $this->normalize_type2_line_value($row['number']);
+		if($t2 !== NULL)
+		{
+			return $type !== 2 || $val !== $t2;
+		}
+
+		$t3 = $this->normalize_type3_line_value($row['number']);
+		if($t3 !== NULL)
+		{
+			$exp_title = trim((string)$row['label']);
+
+			return $type !== 3 || $val !== $t3 || $title !== $exp_title;
+		}
+
+		return FALSE;
 	}
 
 	private function set_line_colon_value($line, $value)
@@ -144,7 +293,7 @@ class TftpFanvilParser
 			if($in_dss && preg_match('/^--\s*(.+?)\s*--\s*:?\s*$/', $line, $sm))
 			{
 				$section_title = trim($sm[1]);
-				$section = $this->section_id($section_title);
+				$section = $this->section_id($section_title, $dss_index);
 				continue;
 			}
 
@@ -248,10 +397,6 @@ class TftpFanvilParser
 			}
 
 			$num = $this->number_from_value($k['value']);
-			if($num === '' && $k['title'] === '')
-			{
-				continue;
-			}
 
 			$line_no = 0;
 			if(isset($k['line_value']))
@@ -312,6 +457,72 @@ class TftpFanvilParser
 		);
 	}
 
+	public function editor_speed_dial_keys($parsed)
+	{
+		$out = array();
+		if(!isset($parsed['keys_raw']) || !is_array($parsed['keys_raw']))
+		{
+			return $out;
+		}
+
+		foreach($parsed['keys_raw'] as $k)
+		{
+			if(!$this->section_is_dial_editable(isset($k['section_title']) ? $k['section_title'] : ''))
+			{
+				continue;
+			}
+
+			$val = isset($k['value']) ? $k['value'] : '';
+			$t2val = $this->normalize_type2_line_value($val);
+			$t3val = $this->normalize_type3_line_value($val);
+			$special = $t2val !== NULL || $t3val !== NULL;
+			if($t3val !== NULL)
+			{
+				$num = $t3val;
+			}
+			elseif($t2val !== NULL)
+			{
+				$num = $t2val;
+			}
+			else
+			{
+				$num = $this->number_from_value($val);
+			}
+
+			$label = isset($k['title']) ? $k['title'] : '';
+			if($label === '' && $t3val !== NULL)
+			{
+				$label = $this->default_title_type3($t3val);
+			}
+
+			$out[] = array(
+				'key_id' => $k['key_id'],
+				'section' => $k['section'],
+				'section_title' => $k['section_title'],
+				'slot' => intval($k['slot']),
+				'type' => intval($k['type']),
+				'number' => $num,
+				'label' => $label,
+				'value' => $val,
+				'dial_suffix' => $special ? '' : $this->dial_suffix_from_value($val),
+				'fkey_auto' => $special,
+			);
+		}
+
+		usort($out, function($a, $b)
+		{
+			$c = strcmp($a['section'], $b['section']);
+			if($c !== 0)
+			{
+				return $c;
+			}
+
+			return $a['slot'] - $b['slot'];
+		});
+
+		return $out;
+	}
+
 	public function build_dss_search($parsed)
 	{
 		$parts = array();
@@ -340,17 +551,71 @@ class TftpFanvilParser
 
 		foreach($keys_raw as $kid => $k)
 		{
-			if(intval($k['type']) !== 1 || !isset($by_id[$kid]))
+			if(!isset($by_id[$kid]))
 			{
 				continue;
 			}
 
 			$upd = $by_id[$kid];
 			$old_val = isset($k['value']) ? $k['value'] : '';
-			$num = isset($upd['number']) ? $upd['number'] : '';
-			$val = isset($upd['value']) && $upd['value'] !== '' ? $upd['value'] : $this->build_dial_value($num, $old_val);
-			$title = isset($upd['label']) ? $upd['label'] : (isset($upd['title']) ? $upd['title'] : '');
+			$num = isset($upd['number']) ? trim($upd['number']) : '';
+			$title = isset($upd['label']) ? trim($upd['label']) : (isset($upd['title']) ? trim($upd['title']) : '');
 			$slot = intval($k['slot']);
+
+			if($num === '' && $title === '')
+			{
+				continue;
+			}
+
+			$type2_val = $this->normalize_type2_line_value($num);
+			if($type2_val !== NULL)
+			{
+				$this->set_fkey_field($lines, $slot, 'Type', '2', isset($k['line_type']) ? $k['line_type'] : NULL);
+				$this->set_fkey_field($lines, $slot, 'Value', $type2_val, isset($k['line_value']) ? $k['line_value'] : NULL);
+				if(isset($k['line_title']) && isset($lines[$k['line_title']]))
+				{
+					$lines[$k['line_title']] = $this->set_line_colon_value($lines[$k['line_title']], $title);
+				}
+
+				continue;
+			}
+
+			$type3_val = $this->normalize_type3_line_value($num);
+			if($type3_val !== NULL)
+			{
+				if($title === '')
+				{
+					$title = $this->default_title_type3($type3_val);
+				}
+
+				$this->set_fkey_field($lines, $slot, 'Type', '3', isset($k['line_type']) ? $k['line_type'] : NULL);
+				$this->set_fkey_field($lines, $slot, 'Value', $type3_val, isset($k['line_value']) ? $k['line_value'] : NULL);
+				if(isset($k['line_title']) && isset($lines[$k['line_title']]))
+				{
+					$lines[$k['line_title']] = $this->set_line_colon_value($lines[$k['line_title']], $title);
+				}
+
+				continue;
+			}
+
+			if(intval($k['type']) !== 1 && $num !== '')
+			{
+				$this->set_fkey_field($lines, $slot, 'Type', '1', isset($k['line_type']) ? $k['line_type'] : NULL);
+			}
+
+			if(array_key_exists('dial_suffix', $upd))
+			{
+				$suffix = (string)$upd['dial_suffix'];
+				$val = $num !== '' ? $num.$suffix : $old_val;
+			}
+			elseif(isset($upd['value']) && $upd['value'] !== '')
+			{
+				$val = $upd['value'];
+			}
+			else
+			{
+				$val = $this->build_dial_value($num, $old_val);
+			}
 
 			if(isset($k['line_value']) && isset($lines[$k['line_value']]))
 			{
@@ -363,6 +628,59 @@ class TftpFanvilParser
 		}
 
 		return implode("\n", $lines);
+	}
+
+	public function normalize_editable_fkeys(&$lines, &$keys_raw)
+	{
+		$editor = $this->editor_speed_dial_keys(array('keys_raw' => $keys_raw));
+		$to_clear = array();
+		$to_apply = array();
+
+		foreach($editor as $row)
+		{
+			if(!isset($row['key_id']) || !isset($keys_raw[$row['key_id']]))
+			{
+				continue;
+			}
+
+			$k = $keys_raw[$row['key_id']];
+
+			if($this->fkey_row_is_empty($row))
+			{
+				if($this->fkey_empty_needs_fix($k))
+				{
+					$to_clear[] = $row['key_id'];
+				}
+
+				continue;
+			}
+
+			if(!empty($row['fkey_auto']) && $this->fkey_special_needs_fix($k, $row))
+			{
+				$to_apply[] = array(
+					'key_id' => $row['key_id'],
+					'slot' => intval($row['slot']),
+					'section' => $row['section'],
+					'number' => $row['number'],
+					'label' => $row['label'],
+				);
+			}
+		}
+
+		$n = 0;
+		if(count($to_clear))
+		{
+			$this->clear_dss_keys($lines, $keys_raw, $to_clear);
+			$n += count($to_clear);
+		}
+
+		if(count($to_apply))
+		{
+			$this->apply_speed_dials($lines, $keys_raw, $to_apply);
+			$n += count($to_apply);
+		}
+
+		return $n;
 	}
 
 	public function apply_sip_fields(&$lines, $sip_updates)

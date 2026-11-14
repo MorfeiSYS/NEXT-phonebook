@@ -319,5 +319,7 @@ function contacts_sync(&$core, $params, $post_data)
 
 	//echo 'Updated: '.$count_updated.', added: '.$count_added.' contacts';
 	//include(ROOTDIR.'templ'.DIRECTORY_SEPARATOR.'tpl.sync.php');
+	log_db('Contacts sync', '{added='.$count_added.',updated='.$count_updated.'}', 0);
+
 	echo '{"code": 0, "message": "'.json_escape('Added: '.$count_added.', Updated: '.$count_updated).'"}';
 }

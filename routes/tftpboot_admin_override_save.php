@@ -15,5 +15,6 @@ function tftpboot_admin_override_save(&$core, $params, $post_data)
 
 	$svc = tftpboot_instance($core);
 	$svc->save_override($filename, $vendor, $model !== '' ? $model : 'unknown');
+	log_db('tftpboot override save', 'file='.$filename.';vendor='.$vendor, 0);
 	tftpboot_json_send(array('code' => 0, 'message' => LL('Save')));
 }

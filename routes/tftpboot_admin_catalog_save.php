@@ -53,5 +53,6 @@ function tftpboot_admin_catalog_save(&$core, $params, $post_data)
 		$core->Config->set_global('tftpboot_bulk_page_size', (string) $n);
 	}
 
+	log_db('tftpboot admin catalog save', '', 0);
 	tftpboot_json_send(array('code' => 0, 'message' => LL('Save')));
 }

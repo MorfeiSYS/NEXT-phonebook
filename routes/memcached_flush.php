@@ -7,6 +7,7 @@ function memcached_flush(&$core, $params, $post_data)
 	if(defined('USE_MEMCACHED') && USE_MEMCACHED)
 	{
 		$core->Mem->flush();
+		log_db('Flush memcached', '', 0);
 		echo '{"code": 0, "message": "Cache cleared"}';
 	}
 	else

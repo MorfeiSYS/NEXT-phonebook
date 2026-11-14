@@ -7,5 +7,7 @@ function contacts_show_all_enabled(&$core, $params, $post_data)
 	$core->db->put(rpv('UPDATE `@contacts` SET `flags` = (`flags` & ~{%PB_CONTACT_LIST_HIDDEN}) WHERE (`flags` & ({%PB_CONTACT_AD_DELETED} | {%PB_CONTACT_AD_DISABLED})) = 0'));
 	$core->db->put(rpv('UPDATE `@contacts` SET `flags` = (`flags` | {%PB_CONTACT_VISIBLE}) WHERE adid = \'\' AND (`flags` & ({%PB_CONTACT_AD_DELETED} | {%PB_CONTACT_AD_DISABLED} | {%PB_CONTACT_VISIBLE})) = 0'));
 
+	log_db('Show all enabled contacts', '', 0);
+
 	echo '{"code": 0, "message": "Showed all existing and not disabled AD contacts"}';
 }

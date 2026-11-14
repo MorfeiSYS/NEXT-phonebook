@@ -20,5 +20,6 @@ function tftpboot_keys_bulk_save(&$core, $params, $post_data)
 	}
 
 	$n = $svc->bulk_save_keys($items, $vendors);
+	log_db('tftpboot bulk save', 'keys='.$n.';vendors='.implode(',', $vendors), 0);
 	tftpboot_json_send(array('code' => 0, 'message' => LL('Save'), 'updated' => $n, 'keys' => $n));
 }

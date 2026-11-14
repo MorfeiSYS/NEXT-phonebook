@@ -5,6 +5,7 @@ function contacts_purge_deleted(&$core, $params, $post_data)
 	assert_permission_ajax(0, PB_ACCESS_ADMIN);	// level 0 having Write access mean admin
 
 	$i = 0;
+	$result = array();
 
 	$core->db->select_assoc_ex($result, rpv('SELECT c.`id` FROM `@contacts` AS c WHERE (c.`flags` & ({%PB_CONTACT_AD_DELETED}))'));
 	foreach($result as &$row)
@@ -19,6 +20,8 @@ function contacts_purge_deleted(&$core, $params, $post_data)
 		$core->db->put(rpv('DELETE FROM `@contacts` WHERE `id` = #', $row['id']));
 		$i++;
 	}
+
+	log_db('Purge AD deleted contacts', '{deleted='.$i.'}', 0);
 
 	echo '{"code": 0, "message": "Deleted '.$i.' contacts"}';
 }

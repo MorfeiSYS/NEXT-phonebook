@@ -68,6 +68,7 @@
 			<a href="<?php ln('contacts_dump_db') ?>"><?php L('DumpDB') ?></a>
 			<a href="<?php ln('contacts_export_xml') ?>"><?php L('ExportXML') ?></a>
 			<a href="#" onclick="f_import_xml(); return false;"><?php L('ImportXML') ?></a>
+			<a href="<?php ln('logs') ?>"><?php L('ChangeLog') ?></a>
 			<?php if(defined('USE_MEMCACHED') && USE_MEMCACHED) { ?>
 			<a href="<?php ln('memcached_flush') ?>" onclick="return f_async(this);"><?php L('FlushMemcached') ?></a>
 			<?php } ?>

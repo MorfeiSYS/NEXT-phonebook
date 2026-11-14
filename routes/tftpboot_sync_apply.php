@@ -53,6 +53,8 @@ function tftpboot_sync_apply(&$core, $params, $post_data)
 		));
 	}
 
+	log_db('tftpboot sync apply', 'keys='.$n.';vendors='.implode(',', $vendors), 0);
+
 	tftpboot_json_send(array(
 		'code' => 0,
 		'message' => LL('Save'),
