@@ -90,8 +90,13 @@ function tftpboot_bind_tabs() {
 	});
 }
 
+function tftpboot_star_dial_prefix(s) {
+	return /^\*/.test(String(s || '').trim());
+}
+
 function tftpboot_is_star_transfer_dial(s) {
-	return /^\*[\d*]+/.test(String(s || '').trim());
+	var t = String(s || '').trim();
+	return tftpboot_star_dial_prefix(t) && /^[\d*]+$/.test(t) && t.length >= 2;
 }
 
 function tftpboot_split_star_dial_value(raw) {
@@ -106,7 +111,7 @@ function tftpboot_sanitize_dial_number(raw) {
 	if (tftpboot_special_line_value(s)) return s;
 	var full = tftpboot_split_star_dial_value(s);
 	if (full) return full.number;
-	if (tftpboot_is_star_transfer_dial(s)) {
+	if (tftpboot_star_dial_prefix(s)) {
 		var star = s.replace(/[^\d*]/g, '');
 		if (/^\*+$/.test(star) && star.length > 2) star = '**';
 		if (star.length > 12) star = star.slice(0, 12);
@@ -119,23 +124,13 @@ function tftpboot_sanitize_dial_number(raw) {
 
 function tftpboot_bind_dial_number_input(el) {
 	if (!el || el.disabled || el.readOnly) return;
-	var applyAttrs = function () {
-		if (tftpboot_is_star_transfer_dial(el.value)) {
-			el.setAttribute('maxlength', '12');
-			el.removeAttribute('inputmode');
-			el.removeAttribute('pattern');
-		} else {
-			el.setAttribute('maxlength', '11');
-			el.setAttribute('inputmode', 'numeric');
-			el.setAttribute('pattern', '[0-9]*');
-		}
-	};
-	applyAttrs();
+	el.setAttribute('maxlength', '12');
+	el.removeAttribute('inputmode');
+	el.removeAttribute('pattern');
 	var run = function () {
 		if (tftpboot_special_line_value(el.value)) return;
 		var v = tftpboot_sanitize_dial_number(el.value);
 		if (el.value !== v) el.value = v;
-		applyAttrs();
 	};
 	el.addEventListener('input', run);
 	el.addEventListener('paste', function () { setTimeout(run, 0); });
@@ -749,7 +744,7 @@ function tftpboot_create_key_card(k, grid) {
 				if (splitFull.suffix) card.dataset.dialSuffix = splitFull.suffix;
 			}
 			tftpboot_sync_card_auto_state(card);
-			if (tftpboot_is_star_transfer_dial(numInp.value)) {
+			if (tftpboot_star_dial_prefix(numInp.value)) {
 				card.dataset.starTransfer = '1';
 			} else {
 				delete card.dataset.starTransfer;
