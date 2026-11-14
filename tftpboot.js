@@ -244,18 +244,27 @@ function tftpboot_dial_has_bc(suffix) {
 	return /@1\/bc/i.test(suffix || '');
 }
 
+function tftpboot_type2_line_value(raw) {
+	var v = String(raw || '').trim().toUpperCase();
+	if (v === 'AUTO') return v;
+	if (/^SIP\d+$/.test(v)) return v;
+	return '';
+}
+
 function tftpboot_card_is_auto(card) {
 	if (card.dataset.fkeyAuto === '1') return true;
 	var numEl = card.querySelector('.tftpboot-key-number');
 	if (!numEl) return false;
-	return String(numEl.value).trim().toUpperCase() === 'AUTO';
+	return tftpboot_type2_line_value(numEl.value) !== '';
 }
 
 function tftpboot_sync_card_auto_state(card) {
-	var isAuto = tftpboot_card_is_auto(card);
-	if (isAuto) {
+	var numEl = card.querySelector('.tftpboot-key-number');
+	var t2 = numEl ? tftpboot_type2_line_value(numEl.value) : '';
+	if (t2) {
 		card.dataset.fkeyAuto = '1';
 		card.dataset.dialSuffix = '';
+		if (numEl) numEl.value = t2;
 	} else {
 		delete card.dataset.fkeyAuto;
 	}
@@ -348,7 +357,7 @@ function tftpboot_create_key_card(k, grid) {
 	var clrTitle = escapeHtml(tftpboot_key_clear_title());
 	var phoneTitle = escapeHtml(tftpboot_key_phone_title());
 	var dialSuffix = (k.dial_suffix !== undefined && k.dial_suffix !== null) ? String(k.dial_suffix) : '';
-	if (k.fkey_auto || String(k.number || '').toUpperCase() === 'AUTO') {
+	if (k.fkey_auto || tftpboot_type2_line_value(k.number || k.value)) {
 		card.dataset.fkeyAuto = '1';
 		dialSuffix = '';
 	}
@@ -599,11 +608,13 @@ function tftpboot_save_editor() {
 	var keys = [];
 	var clearIds = [];
 	document.querySelectorAll('#tftpboot-editor-sections .tftpboot-key-card').forEach(function (card) {
+		var numRaw = card.querySelector('.tftpboot-key-number').value;
+		var t2 = tftpboot_type2_line_value(numRaw);
 		var row = {
 			slot: parseInt(card.dataset.slot, 10),
 			label: card.querySelector('.tftpboot-key-title').value,
-			number: card.querySelector('.tftpboot-key-number').value,
-			dial_suffix: card.dataset.dialSuffix || ''
+			number: t2 || numRaw,
+			dial_suffix: t2 ? '' : (card.dataset.dialSuffix || '')
 		};
 		if (card.dataset.keyId) row.key_id = card.dataset.keyId;
 		if (card.dataset.section) row.section = card.dataset.section;

@@ -51,6 +51,22 @@ class TftpFanvilParser
 		return $section.'#'.$slot;
 	}
 
+	private function normalize_type2_line_value($raw)
+	{
+		$v = strtoupper(trim((string)$raw));
+		if($v === 'AUTO')
+		{
+			return 'AUTO';
+		}
+
+		if(preg_match('/^SIP\d+$/', $v))
+		{
+			return $v;
+		}
+
+		return NULL;
+	}
+
 	private function number_from_value($val)
 	{
 		$val = trim($val);
@@ -59,9 +75,10 @@ class TftpFanvilParser
 			return '';
 		}
 
-		if(strtoupper($val) === 'AUTO')
+		$t2 = $this->normalize_type2_line_value($val);
+		if($t2 !== NULL)
 		{
-			return 'AUTO';
+			return $t2;
 		}
 
 		if(preg_match('/^(\d+)/', $val, $m))
@@ -72,12 +89,12 @@ class TftpFanvilParser
 		return $val;
 	}
 
-	private function is_auto_fkey($k)
+	private function is_type2_line_fkey($k)
 	{
-		$val = isset($k['value']) ? trim($k['value']) : '';
+		$val = isset($k['value']) ? $k['value'] : '';
 		$type = isset($k['type']) ? intval($k['type']) : 0;
 
-		return $type === 2 && strtoupper($val) === 'AUTO';
+		return $type === 2 && $this->normalize_type2_line_value($val) !== NULL;
 	}
 
 	private function set_line_colon_value($line, $value)
@@ -376,8 +393,9 @@ class TftpFanvilParser
 			}
 
 			$val = isset($k['value']) ? $k['value'] : '';
-			$auto = $this->is_auto_fkey($k);
-			$num = $auto ? 'AUTO' : $this->number_from_value($val);
+			$type2 = $this->is_type2_line_fkey($k);
+			$t2val = $this->normalize_type2_line_value($val);
+			$num = $type2 && $t2val !== NULL ? $t2val : $this->number_from_value($val);
 
 			$out[] = array(
 				'key_id' => $k['key_id'],
@@ -388,8 +406,8 @@ class TftpFanvilParser
 				'number' => $num,
 				'label' => isset($k['title']) ? $k['title'] : '',
 				'value' => $val,
-				'dial_suffix' => $auto ? '' : $this->dial_suffix_from_value($val),
-				'fkey_auto' => $auto,
+				'dial_suffix' => $type2 ? '' : $this->dial_suffix_from_value($val),
+				'fkey_auto' => $type2,
 			);
 		}
 
@@ -451,10 +469,11 @@ class TftpFanvilParser
 				continue;
 			}
 
-			if(strtoupper($num) === 'AUTO')
+			$type2_val = $this->normalize_type2_line_value($num);
+			if($type2_val !== NULL)
 			{
 				$this->set_fkey_field($lines, $slot, 'Type', '2', isset($k['line_type']) ? $k['line_type'] : NULL);
-				$this->set_fkey_field($lines, $slot, 'Value', 'AUTO', isset($k['line_value']) ? $k['line_value'] : NULL);
+				$this->set_fkey_field($lines, $slot, 'Value', $type2_val, isset($k['line_value']) ? $k['line_value'] : NULL);
 				if(isset($k['line_title']) && isset($lines[$k['line_title']]))
 				{
 					$lines[$k['line_title']] = $this->set_line_colon_value($lines[$k['line_title']], $title);
