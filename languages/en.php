@@ -299,7 +299,7 @@
 		'TftpBootModerationDiffNow'		=> 'Now',
 		'TftpBootModerationSelfPending'	=> 'Awaiting operator approval',
 		'TftpBootModerationSelfRejected'=> 'Last request was rejected',
-		'TftpBootDialNumberHint'		=> 'Up to 11 digits',
+		'TftpBootDialNumberHint'		=> 'Digits (max 11) or *code',
 		'TftpBootModerationReview'		=> 'Review',
 		'TftpBootModerationNoDiff'		=> 'No button changes detected',
 		'TftpBootModerationLoading'		=> 'Loading…'

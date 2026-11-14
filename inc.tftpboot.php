@@ -347,6 +347,21 @@ function tftpboot_special_dial_token($number)
 	return '';
 }
 
+function tftpboot_sanitize_dial_suffix($suffix)
+{
+	$suffix = trim((string)$suffix);
+	if($suffix === '')
+	{
+		return '';
+	}
+	if(preg_match('/^@1\/[a-z]+$/i', $suffix))
+	{
+		return strtolower($suffix);
+	}
+
+	return '';
+}
+
 function tftpboot_sanitize_speed_dial_number($number, $allow_special = TRUE)
 {
 	$raw = trim((string)$number);
@@ -357,6 +372,38 @@ function tftpboot_sanitize_speed_dial_number($number, $allow_special = TRUE)
 		{
 			return $spec;
 		}
+	}
+	if(preg_match('/^(\*[\d*]+)(@1\/[a-z]+)?$/i', $raw, $m))
+	{
+		$core = preg_replace('/[^\d*]/', '', $m[1]);
+		if(preg_match('/^\*+$/', $core) && strlen($core) > 2)
+		{
+			$core = '**';
+		}
+		if(strlen($core) > 12)
+		{
+			$core = substr($core, 0, 12);
+		}
+		if(!empty($m[2]))
+		{
+			return $core.tftpboot_sanitize_dial_suffix($m[2]);
+		}
+
+		return $core;
+	}
+	if(preg_match('/^\*/', $raw))
+	{
+		$core = preg_replace('/[^\d*]/', '', $raw);
+		if(preg_match('/^\*+$/', $core) && strlen($core) > 2)
+		{
+			$core = '**';
+		}
+		if(strlen($core) > 12)
+		{
+			$core = substr($core, 0, 12);
+		}
+
+		return $core;
 	}
 	$digits = preg_replace('/\D+/', '', $raw);
 	if(strlen($digits) > 11)
@@ -383,6 +430,10 @@ function tftpboot_sanitize_speed_dial_post(&$post)
 		if(isset($k['number']))
 		{
 			$k['number'] = tftpboot_sanitize_speed_dial_number($k['number']);
+		}
+		if(isset($k['dial_suffix']))
+		{
+			$k['dial_suffix'] = tftpboot_sanitize_dial_suffix($k['dial_suffix']);
 		}
 	}
 	unset($k);
