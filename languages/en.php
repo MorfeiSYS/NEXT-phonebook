@@ -314,6 +314,6 @@
 		'TftpBootModerationSettings'	=> 'Moderation',
 		'TftpBootModerationPollInterval'=> 'Moderation queue poll interval (sec)',
 		'TftpBootModerationMaxPerHour'	=> 'Max moderation requests per user per hour',
-		'TftpBootModerationPendingBlock'=> 'Editing is locked while a moderation request is pending',
+		'TftpBootModerationPendingBlock'=> 'You cannot submit changes until the operator processes your request.',
 		'TftpBootModerationRateLimit'	=> 'Hourly moderation request limit reached. Try again later',
 	);

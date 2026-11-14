@@ -1323,6 +1323,44 @@ ul.tree-menu:before {
 	color: var(--color-error-text);
 	font-weight: 500;
 }
+.tftpboot-self-status-pending {
+	display: inline-block;
+	padding: 0.35em 0.65em;
+	border-radius: 4px;
+	font-weight: 500;
+	color: #2e7d32;
+	background-color: #e8f5e9;
+	animation: tftpboot-self-status-pending-pulse-light 2.8s ease-in-out infinite;
+}
+:root[data-theme-color="dark"] .tftpboot-self-status-pending {
+	color: #c8e6c9;
+	background-color: #2e4a30;
+	animation: tftpboot-self-status-pending-pulse-dark 2.8s ease-in-out infinite;
+}
+@keyframes tftpboot-self-status-pending-pulse-light {
+	0%, 100% {
+		color: #2e7d32;
+		background-color: #e8f5e9;
+	}
+	50% {
+		color: #1b5e20;
+		background-color: #c8e6c9;
+	}
+}
+@keyframes tftpboot-self-status-pending-pulse-dark {
+	0%, 100% {
+		color: #a5d6a7;
+		background-color: #2e4a30;
+	}
+	50% {
+		color: #c8e6c9;
+		background-color: #3d6b40;
+	}
+}
+.tftpboot-self-open-wait {
+	opacity: 0.88;
+	cursor: help;
+}
 .tftpboot-panel label { display: block; margin: 0.5em 0; }
 .tftpboot-pick-q { max-width: 24em; width: 100%; }
 .tftpboot-pick-results { margin: 0.25em 0 0.75em; max-width: 36em; }

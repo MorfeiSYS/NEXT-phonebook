@@ -314,6 +314,6 @@
 		'TftpBootModerationSettings'	=> 'Модерация',
 		'TftpBootModerationPollInterval'=> 'Интервал опроса очереди (сек)',
 		'TftpBootModerationMaxPerHour'	=> 'Макс. заявок от пользователя в час',
-		'TftpBootModerationPendingBlock'=> 'Пока заявка на модерации не рассмотрена, редактирование недоступно',
+		'TftpBootModerationPendingBlock'=> 'Пока оператор не обработает заявку, новые изменения внести нельзя.',
 		'TftpBootModerationRateLimit'	=> 'Превышен лимит заявок на модерацию в час. Повторите позже',
 	);

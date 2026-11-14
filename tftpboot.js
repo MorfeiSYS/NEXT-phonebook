@@ -290,7 +290,7 @@ function tftpboot_self_update_status() {
 	var st = row.moderation.status;
 	var lbl = tftpboot_state.labels || {};
 	if (st === 'pending') {
-		box.className = 'tftpboot-self-status';
+		box.className = 'tftpboot-self-status tftpboot-self-status-pending';
 		box.textContent = lbl.selfStatusPending || 'Pending moderation';
 		box.style.display = '';
 	} else if (st === 'rejected') {
@@ -310,11 +310,27 @@ function tftpboot_self_update_status() {
 	}
 }
 
+function tftpboot_self_pending_hint() {
+	var lbl = tftpboot_state.labels || {};
+	if (lbl.selfModerationPendingBlock) return lbl.selfModerationPendingBlock;
+	if (typeof LL === 'object' && LL && LL.TftpBootModerationPendingBlock) return LL.TftpBootModerationPendingBlock;
+	return 'Editing is unavailable until the operator processes your request';
+}
+
 function tftpboot_self_sync_open_btn(row) {
 	var openBtn = document.getElementById('tftpboot-self-open-btn');
 	if (!openBtn) return;
 	var blocked = row && row.can_edit === false;
-	openBtn.disabled = !!blocked;
+	openBtn.disabled = false;
+	if (blocked) {
+		openBtn.classList.add('tftpboot-self-open-wait');
+		openBtn.setAttribute('title', tftpboot_self_pending_hint());
+		openBtn.setAttribute('aria-disabled', 'true');
+	} else {
+		openBtn.classList.remove('tftpboot-self-open-wait');
+		openBtn.removeAttribute('title');
+		openBtn.removeAttribute('aria-disabled');
+	}
 }
 
 function tftpboot_self_open_selected() {
@@ -325,10 +341,7 @@ function tftpboot_self_open_selected() {
 		if (f.filename === sel.value) row = f;
 	});
 	if (row && row.can_edit === false) {
-		var lbl = tftpboot_state.labels || {};
-		var msg = lbl.selfModerationPendingBlock
-			|| ((typeof LL === 'object' && LL && LL.TftpBootModerationPendingBlock) ? LL.TftpBootModerationPendingBlock : '');
-		if (msg) f_notify(msg, 'error');
+		f_notify(tftpboot_self_pending_hint(), 'error');
 		return;
 	}
 	tftpboot_open_editor(sel.value);
