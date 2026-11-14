@@ -312,5 +312,8 @@
 		'TftpBootModerationNoDiff'		=> 'No button changes detected',
 		'TftpBootModerationLoading'		=> 'Loading…',
 		'TftpBootModerationSettings'	=> 'Moderation',
-		'TftpBootModerationPollInterval'=> 'Moderation queue poll interval (sec)'
+		'TftpBootModerationPollInterval'=> 'Moderation queue poll interval (sec)',
+		'TftpBootModerationMaxPerHour'	=> 'Max moderation requests per user per hour',
+		'TftpBootModerationPendingBlock'=> 'Editing is locked while a moderation request is pending',
+		'TftpBootModerationRateLimit'	=> 'Hourly moderation request limit reached. Try again later',
 	);

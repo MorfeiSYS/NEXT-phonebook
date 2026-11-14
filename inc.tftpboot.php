@@ -743,6 +743,17 @@ function tftpboot_moderation_pending_count(&$core)
 	return tftpboot_instance($core)->count_moderation_pending();
 }
 
+function tftpboot_moderation_max_per_hour(&$core)
+{
+	$n = intval($core->Config->get_global('tftpboot_moderation_max_per_hour', '1'));
+	if($n < 1)
+	{
+		$n = 1;
+	}
+
+	return $n;
+}
+
 function tftpboot_moderation_poll_interval_sec(&$core)
 {
 	$n = intval($core->Config->get_global('tftpboot_moderation_poll_interval', '60'));

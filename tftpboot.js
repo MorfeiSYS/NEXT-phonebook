@@ -279,9 +279,12 @@ function tftpboot_self_update_status() {
 	tftpboot_state.selfFiles.forEach(function (f) {
 		if (f.filename === fn) row = f;
 	});
+	tftpboot_self_sync_open_btn(row);
 	if (!row || !row.moderation) {
-		box.style.display = 'none';
-		box.textContent = '';
+		if (box) {
+			box.style.display = 'none';
+			box.textContent = '';
+		}
 		return;
 	}
 	var st = row.moderation.status;
@@ -307,9 +310,27 @@ function tftpboot_self_update_status() {
 	}
 }
 
+function tftpboot_self_sync_open_btn(row) {
+	var openBtn = document.getElementById('tftpboot-self-open-btn');
+	if (!openBtn) return;
+	var blocked = row && row.can_edit === false;
+	openBtn.disabled = !!blocked;
+}
+
 function tftpboot_self_open_selected() {
 	var sel = document.getElementById('tftpboot-self-file');
 	if (!sel || !sel.value) return;
+	var row = null;
+	tftpboot_state.selfFiles.forEach(function (f) {
+		if (f.filename === sel.value) row = f;
+	});
+	if (row && row.can_edit === false) {
+		var lbl = tftpboot_state.labels || {};
+		var msg = lbl.selfModerationPendingBlock
+			|| ((typeof LL === 'object' && LL && LL.TftpBootModerationPendingBlock) ? LL.TftpBootModerationPendingBlock : '');
+		if (msg) f_notify(msg, 'error');
+		return;
+	}
 	tftpboot_open_editor(sel.value);
 }
 

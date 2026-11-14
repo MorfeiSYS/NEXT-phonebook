@@ -194,6 +194,7 @@ $tftpboot_editor_save_label = $tftpboot_self_only ? LL('TftpBootSubmitModeration
 			moderationDiffNow: <?php echo json_encode(LL('TftpBootModerationDiffNow'), JSON_UNESCAPED_UNICODE); ?>,
 			selfStatusPending: <?php echo json_encode(LL('TftpBootModerationSelfPending'), JSON_UNESCAPED_UNICODE); ?>,
 			selfStatusRejected: <?php echo json_encode(LL('TftpBootModerationSelfRejected'), JSON_UNESCAPED_UNICODE); ?>,
+			selfModerationPendingBlock: <?php echo json_encode(LL('TftpBootModerationPendingBlock'), JSON_UNESCAPED_UNICODE); ?>,
 			dialNumberHint: <?php echo json_encode(LL('TftpBootDialNumberHint'), JSON_UNESCAPED_UNICODE); ?>,
 			starDialInvalid: <?php echo json_encode(LL('TftpBootStarDialInvalid'), JSON_UNESCAPED_UNICODE); ?>,
 			dialLabelRequired: <?php echo json_encode(LL('TftpBootDialLabelRequired'), JSON_UNESCAPED_UNICODE); ?>,

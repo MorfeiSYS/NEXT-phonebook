@@ -312,5 +312,8 @@
 		'TftpBootModerationNoDiff'		=> 'Изменений кнопок не обнаружено',
 		'TftpBootModerationLoading'		=> 'Загрузка…',
 		'TftpBootModerationSettings'	=> 'Модерация',
-		'TftpBootModerationPollInterval'=> 'Интервал опроса очереди (сек)'
+		'TftpBootModerationPollInterval'=> 'Интервал опроса очереди (сек)',
+		'TftpBootModerationMaxPerHour'	=> 'Макс. заявок от пользователя в час',
+		'TftpBootModerationPendingBlock'=> 'Пока заявка на модерации не рассмотрена, редактирование недоступно',
+		'TftpBootModerationRateLimit'	=> 'Превышен лимит заявок на модерацию в час. Повторите позже',
 	);

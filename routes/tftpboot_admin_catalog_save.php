@@ -64,6 +64,17 @@ function tftpboot_admin_catalog_save(&$core, $params, $post_data)
 		$core->Config->set_global('tftpboot_moderation_poll_interval', (string) $n);
 	}
 
+	if(isset($post_data['moderation_max_per_hour']))
+	{
+		$n = intval($post_data['moderation_max_per_hour']);
+		if($n < 1)
+		{
+			$n = 1;
+		}
+
+		$core->Config->set_global('tftpboot_moderation_max_per_hour', (string) $n);
+	}
+
 	log_db('tftpboot admin catalog save', '', 0);
 	tftpboot_json_send(array('code' => 0, 'message' => LL('Save')));
 }

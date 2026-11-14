@@ -18,6 +18,7 @@ if(!isset($tftpboot_settings))
 		'scan_cache_ttl' => '300',
 		'bulk_page_size' => '50',
 		'moderation_poll_interval' => '60',
+		'moderation_max_per_hour' => '1',
 		'sync_cron_key' => '',
 	);
 }
@@ -59,6 +60,7 @@ if(!isset($tftpboot_admin_embedded)) { $tftpboot_admin_embedded = FALSE; }
 
 	<h4><?php L('TftpBootModerationSettings') ?></h4>
 	<label><?php L('TftpBootModerationPollInterval') ?> <input type="number" name="moderation_poll_interval" value="<?php eh($tftpboot_settings['moderation_poll_interval']); ?>" min="60" step="1" /></label><br />
+	<label><?php L('TftpBootModerationMaxPerHour') ?> <input type="number" name="moderation_max_per_hour" value="<?php eh($tftpboot_settings['moderation_max_per_hour']); ?>" min="1" step="1" /></label><br />
 
 	<h4><?php L('TftpBootUnknownFiles') ?></h4>
 	<table class="tftpboot-table">

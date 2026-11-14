@@ -34,6 +34,7 @@ function tools(&$core, $params, $post_data)
 			'scan_cache_ttl' => $core->Config->get_global('tftpboot_scan_cache_ttl', '300'),
 			'bulk_page_size' => (string) $svc->get_bulk_page_size(),
 			'moderation_poll_interval' => (string) tftpboot_moderation_poll_interval_sec($core),
+			'moderation_max_per_hour' => (string) tftpboot_moderation_max_per_hour($core),
 			'sync_cron_key' => $core->Config->get_global('tftpboot_sync_cron_key', ''),
 		);
 	}

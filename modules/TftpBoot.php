@@ -2127,8 +2127,43 @@ class TftpBoot
 		return $rows[0];
 	}
 
+	public function self_has_pending_moderation($uid, $filename)
+	{
+		$row = $this->get_self_pending_status($uid, $filename);
+
+		return $row && isset($row['status']) && $row['status'] === 'pending';
+	}
+
+	public function count_user_moderation_submits_hour($uid)
+	{
+		$cnt = array();
+		if(!$this->core->db->select_ex(
+			$cnt,
+			rpv(
+				'SELECT COUNT(*) FROM `@tftpboot_moderation_request` WHERE `uid` = # AND `created` >= DATE_SUB(NOW(), INTERVAL 1 HOUR)',
+				intval($uid)
+			)
+		))
+		{
+			return 0;
+		}
+
+		return isset($cnt[0][0]) ? intval($cnt[0][0]) : 0;
+	}
+
 	public function submit_moderation_request($uid, $contact_id, $filename, $post, $policy)
 	{
+		if($this->self_has_pending_moderation($uid, $filename))
+		{
+			return array('code' => 1, 'message' => LL('TftpBootModerationPendingBlock'));
+		}
+
+		$max_hour = tftpboot_moderation_max_per_hour($this->core);
+		if($this->count_user_moderation_submits_hour($uid) >= $max_hour)
+		{
+			return array('code' => 1, 'message' => LL('TftpBootModerationRateLimit'));
+		}
+
 		tftpboot_sanitize_speed_dial_post($post);
 		$err = tftpboot_validate_speed_dial_post($post);
 		if($err !== '')
@@ -2146,11 +2181,6 @@ class TftpBoot
 		);
 		$payload_json = json_encode($post, JSON_UNESCAPED_UNICODE);
 		$baseline_json = json_encode($baseline, JSON_UNESCAPED_UNICODE);
-
-		$this->core->db->put(rpv(
-			"DELETE FROM `@tftpboot_moderation_request` WHERE `filename` = ! AND `status` = 'pending'",
-			$filename
-		));
 
 		if(!$this->core->db->put(rpv(
 			"INSERT INTO `@tftpboot_moderation_request` (`created`, `status`, `uid`, `contact_id`, `filename`, `payload_json`, `baseline_json`) ".

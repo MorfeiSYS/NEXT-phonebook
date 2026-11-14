@@ -11,6 +11,7 @@ function tftpboot_self_files(&$core, $params, $post_data)
 		$phone = trim((string)$f['phone']);
 		$f['label'] = $phone !== '' ? $phone : basename((string)$f['filename']);
 		$pending = $svc->get_self_pending_status($uid, $f['filename']);
+		$f['can_edit'] = !$svc->self_has_pending_moderation($uid, $f['filename']);
 		$f['moderation'] = $pending ? array(
 			'status' => $pending['status'],
 			'created' => $pending['created'],
