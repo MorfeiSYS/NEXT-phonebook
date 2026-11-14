@@ -59,6 +59,7 @@
 		'TokenNote'					=> 'The token will be reset if you press Logout.',
 		'UnknownError'				=> 'Unknown error',
 		'InvalidUserPasswd'			=> 'Invalid user name or password!',
+		'LoginNeedDomainFormat'		=> 'For Active Directory sign-in use domain\\user or user@domain.local',
 		'AddPermissions'			=> 'Add permissions',
 		'EditPermissions'			=> 'Edit permissions',
 		'Users'						=> 'Users',

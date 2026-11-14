@@ -99,7 +99,7 @@ require_once(ROOT_DIR.'inc.config.php');
 
 	if(!defined('DB_VERSION'))
 	{
-		define('DB_VERSION', 13);
+		define('DB_VERSION', 14);
 	}
 
 	$core = new Core(TRUE);
@@ -779,6 +779,21 @@ require_once(ROOT_DIR.'inc.config.php');
 		}
 
 		case 13:
+		{
+			echo "Clear stale local passwd hash for LDAP-linked users...\n";
+			if(!$core->db->put(rpv("UPDATE `@users` SET `passwd` = '' WHERE (`flags` & {%UA_LDAP}) = {%UA_LDAP} AND `passwd` <> ''")))
+			{
+				echo 'ERROR['.__LINE__.']: '.$core->db->get_last_error().PHP_EOL;
+			}
+			echo "Set db_version = '14'...\n";
+			if(!$core->db->put(rpv("UPDATE @config SET `value` = 14 WHERE `uid` = 0 AND `name` = 'db_version' LIMIT 1")))
+			{
+				echo 'ERROR['.__LINE__.']: '.$core->db->get_last_error().PHP_EOL;
+			}
+			echo "\n\nUpgrade to version 14 complete!\n";
+		}
+
+		case 14:
 		{
 			echo "\nDatabase schema is up to date (version ".DB_VERSION.").\n";
 		}

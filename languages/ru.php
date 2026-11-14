@@ -59,6 +59,7 @@
 		'TokenNote'					=> 'Токен будет обнулен, если вы разлогинетесь нажав Выход.',
 		'UnknownError'				=> 'Неизвестная ошибка',
 		'InvalidUserPasswd'			=> 'Неправильное имя пользователя или пароль!',
+		'LoginNeedDomainFormat'		=> 'Для входа через Active Directory укажите имя как domain\\user или user@domain.local',
 		'AddPermissions'			=> 'Добавление прав доступа',
 		'EditPermissions'			=> 'Редактирование прав доступа',
 		'Users'						=> 'Пользователи',
