@@ -9,15 +9,16 @@ require_once MODULES_DIR.'tftpboot'.DIRECTORY_SEPARATOR.'sync'.DIRECTORY_SEPARAT
 
 class TftpBoot
 {
-	private $core;
-	private $fanvil;
-	private $cisco;
-	private $yealink;
-	private $grandstream;
-	private $eltex;
-	private $scan_suggested_models = array();
+	private Core $core;
+	private TftpFanvilParser $fanvil;
+	private TftpCiscoXmlParser $cisco;
+	private TftpYealinkParser $yealink;
+	private TftpGrandstreamParser $grandstream;
+	private TftpEltexParser $eltex;
+	/** @var list<array<string, mixed>> */
+	private array $scan_suggested_models = array();
 
-	public function __construct(&$core)
+	public function __construct(Core &$core)
 	{
 		$this->core = $core;
 		$this->fanvil = new TftpFanvilParser();
@@ -1549,7 +1550,10 @@ class TftpBoot
 		return $keys_ok;
 	}
 
-	public function sync_normalize_fkeys($vendors)
+	/**
+	 * @param list<string> $vendors
+	 */
+	public function sync_normalize_fkeys(array $vendors): int
 	{
 		$this->ensure_dial_keys_column();
 		if(!count($vendors))
@@ -1969,7 +1973,11 @@ class TftpBoot
 		return $diff;
 	}
 
-	public function apply_sync_diff($items, $vendors)
+	/**
+	 * @param list<array<string, mixed>> $items
+	 * @param list<string> $vendors
+	 */
+	public function apply_sync_diff(array $items, array $vendors): int
 	{
 		if(!is_array($vendors))
 		{
