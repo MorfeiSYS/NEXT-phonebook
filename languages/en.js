@@ -22,5 +22,11 @@ const LL = {
 	TftpBootBulkPageInfo:		'Records %1–%2 of %3',
 	TftpBootNewModelsIntro:		'Scan found configs for models missing from the catalog. Add them to config/tftpboot_catalog.json?',
 	TftpBootNewModelsLine:		'%1 — %2 (id: %3, DSS: %4, files: %5)',
-	TftpBootCatalogModelsAdded:	'Models added to catalog'
+	TftpBootCatalogModelsAdded:	'Models added to catalog',
+	TftpBootKeyClear:			'Reset key',
+	TftpBootKeyPhone:			'Enable @1/bc dial',
+	TftpBootEditorSidekey:		'On-screen keys',
+	TftpBootEditorSoftdss:		'Soft keys',
+	TftpBootEditorDsskey:		'Speed dial',
+	TftpBootSipDisplay:			'Display name'
 };

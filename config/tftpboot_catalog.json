@@ -192,7 +192,7 @@
             "models": [
                 {
                     "id": "model",
-                    "title": "yealink",
+                    "title": "Yealink",
                     "match": [
                         "yealink"
                     ],
@@ -223,7 +223,7 @@
             "models": [
                 {
                     "id": "model",
-                    "title": "grandstream",
+                    "title": "Grandstream",
                     "match": [
                         "grandstream"
                     ],

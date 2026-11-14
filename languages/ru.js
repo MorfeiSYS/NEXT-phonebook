@@ -22,5 +22,11 @@ const LL = {
 	TftpBootBulkPageInfo:		'Записи %1–%2 из %3',
 	TftpBootNewModelsIntro:		'При сканировании найдены конфиги моделей, которых нет в каталоге. Добавить их в config/tftpboot_catalog.json?',
 	TftpBootNewModelsLine:		'%1 — %2 (id: %3, DSS: %4, файлов: %5)',
-	TftpBootCatalogModelsAdded:	'Модели добавлены в каталог'
+	TftpBootCatalogModelsAdded:	'Модели добавлены в каталог',
+	TftpBootKeyClear:			'Сбросить кнопку',
+	TftpBootKeyPhone:			'Включить набор @1/bc',
+	TftpBootEditorSidekey:		'Кнопки на экране',
+	TftpBootEditorSoftdss:		'Софт кнопки',
+	TftpBootEditorDsskey:		'Быстрый набор',
+	TftpBootSipDisplay:			'Имя на экране'
 };

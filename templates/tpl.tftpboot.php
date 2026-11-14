@@ -69,7 +69,7 @@ if(!isset($tftpboot_is_admin))
 		<span class="close" onclick="tftpboot_close_editor()">&times;</span>
 		<h3 id="tftpboot-editor-title"></h3>
 		<div id="tftpboot-editor-sip" class="tftpboot-section" style="display:none"></div>
-		<div id="tftpboot-editor-keys" class="tftpboot-keys-grid"></div>
+		<div id="tftpboot-editor-sections" class="tftpboot-editor-sections"></div>
 		<input type="hidden" id="tftpboot-editor-filename" value="" />
 		<button type="button" class="button-accept" onclick="tftpboot_save_editor()"><?php L('Save') ?></button>
 	</div>
@@ -110,7 +110,13 @@ if(!isset($tftpboot_is_admin))
 			syncConsensusNote: <?php echo json_encode(LL('TftpBootSyncConsensusNote'), JSON_UNESCAPED_UNICODE); ?>,
 			catalogNewModelsIntro: <?php echo json_encode(LL('TftpBootNewModelsIntro'), JSON_UNESCAPED_UNICODE); ?>,
 			catalogNewModelsLine: <?php echo json_encode(LL('TftpBootNewModelsLine'), JSON_UNESCAPED_UNICODE); ?>,
-			catalogModelsAdded: <?php echo json_encode(LL('TftpBootCatalogModelsAdded'), JSON_UNESCAPED_UNICODE); ?>
+			catalogModelsAdded: <?php echo json_encode(LL('TftpBootCatalogModelsAdded'), JSON_UNESCAPED_UNICODE); ?>,
+			keyClear: <?php echo json_encode(LL('TftpBootKeyClear'), JSON_UNESCAPED_UNICODE); ?>,
+			keyPhone: <?php echo json_encode(LL('TftpBootKeyPhone'), JSON_UNESCAPED_UNICODE); ?>,
+			editorSidekey: <?php echo json_encode(LL('TftpBootEditorSidekey'), JSON_UNESCAPED_UNICODE); ?>,
+			editorSoftdss: <?php echo json_encode(LL('TftpBootEditorSoftdss'), JSON_UNESCAPED_UNICODE); ?>,
+			editorDsskey: <?php echo json_encode(LL('TftpBootEditorDsskey'), JSON_UNESCAPED_UNICODE); ?>,
+			sipDisplay: <?php echo json_encode(LL('TftpBootSipDisplay'), JSON_UNESCAPED_UNICODE); ?>
 		}
 	});
 </script>

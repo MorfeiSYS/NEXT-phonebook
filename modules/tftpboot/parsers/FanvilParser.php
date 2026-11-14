@@ -2,9 +2,48 @@
 
 class TftpFanvilParser
 {
-	private function section_id($name)
+	private function section_id($name, $dss_index = 0)
 	{
-		return preg_replace('/\s+/', ' ', strtolower(trim($name)));
+		$id = preg_replace('/\s+/', ' ', strtolower(trim($name)));
+
+		return 'm'.intval($dss_index).'/'.$id;
+	}
+
+	private function dial_suffix_from_value($val)
+	{
+		$val = trim((string)$val);
+		if($val !== '' && preg_match('/^\d+(.*)$/', $val, $m))
+		{
+			return $m[1];
+		}
+
+		return '';
+	}
+
+	private function section_is_dial_editable($section_title)
+	{
+		$t = strtolower(trim((string)$section_title));
+		if($t === '')
+		{
+			return FALSE;
+		}
+
+		if(strpos($t, 'softdss') !== FALSE)
+		{
+			return TRUE;
+		}
+
+		if(strpos($t, 'sidekey') !== FALSE)
+		{
+			return TRUE;
+		}
+
+		if(preg_match('/dsskey\s*config/', $t))
+		{
+			return TRUE;
+		}
+
+		return FALSE;
 	}
 
 	private function key_id($section, $slot)
@@ -20,12 +59,25 @@ class TftpFanvilParser
 			return '';
 		}
 
+		if(strtoupper($val) === 'AUTO')
+		{
+			return 'AUTO';
+		}
+
 		if(preg_match('/^(\d+)/', $val, $m))
 		{
 			return $m[1];
 		}
 
 		return $val;
+	}
+
+	private function is_auto_fkey($k)
+	{
+		$val = isset($k['value']) ? trim($k['value']) : '';
+		$type = isset($k['type']) ? intval($k['type']) : 0;
+
+		return $type === 2 && strtoupper($val) === 'AUTO';
 	}
 
 	private function set_line_colon_value($line, $value)
@@ -144,7 +196,7 @@ class TftpFanvilParser
 			if($in_dss && preg_match('/^--\s*(.+?)\s*--\s*:?\s*$/', $line, $sm))
 			{
 				$section_title = trim($sm[1]);
-				$section = $this->section_id($section_title);
+				$section = $this->section_id($section_title, $dss_index);
 				continue;
 			}
 
@@ -248,10 +300,6 @@ class TftpFanvilParser
 			}
 
 			$num = $this->number_from_value($k['value']);
-			if($num === '' && $k['title'] === '')
-			{
-				continue;
-			}
 
 			$line_no = 0;
 			if(isset($k['line_value']))
@@ -312,6 +360,53 @@ class TftpFanvilParser
 		);
 	}
 
+	public function editor_speed_dial_keys($parsed)
+	{
+		$out = array();
+		if(!isset($parsed['keys_raw']) || !is_array($parsed['keys_raw']))
+		{
+			return $out;
+		}
+
+		foreach($parsed['keys_raw'] as $k)
+		{
+			if(!$this->section_is_dial_editable(isset($k['section_title']) ? $k['section_title'] : ''))
+			{
+				continue;
+			}
+
+			$val = isset($k['value']) ? $k['value'] : '';
+			$auto = $this->is_auto_fkey($k);
+			$num = $auto ? 'AUTO' : $this->number_from_value($val);
+
+			$out[] = array(
+				'key_id' => $k['key_id'],
+				'section' => $k['section'],
+				'section_title' => $k['section_title'],
+				'slot' => intval($k['slot']),
+				'type' => intval($k['type']),
+				'number' => $num,
+				'label' => isset($k['title']) ? $k['title'] : '',
+				'value' => $val,
+				'dial_suffix' => $auto ? '' : $this->dial_suffix_from_value($val),
+				'fkey_auto' => $auto,
+			);
+		}
+
+		usort($out, function($a, $b)
+		{
+			$c = strcmp($a['section'], $b['section']);
+			if($c !== 0)
+			{
+				return $c;
+			}
+
+			return $a['slot'] - $b['slot'];
+		});
+
+		return $out;
+	}
+
 	public function build_dss_search($parsed)
 	{
 		$parts = array();
@@ -340,17 +435,52 @@ class TftpFanvilParser
 
 		foreach($keys_raw as $kid => $k)
 		{
-			if(intval($k['type']) !== 1 || !isset($by_id[$kid]))
+			if(!isset($by_id[$kid]))
 			{
 				continue;
 			}
 
 			$upd = $by_id[$kid];
 			$old_val = isset($k['value']) ? $k['value'] : '';
-			$num = isset($upd['number']) ? $upd['number'] : '';
-			$val = isset($upd['value']) && $upd['value'] !== '' ? $upd['value'] : $this->build_dial_value($num, $old_val);
-			$title = isset($upd['label']) ? $upd['label'] : (isset($upd['title']) ? $upd['title'] : '');
+			$num = isset($upd['number']) ? trim($upd['number']) : '';
+			$title = isset($upd['label']) ? trim($upd['label']) : (isset($upd['title']) ? trim($upd['title']) : '');
 			$slot = intval($k['slot']);
+
+			if($num === '' && $title === '')
+			{
+				continue;
+			}
+
+			if(strtoupper($num) === 'AUTO')
+			{
+				$this->set_fkey_field($lines, $slot, 'Type', '2', isset($k['line_type']) ? $k['line_type'] : NULL);
+				$this->set_fkey_field($lines, $slot, 'Value', 'AUTO', isset($k['line_value']) ? $k['line_value'] : NULL);
+				if(isset($k['line_title']) && isset($lines[$k['line_title']]))
+				{
+					$lines[$k['line_title']] = $this->set_line_colon_value($lines[$k['line_title']], $title);
+				}
+
+				continue;
+			}
+
+			if(intval($k['type']) !== 1 && $num !== '')
+			{
+				$this->set_fkey_field($lines, $slot, 'Type', '1', isset($k['line_type']) ? $k['line_type'] : NULL);
+			}
+
+			if(array_key_exists('dial_suffix', $upd))
+			{
+				$suffix = (string)$upd['dial_suffix'];
+				$val = $num !== '' ? $num.$suffix : $old_val;
+			}
+			elseif(isset($upd['value']) && $upd['value'] !== '')
+			{
+				$val = $upd['value'];
+			}
+			else
+			{
+				$val = $this->build_dial_value($num, $old_val);
+			}
 
 			if(isset($k['line_value']) && isset($lines[$k['line_value']]))
 			{

@@ -965,21 +965,71 @@ class TftpBoot
 		return $uniq;
 	}
 
+	private function vendor_tree_title($vendor)
+	{
+		$title = isset($vendor['title']) ? trim($vendor['title']) : '';
+		if($title === '' && isset($vendor['id']))
+		{
+			$title = $vendor['id'];
+		}
+
+		if($title === '')
+		{
+			return '';
+		}
+
+		return mb_strtoupper(mb_substr($title, 0, 1, 'UTF-8'), 'UTF-8').mb_substr($title, 1, NULL, 'UTF-8');
+	}
+
+	private function sort_tree_models(&$models)
+	{
+		usort($models, function($a, $b)
+		{
+			if($a['id'] === 'other')
+			{
+				return 1;
+			}
+
+			if($b['id'] === 'other')
+			{
+				return -1;
+			}
+
+			return strnatcasecmp($a['title'], $b['title']);
+		});
+	}
+
 	public function get_tree()
 	{
 		$this->scan(FALSE);
 		$catalog = $this->get_catalog();
 		$enabled = $this->get_enabled_vendors('editor');
 		$tree = array();
+		$vendors = isset($catalog['vendors']) && is_array($catalog['vendors']) ? $catalog['vendors'] : array();
 
-		foreach($catalog['vendors'] as $v)
+		usort($vendors, function($a, $b)
+		{
+			$sa = isset($a['sort']) ? intval($a['sort']) : 50;
+			$sb = isset($b['sort']) ? intval($b['sort']) : 50;
+			if($sa !== $sb)
+			{
+				return $sa - $sb;
+			}
+
+			return strnatcasecmp(
+				isset($a['title']) ? $a['title'] : $a['id'],
+				isset($b['title']) ? $b['title'] : $b['id']
+			);
+		});
+
+		foreach($vendors as $v)
 		{
 			if(!in_array($v['id'], $enabled, TRUE) && $v['id'] !== 'unknown')
 			{
 				continue;
 			}
 
-			$vnode = array('id' => $v['id'], 'title' => $v['title'], 'models' => array());
+			$vnode = array('id' => $v['id'], 'title' => $this->vendor_tree_title($v), 'models' => array());
 			foreach($v['models'] as $m)
 			{
 				$files = array();
@@ -1009,6 +1059,7 @@ class TftpBoot
 				);
 			}
 
+			$this->sort_tree_models($vnode['models']);
 			$tree[] = $vnode;
 		}
 
@@ -1034,6 +1085,12 @@ class TftpBoot
 		$parsed = $this->parse_content($vendor, $content);
 		$mac = $this->mac_from_filename(basename($filename));
 
+		$editor_keys = isset($parsed['speedDialKeys']) ? $parsed['speedDialKeys'] : array();
+		if($vendor === 'fanvil')
+		{
+			$editor_keys = $this->fanvil->editor_speed_dial_keys($parsed);
+		}
+
 		$out = array(
 			'filename' => $filename,
 			'vendor' => $vendor,
@@ -1041,7 +1098,7 @@ class TftpBoot
 			'label' => tftpboot_display_label($parsed['phone'], $mac),
 			'phone' => $parsed['phone'],
 			'displayName' => isset($parsed['displayName']) ? $parsed['displayName'] : '',
-			'speedDialKeys' => isset($parsed['speedDialKeys']) ? $parsed['speedDialKeys'] : array(),
+			'speedDialKeys' => $editor_keys,
 			'policy' => $policy,
 		);
 
@@ -1094,13 +1151,29 @@ class TftpBoot
 		$new_content = $content;
 		$mode = $policy['mode'];
 
-		if(isset($post['speedDialKeys']) && is_array($post['speedDialKeys']))
+		if($vendor === 'fanvil')
 		{
-			if($vendor === 'fanvil')
+			$lines = $parsed['lines'];
+			$keys_raw = $parsed['keys_raw'];
+
+			if(isset($post['clear_key_ids']) && is_array($post['clear_key_ids']) && count($post['clear_key_ids']))
 			{
-				$new_content = $this->fanvil->apply_speed_dials($parsed['lines'], $parsed['keys_raw'], $post['speedDialKeys'], $parsed['dss_index']);
+				$this->fanvil->clear_dss_keys($lines, $keys_raw, $post['clear_key_ids']);
 			}
-			elseif($vendor === 'cisco')
+
+			if(isset($post['speedDialKeys']) && is_array($post['speedDialKeys']))
+			{
+				$new_content = $this->fanvil->apply_speed_dials($lines, $keys_raw, $post['speedDialKeys'], $parsed['dss_index']);
+			}
+			elseif(isset($post['clear_key_ids']) && is_array($post['clear_key_ids']) && count($post['clear_key_ids']))
+			{
+				$new_content = implode("\n", $lines);
+			}
+		}
+
+		if(isset($post['speedDialKeys']) && is_array($post['speedDialKeys']) && $vendor !== 'fanvil')
+		{
+			if($vendor === 'cisco')
 			{
 				$new_content = $this->cisco->apply_speed_dials($content, $post['speedDialKeys']);
 			}
@@ -1115,12 +1188,6 @@ class TftpBoot
 		{
 			$lines = preg_split('/\r\n|\r|\n/', $new_content);
 			$new_content = $this->fanvil->apply_sip_fields($lines, $post['sip']);
-		}
-
-		if(isset($post['slot_order']) && is_array($post['slot_order']) && $vendor === 'fanvil')
-		{
-			$reparsed = $this->fanvil->parse($new_content);
-			$new_content = $this->fanvil->remap_slots($reparsed, $post['slot_order']);
 		}
 
 		if(isset($post['displayName']) && ($mode === 'full' || in_array('sip', $policy['sections'], TRUE)))
