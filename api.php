@@ -36,9 +36,9 @@ if (strlen($apiKey) > 64) {
 
 // Массив допустимых API ключей
 $validKeys = [
-    "15fsdg34jhv32EFwerWEFWwe4lhc1514v",
-    "17fsdh34jhv33EFwerWEFjwe4lhc1515v",
-    "18fsGh55jhv13EFwerWTFjwe4lhc1715v"
+    "15fsdg34jhv32EFwerWEFWwe4lhb1514v",
+    "17fsdh34jhv33EFwerWEFjwe4lhb1515v",
+    "18fsGh55jhv13EFwerWTFjwe4lhb1715v"
 ];
 
 // Проверяем валидность API ключа
