@@ -299,7 +299,7 @@
 		'TftpBootModerationDiffNow'		=> 'Станет',
 		'TftpBootModerationSelfPending'	=> 'Заявка ожидает подтверждения оператором',
 		'TftpBootModerationSelfRejected'=> 'Последняя заявка отклонена',
-		'TftpBootDialNumberHint'		=> 'До 11 цифр',
+		'TftpBootDialNumberHint'		=> 'Цифры (до 11) или *код',
 		'TftpBootModerationReview'		=> 'Просмотр',
 		'TftpBootModerationNoDiff'		=> 'Изменений кнопок не обнаружено',
 		'TftpBootModerationLoading'		=> 'Загрузка…'

@@ -12,6 +12,10 @@ class TftpFanvilParser
 	private function dial_suffix_from_value($val)
 	{
 		$val = trim((string)$val);
+		if($val !== '' && preg_match('/^(\*[\d*]+)(@1\/[a-z]+)$/i', $val, $m))
+		{
+			return $m[2];
+		}
 		if($val !== '' && preg_match('/^\d+(.*)$/', $val, $m))
 		{
 			return $m[1];
@@ -109,6 +113,17 @@ class TftpFanvilParser
 		if($t3 !== NULL)
 		{
 			return $t3;
+		}
+
+		if(preg_match('/^(\*[\d*]+)(@1\/[a-z]+)?$/i', $val, $m))
+		{
+			$core = $m[1];
+			if(preg_match('/^\*+$/', $core) && strlen($core) > 2)
+			{
+				$core = '**';
+			}
+
+			return $core;
 		}
 
 		if(preg_match('/^(\d+)/', $val, $m))
@@ -246,6 +261,16 @@ class TftpFanvilParser
 		if($number === '')
 		{
 			return $old_value;
+		}
+
+		if(preg_match('/^\*/', $number))
+		{
+			if($old_value !== '' && preg_match('/^(\*[\d*]+)(.*)$/i', $old_value, $m))
+			{
+				return $number.$m[2];
+			}
+
+			return $number.'@1/f';
 		}
 
 		if($old_value !== '' && preg_match('/^(\d+)(.*)$/', $old_value, $m))

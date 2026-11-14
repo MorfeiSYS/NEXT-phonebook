@@ -8,7 +8,8 @@ function tftpboot_self_files(&$core, $params, $post_data)
 	$svc = tftpboot_instance($core);
 	foreach($files as &$f)
 	{
-		$f['label'] = tftpboot_display_label($f['phone'], $f['mac']);
+		$phone = trim((string)$f['phone']);
+		$f['label'] = $phone !== '' ? $phone : basename((string)$f['filename']);
 		$pending = $svc->get_self_pending_status($uid, $f['filename']);
 		$f['moderation'] = $pending ? array(
 			'status' => $pending['status'],
