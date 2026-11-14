@@ -251,20 +251,56 @@ function tftpboot_type2_line_value(raw) {
 	return '';
 }
 
+function tftpboot_type3_line_value(raw) {
+	var v = String(raw || '').trim().toUpperCase();
+	if (v === 'F_SMS' || v === 'F_MWI' || v === 'F_RECORD') return v;
+	return '';
+}
+
+function tftpboot_special_line_value(raw) {
+	return tftpboot_type2_line_value(raw) || tftpboot_type3_line_value(raw);
+}
+
+function tftpboot_type3_default_title(val) {
+	var labels = tftpboot_state.labels || {};
+	var map = {
+		F_SMS: labels.fkeyTitleSms,
+		F_MWI: labels.fkeyTitleMwi,
+		F_RECORD: labels.fkeyTitleRecord
+	};
+	if (map[val]) return map[val];
+	if (typeof LL === 'object' && LL) {
+		if (val === 'F_SMS' && LL.TftpBootFkeyFSms) return LL.TftpBootFkeyFSms;
+		if (val === 'F_MWI' && LL.TftpBootFkeyFMwi) return LL.TftpBootFkeyFMwi;
+		if (val === 'F_RECORD' && LL.TftpBootFkeyFRecord) return LL.TftpBootFkeyFRecord;
+	}
+	if (val === 'F_SMS') return 'СМС';
+	if (val === 'F_MWI') return 'Почта';
+	if (val === 'F_RECORD') return 'Запись';
+	return '';
+}
+
 function tftpboot_card_is_auto(card) {
 	if (card.dataset.fkeyAuto === '1') return true;
 	var numEl = card.querySelector('.tftpboot-key-number');
 	if (!numEl) return false;
-	return tftpboot_type2_line_value(numEl.value) !== '';
+	return tftpboot_special_line_value(numEl.value) !== '';
 }
 
 function tftpboot_sync_card_auto_state(card) {
 	var numEl = card.querySelector('.tftpboot-key-number');
-	var t2 = numEl ? tftpboot_type2_line_value(numEl.value) : '';
-	if (t2) {
+	var spec = numEl ? tftpboot_special_line_value(numEl.value) : '';
+	if (spec) {
 		card.dataset.fkeyAuto = '1';
 		card.dataset.dialSuffix = '';
-		if (numEl) numEl.value = t2;
+		if (numEl) numEl.value = spec;
+		var t3 = tftpboot_type3_line_value(spec);
+		if (t3) {
+			var tit = card.querySelector('.tftpboot-key-title');
+			if (tit && !String(tit.value).trim()) {
+				tit.value = tftpboot_type3_default_title(t3);
+			}
+		}
 	} else {
 		delete card.dataset.fkeyAuto;
 	}
@@ -375,7 +411,7 @@ function tftpboot_create_key_card(k, grid) {
 	var clrTitle = escapeHtml(tftpboot_key_clear_title());
 	var phoneTitle = escapeHtml(tftpboot_key_phone_title());
 	var dialSuffix = (k.dial_suffix !== undefined && k.dial_suffix !== null) ? String(k.dial_suffix) : '';
-	if (k.fkey_auto || tftpboot_type2_line_value(k.number || k.value)) {
+	if (k.fkey_auto || tftpboot_special_line_value(k.number || k.value)) {
 		card.dataset.fkeyAuto = '1';
 		dialSuffix = '';
 	}
@@ -629,13 +665,16 @@ function tftpboot_save_editor() {
 	var clearIds = [];
 	document.querySelectorAll('#tftpboot-editor-sections .tftpboot-key-card').forEach(function (card) {
 		var numRaw = card.querySelector('.tftpboot-key-number').value;
-		var t2 = tftpboot_type2_line_value(numRaw);
+		var spec = tftpboot_special_line_value(numRaw);
 		var row = {
 			slot: parseInt(card.dataset.slot, 10),
 			label: card.querySelector('.tftpboot-key-title').value,
-			number: t2 || numRaw,
-			dial_suffix: t2 ? '' : (card.dataset.dialSuffix || '')
+			number: spec || numRaw,
+			dial_suffix: spec ? '' : (card.dataset.dialSuffix || '')
 		};
+		if (!String(row.label).trim() && tftpboot_type3_line_value(row.number)) {
+			row.label = tftpboot_type3_default_title(row.number);
+		}
 		if (card.dataset.keyId) row.key_id = card.dataset.keyId;
 		if (card.dataset.section) row.section = card.dataset.section;
 		keys.push(row);

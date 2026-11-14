@@ -29,5 +29,8 @@ const LL = {
 	TftpBootEditorSoftdss:		'Soft keys',
 	TftpBootEditorDsskey:		'Speed dial',
 	TftpBootSipDisplay:			'Display name',
-	TftpBootEditorCell:			'Cell'
+	TftpBootEditorCell:			'Cell',
+	TftpBootFkeyFSms:			'SMS',
+	TftpBootFkeyFMwi:			'Voicemail',
+	TftpBootFkeyFRecord:		'Record'
 };

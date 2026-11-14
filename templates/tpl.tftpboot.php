@@ -119,7 +119,10 @@ if(!isset($tftpboot_is_admin))
 			sipDisplay: <?php echo json_encode(LL('TftpBootSipDisplay'), JSON_UNESCAPED_UNICODE); ?>,
 			keyCell: <?php echo json_encode(LL('TftpBootEditorCell'), JSON_UNESCAPED_UNICODE); ?>,
 			keyTitle: <?php echo json_encode(LL('TftpBootKeyTitle'), JSON_UNESCAPED_UNICODE); ?>,
-			keyNumber: <?php echo json_encode(LL('TftpBootNumber'), JSON_UNESCAPED_UNICODE); ?>
+			keyNumber: <?php echo json_encode(LL('TftpBootNumber'), JSON_UNESCAPED_UNICODE); ?>,
+			fkeyTitleSms: <?php echo json_encode(LL('TftpBootFkeyFSms'), JSON_UNESCAPED_UNICODE); ?>,
+			fkeyTitleMwi: <?php echo json_encode(LL('TftpBootFkeyFMwi'), JSON_UNESCAPED_UNICODE); ?>,
+			fkeyTitleRecord: <?php echo json_encode(LL('TftpBootFkeyFRecord'), JSON_UNESCAPED_UNICODE); ?>
 		}
 	});
 </script>

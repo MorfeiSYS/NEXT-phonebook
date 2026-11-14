@@ -67,6 +67,30 @@ class TftpFanvilParser
 		return NULL;
 	}
 
+	private function normalize_type3_line_value($raw)
+	{
+		$v = strtoupper(trim((string)$raw));
+		static $codes = array('F_SMS', 'F_MWI', 'F_RECORD');
+		if(in_array($v, $codes, TRUE))
+		{
+			return $v;
+		}
+
+		return NULL;
+	}
+
+	private function default_title_type3($code)
+	{
+		$code = strtoupper(trim((string)$code));
+		static $map = array(
+			'F_SMS' => 'СМС',
+			'F_MWI' => 'Почта',
+			'F_RECORD' => 'Запись',
+		);
+
+		return isset($map[$code]) ? $map[$code] : '';
+	}
+
 	private function number_from_value($val)
 	{
 		$val = trim($val);
@@ -79,6 +103,12 @@ class TftpFanvilParser
 		if($t2 !== NULL)
 		{
 			return $t2;
+		}
+
+		$t3 = $this->normalize_type3_line_value($val);
+		if($t3 !== NULL)
+		{
+			return $t3;
 		}
 
 		if(preg_match('/^(\d+)/', $val, $m))
@@ -95,6 +125,19 @@ class TftpFanvilParser
 		$type = isset($k['type']) ? intval($k['type']) : 0;
 
 		return $type === 2 && $this->normalize_type2_line_value($val) !== NULL;
+	}
+
+	private function is_type3_line_fkey($k)
+	{
+		$val = isset($k['value']) ? $k['value'] : '';
+		$type = isset($k['type']) ? intval($k['type']) : 0;
+
+		return $type === 3 && $this->normalize_type3_line_value($val) !== NULL;
+	}
+
+	private function is_special_line_fkey($k)
+	{
+		return $this->is_type2_line_fkey($k) || $this->is_type3_line_fkey($k);
 	}
 
 	private function set_line_colon_value($line, $value)
@@ -393,9 +436,27 @@ class TftpFanvilParser
 			}
 
 			$val = isset($k['value']) ? $k['value'] : '';
-			$type2 = $this->is_type2_line_fkey($k);
 			$t2val = $this->normalize_type2_line_value($val);
-			$num = $type2 && $t2val !== NULL ? $t2val : $this->number_from_value($val);
+			$t3val = $this->normalize_type3_line_value($val);
+			$special = $t2val !== NULL || $t3val !== NULL;
+			if($t3val !== NULL)
+			{
+				$num = $t3val;
+			}
+			elseif($t2val !== NULL)
+			{
+				$num = $t2val;
+			}
+			else
+			{
+				$num = $this->number_from_value($val);
+			}
+
+			$label = isset($k['title']) ? $k['title'] : '';
+			if($label === '' && $t3val !== NULL)
+			{
+				$label = $this->default_title_type3($t3val);
+			}
 
 			$out[] = array(
 				'key_id' => $k['key_id'],
@@ -404,10 +465,10 @@ class TftpFanvilParser
 				'slot' => intval($k['slot']),
 				'type' => intval($k['type']),
 				'number' => $num,
-				'label' => isset($k['title']) ? $k['title'] : '',
+				'label' => $label,
 				'value' => $val,
-				'dial_suffix' => $type2 ? '' : $this->dial_suffix_from_value($val),
-				'fkey_auto' => $type2,
+				'dial_suffix' => $special ? '' : $this->dial_suffix_from_value($val),
+				'fkey_auto' => $special,
 			);
 		}
 
@@ -474,6 +535,24 @@ class TftpFanvilParser
 			{
 				$this->set_fkey_field($lines, $slot, 'Type', '2', isset($k['line_type']) ? $k['line_type'] : NULL);
 				$this->set_fkey_field($lines, $slot, 'Value', $type2_val, isset($k['line_value']) ? $k['line_value'] : NULL);
+				if(isset($k['line_title']) && isset($lines[$k['line_title']]))
+				{
+					$lines[$k['line_title']] = $this->set_line_colon_value($lines[$k['line_title']], $title);
+				}
+
+				continue;
+			}
+
+			$type3_val = $this->normalize_type3_line_value($num);
+			if($type3_val !== NULL)
+			{
+				if($title === '')
+				{
+					$title = $this->default_title_type3($type3_val);
+				}
+
+				$this->set_fkey_field($lines, $slot, 'Type', '3', isset($k['line_type']) ? $k['line_type'] : NULL);
+				$this->set_fkey_field($lines, $slot, 'Value', $type3_val, isset($k['line_value']) ? $k['line_value'] : NULL);
 				if(isset($k['line_title']) && isset($lines[$k['line_title']]))
 				{
 					$lines[$k['line_title']] = $this->set_line_colon_value($lines[$k['line_title']], $title);
