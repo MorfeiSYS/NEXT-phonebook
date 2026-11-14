@@ -137,7 +137,7 @@ $tftpboot_editor_save_label = $tftpboot_self_only ? LL('TftpBootSubmitModeration
 			<p id="tftpboot-moderation-detail-meta"></p>
 			<div id="tftpboot-moderation-diff" class="tftpboot-sync-diff"></div>
 			<label><?php L('TftpBootModerationRejectNote') ?>
-				<input type="text" id="tftpboot-moderation-reject-note" class="form-field" maxlength="500" />
+				<input type="text" id="tftpboot-moderation-reject-note" class="form-field" maxlength="300" autocomplete="off" />
 			</label>
 			<div class="tftpboot-moderation-actions">
 				<button type="button" class="button-other" id="tftpboot-moderation-back"><?php L('TftpBootModerationBack') ?></button>
@@ -201,6 +201,8 @@ $tftpboot_editor_save_label = $tftpboot_self_only ? LL('TftpBootSubmitModeration
 			moderationReview: <?php echo json_encode(LL('TftpBootModerationReview'), JSON_UNESCAPED_UNICODE); ?>,
 			moderationLoading: <?php echo json_encode(LL('TftpBootModerationLoading'), JSON_UNESCAPED_UNICODE); ?>,
 			moderationNoDiff: <?php echo json_encode(LL('TftpBootModerationNoDiff'), JSON_UNESCAPED_UNICODE); ?>,
+			rejectNoteRequired: <?php echo json_encode(LL('TftpBootModerationRejectNoteRequired'), JSON_UNESCAPED_UNICODE); ?>,
+			rejectNoteInvalid: <?php echo json_encode(LL('TftpBootModerationRejectNoteInvalid'), JSON_UNESCAPED_UNICODE); ?>,
 			pickSearchEmpty: <?php echo json_encode(LL('TftpBootPickSearchEmpty'), JSON_UNESCAPED_UNICODE); ?>,
 			pickSearchLimit: <?php echo json_encode(LL('TftpBootPickSearchLimit'), JSON_UNESCAPED_UNICODE); ?>
 		}

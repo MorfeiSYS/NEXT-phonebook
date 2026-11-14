@@ -521,6 +521,46 @@ function tftpboot_assert_valid_speed_dial_post(&$post)
 	}
 }
 
+function tftpboot_moderation_reject_note_max_len()
+{
+	return 300;
+}
+
+function tftpboot_validate_reject_note($note, $required = TRUE)
+{
+	$note = trim((string)$note);
+	if($required && $note === '')
+	{
+		return LL('TftpBootModerationRejectNoteRequired');
+	}
+	if($note === '')
+	{
+		return '';
+	}
+	$max = tftpboot_moderation_reject_note_max_len();
+	if(mb_strlen($note, 'UTF-8') > $max)
+	{
+		return LL('TftpBootModerationRejectNoteInvalid');
+	}
+	if(strpbrk($note, '<>&') !== FALSE || preg_match('/&(?:#\d+|#x[0-9a-f]+|[a-z]+);/i', $note))
+	{
+		return LL('TftpBootModerationRejectNoteInvalid');
+	}
+	if(!preg_match('/^[\p{L}\p{N}\s,.\-+\/\\_@#]+$/u', $note))
+	{
+		return LL('TftpBootModerationRejectNoteInvalid');
+	}
+
+	return '';
+}
+
+function tftpboot_normalize_reject_note($note)
+{
+	$note = trim((string)$note);
+
+	return mb_substr($note, 0, tftpboot_moderation_reject_note_max_len(), 'UTF-8');
+}
+
 function tftpboot_self_contact(&$core)
 {
 	if(!$core->UserAuth->get_id() || !$core->UserAuth->is_ldap_user())

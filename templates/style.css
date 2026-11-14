@@ -1319,6 +1319,10 @@ ul.tree-menu:before {
 		box-shadow: inset 0 0 0 1px var(--menu-tftpboot-pulse-inset);
 	}
 }
+.tftpboot-self-status-rejected {
+	color: var(--color-error-text);
+	font-weight: 500;
+}
 .tftpboot-panel label { display: block; margin: 0.5em 0; }
 .tftpboot-pick-q { max-width: 24em; width: 100%; }
 .tftpboot-pick-results { margin: 0.25em 0 0.75em; max-width: 36em; }

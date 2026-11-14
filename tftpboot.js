@@ -285,13 +285,16 @@ function tftpboot_self_update_status() {
 	var st = row.moderation.status;
 	var lbl = tftpboot_state.labels || {};
 	if (st === 'pending') {
+		box.className = 'tftpboot-self-status';
 		box.textContent = lbl.selfStatusPending || 'Pending moderation';
 		box.style.display = '';
 	} else if (st === 'rejected') {
+		box.className = 'tftpboot-self-status tftpboot-self-status-rejected';
 		var note = row.moderation.reject_note ? ': ' + row.moderation.reject_note : '';
 		box.textContent = (lbl.selfStatusRejected || 'Rejected') + note;
 		box.style.display = '';
 	} else {
+		box.className = 'tftpboot-self-status';
 		box.style.display = 'none';
 	}
 }
@@ -428,11 +431,46 @@ function tftpboot_moderation_approve() {
 	});
 }
 
+function tftpboot_reject_note_err(key) {
+	var lbl = tftpboot_state.labels || {};
+	if (lbl[key]) return lbl[key];
+	if (typeof LL === 'object' && LL) {
+		if (key === 'rejectNoteRequired' && LL.TftpBootModerationRejectNoteRequired) {
+			return LL.TftpBootModerationRejectNoteRequired;
+		}
+		if (key === 'rejectNoteInvalid' && LL.TftpBootModerationRejectNoteInvalid) {
+			return LL.TftpBootModerationRejectNoteInvalid;
+		}
+	}
+	if (key === 'rejectNoteRequired') return 'Rejection comment is required';
+	return 'Invalid rejection comment';
+}
+
+function tftpboot_validate_reject_note_client(note) {
+	note = String(note || '').trim();
+	if (!note) return tftpboot_reject_note_err('rejectNoteRequired');
+	if (note.length > 300) return tftpboot_reject_note_err('rejectNoteInvalid');
+	if (/[<>&]/.test(note) || /&(?:#\d+|#x[0-9a-f]+|[a-z]+);/i.test(note)) {
+		return tftpboot_reject_note_err('rejectNoteInvalid');
+	}
+	if (!/^[\p{L}\p{N}\s,.\-+\/\\_@#]+$/u.test(note)) {
+		return tftpboot_reject_note_err('rejectNoteInvalid');
+	}
+	return '';
+}
+
 function tftpboot_moderation_reject() {
 	var id = tftpboot_state.moderationRequestId;
 	if (!id) return;
 	var noteEl = document.getElementById('tftpboot-moderation-reject-note');
 	var note = noteEl ? noteEl.value : '';
+	var err = tftpboot_validate_reject_note_client(note);
+	if (err) {
+		tftpboot_clear_dial_field_errors(document.getElementById('tftpboot-moderation-detail-view'));
+		tftpboot_mark_dial_field_error(noteEl);
+		f_notify(err, 'error');
+		return;
+	}
 	tftpboot_http('tftpboot_moderation_reject', { id: id, note: note }, function (res) {
 		f_notify(res && res.message ? res.message : 'OK', res && res.code ? 'error' : 'success');
 		if (res && !res.code) {

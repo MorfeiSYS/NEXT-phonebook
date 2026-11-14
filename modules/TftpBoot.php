@@ -2404,7 +2404,12 @@ class TftpBoot
 			return array('code' => 1, 'message' => 'Not found');
 		}
 
-		$note = trim(mb_substr((string)$note, 0, 500, 'UTF-8'));
+		$err = tftpboot_validate_reject_note($note, TRUE);
+		if($err !== '')
+		{
+			return array('code' => 1, 'message' => $err);
+		}
+		$note = tftpboot_normalize_reject_note($note);
 		$this->core->db->put(rpv(
 			"UPDATE `@tftpboot_moderation_request` SET `status` = 'rejected', `reviewer_uid` = #, `reviewed` = NOW(), `reject_note` = ! WHERE `id` = #",
 			intval($reviewer_uid),
