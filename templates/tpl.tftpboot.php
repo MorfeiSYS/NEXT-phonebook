@@ -8,19 +8,15 @@ if(!isset($tftpboot_is_admin))
 {
 	$tftpboot_is_admin = FALSE;
 }
-if(!isset($tftpboot_enabled_bulk))
-{
-	$tftpboot_enabled_bulk = array();
-}
+	if(!isset($tftpboot_enabled_bulk))
+	{
+		$tftpboot_enabled_bulk = array();
+	}
+	if(!isset($tftpboot_bulk_page_size))
+	{
+		$tftpboot_bulk_page_size = 50;
+	}
 ?>
-<script src="<?php ls('tftpboot.js') ?>"></script>
-<script>
-	tftpboot_init({
-		policy: <?php echo json_encode($tftpboot_policy, JSON_UNESCAPED_UNICODE); ?>,
-		isAdmin: <?php echo $tftpboot_is_admin ? '1' : '0'; ?>,
-		bulkVendors: <?php echo json_encode($tftpboot_enabled_bulk, JSON_UNESCAPED_UNICODE); ?>
-	});
-</script>
 
 <h3><?php L('TftpBootTitle') ?></h3>
 
@@ -48,13 +44,14 @@ if(!isset($tftpboot_enabled_bulk))
 </div>
 
 <div id="tftpboot-panel-bulk" class="tftpboot-panel" style="display:none">
+	<p class="tftpboot-bulk-hint"><?php L('TftpBootBulkHint') ?></p>
 	<input type="search" id="tftpboot-bulk-q" placeholder="<?php L('TftpBootSearchPlaceholder') ?>" />
 	<div id="tftpboot-bulk-vendors" class="tftpboot-vendor-chks"></div>
-	<button type="button" class="button-other" id="tftpboot-bulk-search"><?php L('Search') ?></button>
 	<table class="tftpboot-table" id="tftpboot-bulk-table">
-		<thead><tr><th><?php L('TftpBootPhone') ?></th><th><?php L('TftpBootKeySlot') ?></th><th><?php L('TftpBootNumber') ?></th><th><?php L('TftpBootKeyTitle') ?></th><th></th></tr></thead>
+		<thead><tr><th><?php L('TftpBootNumber') ?></th><th><?php L('TftpBootName') ?></th><th><?php L('TftpBootBulkUses') ?></th><th><?php L('TftpBootBulkActions') ?></th></tr></thead>
 		<tbody></tbody>
 	</table>
+	<div id="tftpboot-bulk-pages" class="tftpboot-bulk-pages"></div>
 </div>
 
 <div id="tftpboot-panel-directory" class="tftpboot-panel" style="display:none">
@@ -87,5 +84,23 @@ if(!isset($tftpboot_enabled_bulk))
 		<table class="tftpboot-table" id="tftpboot-directory-table"><thead><tr><th><?php L('TftpBootNumber') ?></th><th><?php L('TftpBootName') ?></th></tr></thead><tbody></tbody></table>
 	</div>
 </div>
+
+<script src="<?php ls('tftpboot.js') ?>"></script>
+<script>
+	tftpboot_init({
+		policy: <?php echo json_encode($tftpboot_policy, JSON_UNESCAPED_UNICODE); ?>,
+		isAdmin: <?php echo $tftpboot_is_admin ? '1' : '0'; ?>,
+		bulkVendors: <?php echo json_encode($tftpboot_enabled_bulk, JSON_UNESCAPED_UNICODE); ?>,
+		bulkPageSize: <?php echo intval($tftpboot_bulk_page_size); ?>,
+		labels: {
+			save: <?php echo json_encode(LL('Save'), JSON_UNESCAPED_UNICODE); ?>,
+			bulkEmpty: <?php echo json_encode(LL('TftpBootBulkEmpty'), JSON_UNESCAPED_UNICODE); ?>,
+			bulkPageInfo: <?php echo json_encode(LL('TftpBootBulkPageInfo'), JSON_UNESCAPED_UNICODE); ?>,
+			deleteBtn: <?php echo json_encode(LL('Delete'), JSON_UNESCAPED_UNICODE); ?>,
+			bulkDeleteConfirm: <?php echo json_encode(LL('TftpBootBulkDeleteConfirm'), JSON_UNESCAPED_UNICODE); ?>,
+			bulkLocHint: <?php echo json_encode(LL('TftpBootBulkLocHint'), JSON_UNESCAPED_UNICODE); ?>
+		}
+	});
+</script>
 
 <?php include(TEMPLATES_DIR.'tpl.footer.php'); ?>

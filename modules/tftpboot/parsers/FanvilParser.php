@@ -2,109 +2,290 @@
 
 class TftpFanvilParser
 {
+	private function section_id($name)
+	{
+		return preg_replace('/\s+/', ' ', strtolower(trim($name)));
+	}
+
+	private function key_id($section, $slot)
+	{
+		return $section.'#'.$slot;
+	}
+
+	private function number_from_value($val)
+	{
+		$val = trim($val);
+		if($val === '')
+		{
+			return '';
+		}
+
+		if(preg_match('/^(\d+)/', $val, $m))
+		{
+			return $m[1];
+		}
+
+		return $val;
+	}
+
+	private function set_line_colon_value($line, $value)
+	{
+		$pos = strpos($line, ':');
+		if($pos === FALSE)
+		{
+			return $line;
+		}
+
+		return substr($line, 0, $pos + 1).$value;
+	}
+
+	private function set_fkey_field(&$lines, $slot, $field, $value, $line_index = NULL)
+	{
+		$apply = function($i) use (&$lines, $value)
+		{
+			if(isset($lines[$i]))
+			{
+				$lines[$i] = $this->set_line_colon_value($lines[$i], $value);
+			}
+		};
+
+		if($line_index !== NULL)
+		{
+			$apply($line_index);
+
+			return;
+		}
+
+		foreach($lines as $i => $line)
+		{
+			if(preg_match('/^Fkey'.$slot.'\s+'.preg_quote($field, '/').'\s*:/', $line))
+			{
+				$apply($i);
+			}
+		}
+	}
+
+	public function clear_dss_keys(&$lines, &$keys_raw, $key_ids)
+	{
+		foreach(array_unique($key_ids) as $kid)
+		{
+			if(!isset($keys_raw[$kid]))
+			{
+				continue;
+			}
+
+			$k = &$keys_raw[$kid];
+			$slot = intval($k['slot']);
+			$line_type = isset($k['line_type']) ? $k['line_type'] : NULL;
+			$line_value = isset($k['line_value']) ? $k['line_value'] : NULL;
+			$line_title = isset($k['line_title']) ? $k['line_title'] : NULL;
+
+			$this->set_fkey_field($lines, $slot, 'Type', '0', $line_type);
+			$this->set_fkey_field($lines, $slot, 'Value', '', $line_value);
+			$this->set_fkey_field($lines, $slot, 'Title', '', $line_title);
+
+			$k['type'] = 0;
+			$k['value'] = '';
+			$k['title'] = '';
+		}
+	}
+
+	private function build_dial_value($number, $old_value)
+	{
+		$number = trim($number);
+		$old_value = trim($old_value);
+		if($number === '')
+		{
+			return $old_value;
+		}
+
+		if($old_value !== '' && preg_match('/^(\d+)(.*)$/', $old_value, $m))
+		{
+			return $number.$m[2];
+		}
+
+		return $number.'@1/f';
+	}
+
 	public function parse($content)
 	{
 		$lines = preg_split('/\r\n|\r|\n/', $content);
 		$sip = array();
-		$keys = array();
+		$keys_raw = array();
 		$net = array();
 		$in_dss = FALSE;
+		$section = '';
+		$section_title = '';
 		$dss_index = -1;
 
 		foreach($lines as $li => $line)
 		{
-			if(strpos($line, '<DSSKEY CONFIG MODULE>') !== FALSE)
+			if(preg_match('/^\s*Vendor Class ID\s+:\s*(.*)\s*$/i', $line, $vc))
+			{
+				$net['Vendor Class ID'] = trim($vc[1]);
+			}
+
+			if(stripos($line, '<DSSKEY CONFIG MODULE>') !== FALSE)
 			{
 				$in_dss = TRUE;
 				$dss_index++;
+				$section = '';
+				$section_title = '';
 				continue;
 			}
 
-			if($in_dss && preg_match('/^Fkey(\d+)\s+Type\s*:\s*(\d+)/', $line, $m))
+			if($in_dss && preg_match('/^<[^>]+>\s*$/', $line) && stripos($line, 'DSSKEY') === FALSE)
+			{
+				$in_dss = FALSE;
+				$section = '';
+				$section_title = '';
+			}
+
+			if($in_dss && preg_match('/^--\s*(.+?)\s*--\s*:?\s*$/', $line, $sm))
+			{
+				$section_title = trim($sm[1]);
+				$section = $this->section_id($section_title);
+				continue;
+			}
+
+			if(!$in_dss || $section === '')
+			{
+				if(preg_match('/^(\S.*?)\s*:\s*(.*)$/', $line, $m))
+				{
+					$key = trim($m[1]);
+					$val = $m[2];
+					if(strpos($key, 'SIP1 ') === 0)
+					{
+						$sip[$key] = $val;
+					}
+				}
+				continue;
+			}
+
+			$kid = NULL;
+			if(preg_match('/^Fkey(\d+)\s+Type\s*:\s*(\d+)/', $line, $m))
 			{
 				$slot = intval($m[1]);
-				$type = intval($m[2]);
-				if(!isset($keys[$slot]))
+				$kid = $this->key_id($section, $slot);
+				if(!isset($keys_raw[$kid]))
 				{
-					$keys[$slot] = array('slot' => $slot, 'type' => $type, 'value' => '', 'title' => '', 'line_type' => $li);
+					$keys_raw[$kid] = array(
+						'key_id' => $kid,
+						'section' => $section,
+						'section_title' => $section_title,
+						'slot' => $slot,
+						'type' => intval($m[2]),
+						'value' => '',
+						'title' => '',
+						'line_type' => $li,
+					);
 				}
 				else
 				{
-					$keys[$slot]['type'] = $type;
-					$keys[$slot]['line_type'] = $li;
+					$keys_raw[$kid]['type'] = intval($m[2]);
+					$keys_raw[$kid]['line_type'] = $li;
 				}
 				continue;
 			}
 
-			if($in_dss && preg_match('/^Fkey(\d+)\s+Value\s*:\s*(.*)$/', $line, $m))
+			if(preg_match('/^Fkey(\d+)\s+Value\s*:\s*(.*)$/', $line, $m))
 			{
 				$slot = intval($m[1]);
-				if(!isset($keys[$slot]))
+				$kid = $this->key_id($section, $slot);
+				if(!isset($keys_raw[$kid]))
 				{
-					$keys[$slot] = array('slot' => $slot, 'type' => 0, 'value' => trim($m[2]), 'title' => '', 'line_value' => $li);
+					$keys_raw[$kid] = array(
+						'key_id' => $kid,
+						'section' => $section,
+						'section_title' => $section_title,
+						'slot' => $slot,
+						'type' => 0,
+						'value' => trim($m[2]),
+						'title' => '',
+						'line_value' => $li,
+					);
 				}
 				else
 				{
-					$keys[$slot]['value'] = trim($m[2]);
-					$keys[$slot]['line_value'] = $li;
+					$keys_raw[$kid]['value'] = trim($m[2]);
+					$keys_raw[$kid]['line_value'] = $li;
 				}
 				continue;
 			}
 
-			if($in_dss && preg_match('/^Fkey(\d+)\s+Title\s*:\s*(.*)$/', $line, $m))
+			if(preg_match('/^Fkey(\d+)\s+Title\s*:\s*(.*)$/', $line, $m))
 			{
 				$slot = intval($m[1]);
-				if(!isset($keys[$slot]))
+				$kid = $this->key_id($section, $slot);
+				if(!isset($keys_raw[$kid]))
 				{
-					$keys[$slot] = array('slot' => $slot, 'type' => 0, 'value' => '', 'title' => trim($m[2]), 'line_title' => $li);
+					$keys_raw[$kid] = array(
+						'key_id' => $kid,
+						'section' => $section,
+						'section_title' => $section_title,
+						'slot' => $slot,
+						'type' => 0,
+						'value' => '',
+						'title' => trim($m[2]),
+						'line_title' => $li,
+					);
 				}
 				else
 				{
-					$keys[$slot]['title'] = trim($m[2]);
-					$keys[$slot]['line_title'] = $li;
+					$keys_raw[$kid]['title'] = trim($m[2]);
+					$keys_raw[$kid]['line_title'] = $li;
 				}
 				continue;
-			}
-
-			if(preg_match('/^(\S.*?)\s*:\s*(.*)$/', $line, $m))
-			{
-				$key = trim($m[1]);
-				$val = $m[2];
-				if(strpos($key, 'SIP1 ') === 0)
-				{
-					$sip[$key] = $val;
-				}
-				if($key === 'Vendor Class ID')
-				{
-					$net['Vendor Class ID'] = trim($val);
-				}
 			}
 		}
 
 		$speed = array();
-		foreach($keys as $slot => $k)
+		foreach($keys_raw as $k)
 		{
 			if(intval($k['type']) !== 1)
 			{
 				continue;
 			}
 
-			$num = $k['value'];
-			if(preg_match('/^(\d+)@/', $num, $nm))
+			$num = $this->number_from_value($k['value']);
+			if($num === '' && $k['title'] === '')
 			{
-				$num = $nm[1];
+				continue;
+			}
+
+			$line_no = 0;
+			if(isset($k['line_value']))
+			{
+				$line_no = intval($k['line_value']) + 1;
+			}
+			elseif(isset($k['line_title']))
+			{
+				$line_no = intval($k['line_title']) + 1;
 			}
 
 			$speed[] = array(
-				'slot' => $slot,
+				'key_id' => $k['key_id'],
+				'section' => $k['section'],
+				'section_title' => $k['section_title'],
+				'slot' => intval($k['slot']),
 				'type' => intval($k['type']),
 				'number' => $num,
 				'label' => $k['title'],
 				'value' => $k['value'],
+				'line' => $line_no,
 			);
 		}
 
-		usort($speed, function($a, $b) { return $a['slot'] - $b['slot']; });
+		usort($speed, function($a, $b)
+		{
+			$c = strcmp($a['section'], $b['section']);
+			if($c !== 0)
+			{
+				return $c;
+			}
+
+			return $a['slot'] - $b['slot'];
+		});
 
 		$phone = '';
 		if(isset($sip['SIP1 Phone Number']))
@@ -124,7 +305,7 @@ class TftpFanvilParser
 			'displayName' => $display,
 			'model_hint' => isset($net['Vendor Class ID']) ? $net['Vendor Class ID'] : '',
 			'speedDialKeys' => $speed,
-			'keys_raw' => $keys,
+			'keys_raw' => $keys_raw,
 			'sip' => $sip,
 			'lines' => $lines,
 			'dss_index' => $dss_index,
@@ -144,30 +325,40 @@ class TftpFanvilParser
 
 	public function apply_speed_dials(&$lines, $keys_raw, $speedDialKeys, $dss_use_index = -1)
 	{
-		$by_slot = array();
+		$by_id = array();
 		foreach($speedDialKeys as $k)
 		{
-			$by_slot[intval($k['slot'])] = $k;
+			if(isset($k['key_id']))
+			{
+				$by_id[$k['key_id']] = $k;
+				continue;
+			}
+
+			$sec = isset($k['section']) ? $k['section'] : '';
+			$by_id[$this->key_id($sec, intval($k['slot']))] = $k;
 		}
 
-		foreach($keys_raw as $slot => $k)
+		foreach($keys_raw as $kid => $k)
 		{
-			if(intval($k['type']) !== 1 || !isset($by_slot[$slot]))
+			if(intval($k['type']) !== 1 || !isset($by_id[$kid]))
 			{
 				continue;
 			}
 
-			$upd = $by_slot[$slot];
-			$val = isset($upd['value']) && $upd['value'] !== '' ? $upd['value'] : (isset($upd['number']) ? $upd['number'].'@1/f' : '');
-			$title = isset($upd['label']) ? $upd['label'] : '';
+			$upd = $by_id[$kid];
+			$old_val = isset($k['value']) ? $k['value'] : '';
+			$num = isset($upd['number']) ? $upd['number'] : '';
+			$val = isset($upd['value']) && $upd['value'] !== '' ? $upd['value'] : $this->build_dial_value($num, $old_val);
+			$title = isset($upd['label']) ? $upd['label'] : (isset($upd['title']) ? $upd['title'] : '');
+			$slot = intval($k['slot']);
 
 			if(isset($k['line_value']) && isset($lines[$k['line_value']]))
 			{
-				$lines[$k['line_value']] = 'Fkey'.$slot.' Value              :'.$val;
+				$lines[$k['line_value']] = $this->set_line_colon_value($lines[$k['line_value']], $val);
 			}
 			if(isset($k['line_title']) && isset($lines[$k['line_title']]))
 			{
-				$lines[$k['line_title']] = 'Fkey'.$slot.' Title              :'.$title;
+				$lines[$k['line_title']] = $this->set_line_colon_value($lines[$k['line_title']], $title);
 			}
 		}
 
@@ -194,44 +385,84 @@ class TftpFanvilParser
 	{
 		$lines = $parsed['lines'];
 		$type1 = array();
-		foreach($parsed['keys_raw'] as $slot => $k)
+		foreach($parsed['keys_raw'] as $kid => $k)
 		{
 			if(intval($k['type']) === 1)
 			{
-				$type1[$slot] = $k;
+				$type1[$kid] = $k;
 			}
 		}
 
 		$ordered = array();
-		foreach($new_order as $slot)
+		foreach($new_order as $id)
 		{
-			$slot = intval($slot);
-			if(isset($type1[$slot]))
+			$id = (string)$id;
+			if(isset($type1[$id]))
 			{
-				$ordered[] = $type1[$slot];
+				$ordered[] = $type1[$id];
 			}
 		}
 
-		$slots = array_keys($type1);
-		sort($slots, SORT_NUMERIC);
-
-		for($i = 0; $i < count($ordered) && $i < count($slots); $i++)
+		if(!count($ordered))
 		{
-			$target = $slots[$i];
-			$src = $ordered[$i];
-			if(isset($lines[$src['line_value']]))
+			foreach($new_order as $slot)
 			{
+				$slot = intval($slot);
+				foreach($type1 as $kid => $k)
+				{
+					if(intval($k['slot']) === $slot)
+					{
+						$ordered[] = $k;
+						break;
+					}
+				}
+			}
+		}
+
+		$by_section = array();
+		foreach($type1 as $kid => $k)
+		{
+			$by_section[$k['section']][] = $k;
+		}
+
+		foreach($by_section as $section => $list)
+		{
+			usort($list, function($a, $b) { return $a['slot'] - $b['slot']; });
+			$section_order = array();
+			foreach($ordered as $k)
+			{
+				if($k['section'] === $section)
+				{
+					$section_order[] = $k;
+				}
+			}
+
+			if(!count($section_order))
+			{
+				continue;
+			}
+
+			for($i = 0; $i < count($section_order) && $i < count($list); $i++)
+			{
+				$target = $list[$i];
+				$src = $section_order[$i];
+				if(!isset($lines[$src['line_value']]) || !isset($lines[$src['line_title']]))
+				{
+					continue;
+				}
+
 				preg_match('/Value\s*:\s*(.*)$/', $lines[$src['line_value']], $vm);
 				$v = isset($vm[1]) ? $vm[1] : '';
 				preg_match('/Title\s*:\s*(.*)$/', $lines[$src['line_title']], $tm);
 				$t = isset($tm[1]) ? $tm[1] : '';
-				if(isset($type1[$target]['line_value']))
+				$slot = intval($target['slot']);
+				if(isset($target['line_value']))
 				{
-					$lines[$type1[$target]['line_value']] = 'Fkey'.$target.' Value              :'.$v;
+					$lines[$target['line_value']] = 'Fkey'.$slot.' Value              :'.$v;
 				}
-				if(isset($type1[$target]['line_title']))
+				if(isset($target['line_title']))
 				{
-					$lines[$type1[$target]['line_title']] = 'Fkey'.$target.' Title              :'.$t;
+					$lines[$target['line_title']] = 'Fkey'.$slot.' Title              :'.$t;
 				}
 			}
 		}

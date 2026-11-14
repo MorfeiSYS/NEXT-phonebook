@@ -22,6 +22,7 @@ function tftpboot_admin(&$core, $params, $post_data)
 		'sync_auto_interval' => $core->Config->get_global('tftpboot_sync_auto_interval', '60'),
 		'sync_fields' => $core->Config->get_global('tftpboot_sync_fields', 'dss_title,display_name'),
 		'scan_cache_ttl' => $core->Config->get_global('tftpboot_scan_cache_ttl', '300'),
+		'bulk_page_size' => (string) $svc->get_bulk_page_size(),
 		'sync_cron_key' => $core->Config->get_global('tftpboot_sync_cron_key', ''),
 	);
 

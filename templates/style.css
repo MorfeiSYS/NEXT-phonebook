@@ -578,6 +578,20 @@ body {
     background-color: var(--color-light-bg);
     border-radius: 3px;
 }
+.tftpboot-bulk-page-info {
+    display: inline-block;
+    margin-right: 8px;
+    vertical-align: middle;
+}
+.tftpboot-bulk-pages .page-number {
+    margin-top: 4px;
+    margin-bottom: 4px;
+    padding: 6px 10px;
+}
+.tftpboot-bulk-actions .button-other,
+.tftpboot-bulk-actions .button-decline {
+    margin: 2px 0;
+}
 .command {
     display: inline-block;
     padding: 0px 5px;
@@ -1174,6 +1188,19 @@ ul.tree-menu:before {
 .tftpboot-panel label { display: block; margin: 0.5em 0; }
 .tftpboot-table { width: 100%; border-collapse: collapse; margin-top: 1em; }
 .tftpboot-table th, .tftpboot-table td { border: 1px solid var(--color-border-2); padding: 4px 8px; }
+#tftpboot-bulk-table th:last-child,
+#tftpboot-bulk-table td.tftpboot-bulk-actions {
+	width: 1%;
+	white-space: nowrap;
+}
+#tftpboot-bulk-table td.tftpboot-bulk-count {
+	width: 1%;
+	white-space: nowrap;
+	text-align: center;
+}
+#tftpboot-bulk-table .tftpboot-bulk-num[title] {
+	cursor: help;
+}
 .tftpboot-keys-grid { display: flex; flex-wrap: wrap; gap: 8px; margin: 1em 0; }
 .tftpboot-key-card {
     border: 1px solid var(--color-border-2);

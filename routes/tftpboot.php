@@ -13,7 +13,8 @@ function tftpboot(&$core, $params, $post_data)
 	$svc->scan(FALSE);
 	$tftpboot_policy = tftpboot_user_policy($core);
 	$tftpboot_is_admin = user_is_admin();
-	$tftpboot_enabled_bulk = $svc->get_enabled_vendors('bulk');
+	$tftpboot_enabled_bulk = tftpboot_bulk_vendor_choices($svc);
+	$tftpboot_bulk_page_size = $svc->get_bulk_page_size();
 
 	include(TEMPLATES_DIR.'tpl.tftpboot.php');
 }

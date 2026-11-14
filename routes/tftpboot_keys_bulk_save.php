@@ -11,15 +11,14 @@ function tftpboot_keys_bulk_save(&$core, $params, $post_data)
 		exit;
 	}
 
-	$vendors = isset($post_data['vendors']) ? $post_data['vendors'] : array();
 	$svc = tftpboot_instance($core);
-	$allowed = $svc->get_enabled_vendors('bulk');
-	$vendors = array_values(array_intersect($vendors, $allowed));
-	if(!count($vendors))
+	list($vendors, $explicit) = tftpboot_bulk_vendors_from_post($post_data, $svc);
+	if($explicit && !count($vendors))
 	{
-		$vendors = $allowed;
+		tftpboot_json_send(array('code' => 1, 'message' => LL('TftpBootBulkNoVendors')));
+		return;
 	}
 
 	$n = $svc->bulk_save_keys($items, $vendors);
-	tftpboot_json_send(array('code' => 0, 'message' => LL('Save'), 'updated' => $n));
+	tftpboot_json_send(array('code' => 0, 'message' => LL('Save'), 'updated' => $n, 'keys' => $n));
 }

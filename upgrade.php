@@ -746,6 +746,27 @@ require_once(ROOT_DIR.'inc.config.php');
 
 		case 12:
 		{
+			echo "Add tftpboot_file.dial_keys_json for bulk dial list cache...\n";
+			$cols = array();
+			if(!$core->db->select_ex($cols, rpv("SHOW COLUMNS FROM `@tftpboot_file` LIKE 'dial_keys_json'"))
+				|| count($cols) === 0)
+			{
+				if(!$core->db->put(rpv('ALTER TABLE `@tftpboot_file` ADD COLUMN `dial_keys_json` MEDIUMTEXT NULL AFTER `dss_search`')))
+				{
+					echo 'ERROR['.__LINE__.']: '.$core->db->get_last_error().PHP_EOL;
+				}
+			}
+			echo "Set db_version = '13'...\n";
+			if(!$core->db->put(rpv("UPDATE @config SET `value` = 13 WHERE `uid` = 0 AND `name` = 'db_version' LIMIT 1")))
+			{
+				echo 'ERROR['.__LINE__.']: '.$core->db->get_last_error().PHP_EOL;
+			}
+			echo "\n\nUpgrade to version 13 complete!\n";
+		}
+		break;
+
+		case 13:
+		{
 			echo "Upgrade doesn't required\n";
 		}
 		break;

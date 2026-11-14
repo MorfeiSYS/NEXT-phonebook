@@ -15,5 +15,9 @@ const LL = {
 	ContactStatusTooltipAdDeleted: 'Not found in last AD sync (marked deleted)',
 	ContactStatusTooltipAdDisabled: 'Account disabled in AD',
 	ContactStatusTooltipListHidden: 'Bulk-hidden by administrator',
-	ContactStatusTooltipNotVisible: 'Manually hidden from the phonebook'
+	ContactStatusTooltipNotVisible: 'Manually hidden from the phonebook',
+
+	Save:						'Save',
+	TftpBootBulkEmpty:			'No data. Use Rescan in phone settings.',
+	TftpBootBulkPageInfo:		'Records %1–%2 of %3'
 };

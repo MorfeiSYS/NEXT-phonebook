@@ -26,22 +26,112 @@ class TftpBoot
 		$this->eltex = new TftpEltexParser();
 	}
 
+	private function catalog_from_file()
+	{
+		$path = ROOT_DIR.'config/tftpboot_catalog.json';
+		if(!file_exists($path))
+		{
+			return NULL;
+		}
+
+		$data = json_decode(file_get_contents($path), TRUE);
+		if(!is_array($data) || !isset($data['vendors']))
+		{
+			return NULL;
+		}
+
+		return $data;
+	}
+
+	private function merge_catalog_defs(&$data, $defs)
+	{
+		if(!isset($data['vendors']) || !isset($defs['vendors']))
+		{
+			return;
+		}
+
+		$by_id = array();
+		foreach($data['vendors'] as $i => $v)
+		{
+			$by_id[$v['id']] = $i;
+		}
+
+		foreach($defs['vendors'] as $dv)
+		{
+			if(!isset($dv['id']))
+			{
+				continue;
+			}
+
+			if(!isset($by_id[$dv['id']]))
+			{
+				$data['vendors'][] = $dv;
+				$by_id[$dv['id']] = count($data['vendors']) - 1;
+				continue;
+			}
+
+			$vi = $by_id[$dv['id']];
+			if(!isset($data['vendors'][$vi]['models']) || !isset($dv['models']))
+			{
+				continue;
+			}
+
+			$models = array();
+			foreach($data['vendors'][$vi]['models'] as $m)
+			{
+				$models[$m['id']] = $m;
+			}
+
+			foreach($dv['models'] as $dm)
+			{
+				if(!isset($dm['id']))
+				{
+					continue;
+				}
+
+				if($dv['id'] === 'fanvil' && $dm['id'] === 'other' && isset($models['unknown']))
+				{
+					unset($models['unknown']);
+				}
+
+				if(isset($models[$dm['id']]))
+				{
+					foreach(array('title', 'match', 'dss_slots', 'sections') as $key)
+					{
+						if(isset($dm[$key]))
+						{
+							$models[$dm['id']][$key] = $dm[$key];
+						}
+					}
+				}
+				else
+				{
+					$models[$dm['id']] = $dm;
+				}
+			}
+
+			$data['vendors'][$vi]['models'] = array_values($models);
+		}
+	}
+
 	public function get_catalog()
 	{
 		$json = $this->core->Config->get_global('tftpboot_catalog_json', '');
 		$data = json_decode($json, TRUE);
 		if(!is_array($data) || !isset($data['vendors']))
 		{
-			$path = ROOT_DIR.'config/tftpboot_catalog.json';
-			if(file_exists($path))
-			{
-				$data = json_decode(file_get_contents($path), TRUE);
-			}
+			$data = $this->catalog_from_file();
 		}
 
 		if(!is_array($data) || !isset($data['vendors']))
 		{
 			$data = array('vendors' => array());
+		}
+
+		$defs = $this->catalog_from_file();
+		if($defs)
+		{
+			$this->merge_catalog_defs($data, $defs);
 		}
 
 		return $data;
@@ -53,6 +143,21 @@ class TftpBoot
 		$this->core->Config->set_global('tftpboot_catalog_json', $json);
 
 		return TRUE;
+	}
+
+	public function get_bulk_page_size()
+	{
+		$n = intval($this->core->Config->get_global('tftpboot_bulk_page_size', 50));
+		if($n < 5)
+		{
+			$n = 5;
+		}
+		if($n > 500)
+		{
+			$n = 500;
+		}
+
+		return $n;
 	}
 
 	public function get_enabled_vendors($kind = 'editor')
@@ -124,8 +229,34 @@ class TftpBoot
 		return strtoupper($base);
 	}
 
+	public function fanvil_key_item_match($key, $item)
+	{
+		if(isset($item['key_id']) && $item['key_id'] !== '' && isset($key['key_id']))
+		{
+			return $key['key_id'] === $item['key_id'];
+		}
+
+		if(isset($item['section']) && $item['section'] !== '' && isset($key['section']))
+		{
+			return $key['section'] === $item['section'] && intval($key['slot']) === intval($item['slot']);
+		}
+
+		return intval($key['slot']) === intval($item['slot']);
+	}
+
+	public function fanvil_vendor_class_id($content)
+	{
+		if(preg_match_all('/^\s*Vendor Class ID\s+:\s*(.*)\s*$/mi', $content, $m) && count($m[1]) > 0)
+		{
+			return trim(end($m[1]));
+		}
+
+		return '';
+	}
+
 	public function detect_vendor($filename, $content)
 	{
+		$content = preg_replace('/^\xEF\xBB\xBF/', '', $content);
 		$base = strtolower($filename);
 		if(preg_match('/^sep[a-f0-9]+\.cnf\.xml$/i', $base))
 		{
@@ -192,7 +323,7 @@ class TftpBoot
 
 			foreach($v['models'] as $m)
 			{
-				if($m['id'] === 'unknown')
+				if($m['id'] === 'unknown' || $m['id'] === 'other')
 				{
 					continue;
 				}
@@ -208,9 +339,9 @@ class TftpBoot
 
 			foreach($v['models'] as $m)
 			{
-				if($m['id'] === 'unknown')
+				if($m['id'] === 'unknown' || $m['id'] === 'other')
 				{
-					return 'unknown';
+					return $m['id'];
 				}
 			}
 
@@ -259,8 +390,63 @@ class TftpBoot
 		return (time() - intval($last[0][0])) > $ttl;
 	}
 
+	public function ensure_dial_keys_column()
+	{
+		static $done = FALSE;
+		if($done)
+		{
+			return;
+		}
+
+		$cols = array();
+		if($this->core->db->select_ex($cols, rpv("SHOW COLUMNS FROM `@tftpboot_file` LIKE 'dial_keys_json'"))
+			&& count($cols) > 0)
+		{
+			$done = TRUE;
+
+			return;
+		}
+
+		$this->core->db->put(rpv(
+			'ALTER TABLE `@tftpboot_file` ADD COLUMN `dial_keys_json` MEDIUMTEXT NULL AFTER `dss_search`'
+		));
+		$done = TRUE;
+	}
+
+	private function dial_keys_compact($parsed)
+	{
+		$out = array();
+		if(!isset($parsed['speedDialKeys']) || !is_array($parsed['speedDialKeys']))
+		{
+			return $out;
+		}
+
+		foreach($parsed['speedDialKeys'] as $k)
+		{
+			$num = isset($k['number']) ? trim($k['number']) : '';
+			if($this->normalize_dial_number($num) === '')
+			{
+				continue;
+			}
+
+			$entry = array(
+				'number' => $num,
+				'title' => isset($k['label']) ? $k['label'] : (isset($k['title']) ? $k['title'] : ''),
+			);
+			if(isset($k['line']) && intval($k['line']) > 0)
+			{
+				$entry['line'] = intval($k['line']);
+			}
+
+			$out[] = $entry;
+		}
+
+		return $out;
+	}
+
 	public function scan($force = FALSE)
 	{
+		$this->ensure_dial_keys_column();
 		if(!$force && !$this->should_scan())
 		{
 			return TRUE;
@@ -322,24 +508,34 @@ class TftpBoot
 			$vendor = $override ? $override['vendor'] : $this->detect_vendor($filename, $content);
 			$parsed = $this->parse_content($vendor, $content);
 			$hint = isset($parsed['model_hint']) ? $parsed['model_hint'] : '';
+			if($vendor === 'fanvil' && $hint === '')
+			{
+				$hint = $this->fanvil_vendor_class_id($content);
+			}
 			$model = $override ? $override['model'] : $this->match_model($vendor, $hint, $catalog);
+			if($vendor === 'fanvil' && $model === 'unknown')
+			{
+				$model = 'other';
+			}
 			$mac = $this->mac_from_filename(basename($filename));
 			$phone = isset($parsed['phone']) ? $parsed['phone'] : '';
 			$parser = $this->parser_for($vendor);
 			$dss = $parser ? $parser->build_dss_search($parsed) : '';
+			$dial_keys_json = json_encode($this->dial_keys_compact($parsed), JSON_UNESCAPED_UNICODE);
 			$mtime = filemtime($path);
 
 			$this->core->db->put(rpv(
-				"INSERT INTO `@tftpboot_file` (`filename`, `mac`, `vendor`, `model`, `phone`, `dss_search`, `mtime`, `auto_detected`) ".
-				"VALUES (!, !, !, !, !, !, #, #) ON DUPLICATE KEY UPDATE `mac`=VALUES(`mac`), `vendor`=VALUES(`vendor`), ".
-				"`model`=VALUES(`model`), `phone`=VALUES(`phone`), `dss_search`=VALUES(`dss_search`), `mtime`=VALUES(`mtime`), ".
-				"`auto_detected`=VALUES(`auto_detected`)",
+				"INSERT INTO `@tftpboot_file` (`filename`, `mac`, `vendor`, `model`, `phone`, `dss_search`, `dial_keys_json`, `mtime`, `auto_detected`) ".
+				"VALUES (!, !, !, !, !, !, !, #, #) ON DUPLICATE KEY UPDATE `mac`=VALUES(`mac`), `vendor`=VALUES(`vendor`), ".
+				"`model`=VALUES(`model`), `phone`=VALUES(`phone`), `dss_search`=VALUES(`dss_search`), `dial_keys_json`=VALUES(`dial_keys_json`), ".
+				"`mtime`=VALUES(`mtime`), `auto_detected`=VALUES(`auto_detected`)",
 				$filename,
 				$mac,
 				$vendor,
 				$model,
 				$phone,
 				$dss,
+				$dial_keys_json,
 				$mtime,
 				$override ? 0 : 1
 			));
@@ -347,6 +543,117 @@ class TftpBoot
 		}
 
 		return TRUE;
+	}
+
+	private function fetch_tftpboot_vendor_rows($vendors)
+	{
+		$rows = array();
+		if(!count($vendors))
+		{
+			return $rows;
+		}
+
+		$this->core->db->select_assoc_ex($rows, rpv(
+			'SELECT `filename`, `vendor`, `dial_keys_json` FROM `@tftpboot_file` WHERE `vendor` IN ({r0}) ORDER BY `filename`',
+			$this->vendors_in_sql($vendors)
+		));
+
+		return $rows;
+	}
+
+	public function backfill_dial_keys_json($vendors, $limit = 100)
+	{
+		if(!count($vendors) || $limit <= 0)
+		{
+			return 0;
+		}
+
+		$todo = array();
+		$this->core->db->select_assoc_ex($todo, rpv(
+			'SELECT `filename`, `vendor` FROM `@tftpboot_file` WHERE `vendor` IN ({r0}) AND (`dial_keys_json` IS NULL OR `dial_keys_json` = \'\') LIMIT #',
+			$this->vendors_in_sql($vendors),
+			intval($limit)
+		));
+
+		$n = 0;
+		foreach($todo as $r)
+		{
+			$path = $this->resolve_path($r['filename']);
+			if(!$path)
+			{
+				continue;
+			}
+
+			$content = file_get_contents($path);
+			$parsed = $this->parse_content($r['vendor'], $content);
+			$dial_keys_json = json_encode($this->dial_keys_compact($parsed), JSON_UNESCAPED_UNICODE);
+			$this->core->db->put(rpv(
+				'UPDATE `@tftpboot_file` SET `dial_keys_json` = ! WHERE `filename` = ! LIMIT 1',
+				$dial_keys_json,
+				$r['filename']
+			));
+			$n++;
+		}
+
+		return $n;
+	}
+
+	private function aggregate_unique_dial_keys($rows)
+	{
+		$uniq = array();
+		foreach($rows as $r)
+		{
+			$keys = array();
+			if(isset($r['dial_keys_json']) && $r['dial_keys_json'] !== '')
+			{
+				$keys = json_decode($r['dial_keys_json'], TRUE);
+			}
+
+			if(!is_array($keys))
+			{
+				continue;
+			}
+
+			foreach($keys as $k)
+			{
+				$num = $this->normalize_dial_number(isset($k['number']) ? $k['number'] : '');
+				if($num === '')
+				{
+					continue;
+				}
+
+				$title = $this->normalize_dial_title(isset($k['title']) ? $k['title'] : '');
+				$display_num = trim($k['number']);
+				$display_title = isset($k['title']) ? $k['title'] : '';
+				$id = $num."\0".$title;
+				if(!isset($uniq[$id]))
+				{
+					$uniq[$id] = array(
+						'number' => $display_num,
+						'title' => $display_title,
+						'old_number' => $display_num,
+						'old_title' => $display_title,
+						'count' => 0,
+						'locations' => array(),
+					);
+				}
+
+				$uniq[$id]['count']++;
+				$loc = array('file' => $r['filename']);
+				if(isset($k['line']) && intval($k['line']) > 0)
+				{
+					$loc['line'] = intval($k['line']);
+				}
+				else
+				{
+					$loc['line'] = 0;
+				}
+
+				$uniq[$id]['locations'][] = $loc;
+			}
+		}
+
+		return $uniq;
 	}
 
 	public function get_tree()
@@ -527,129 +834,338 @@ class TftpBoot
 		return array('code' => 0, 'message' => LL('Save'));
 	}
 
-	public function search_keys($query, $vendors)
+	private function sql_in_strings($values)
 	{
-		$this->scan(FALSE);
-		$query = trim($query);
-		if($query === '')
+		$parts = array();
+		foreach($values as $v)
+		{
+			$parts[] = '\''.sql_escape((string)$v).'\'';
+		}
+
+		return implode(',', $parts);
+	}
+
+	private function vendors_in_sql($vendors)
+	{
+		$parts = array();
+		foreach($vendors as $v)
+		{
+			$parts[] = '\''.sql_escape((string)$v).'\'';
+		}
+
+		return implode(',', $parts);
+	}
+
+	public function normalize_dial_number($number)
+	{
+		return preg_replace('/\D+/', '', (string)$number);
+	}
+
+	public function normalize_dial_title($title)
+	{
+		$title = trim((string)$title);
+
+		return preg_replace('/\s+/u', ' ', $title);
+	}
+
+	public function dial_entry_match($key, $old_number, $old_title)
+	{
+		if($this->normalize_dial_number($key['number']) !== $this->normalize_dial_number($old_number))
+		{
+			return FALSE;
+		}
+
+		$label = isset($key['label']) ? $key['label'] : '';
+
+		return $this->normalize_dial_title($label) === $this->normalize_dial_title($old_title);
+	}
+
+	public function list_unique_dial_keys($vendors, $query = '')
+	{
+		@set_time_limit(180);
+		if(!count($vendors))
 		{
 			return array();
 		}
 
-		$like = '%'.$query.'%';
-		$rows = array();
-		if(count($vendors))
+		$this->ensure_dial_keys_column();
+		$this->scan(FALSE);
+
+		$rows = $this->fetch_tftpboot_vendor_rows($vendors);
+		$missing = 0;
+		foreach($rows as $row)
 		{
-			$this->core->db->select_assoc_ex($rows, rpv(
-				'SELECT `filename`, `phone`, `mac`, `vendor`, `model`, `dss_search` FROM `@tftpboot_file` WHERE `dss_search` LIKE ! AND `vendor` IN ({r0}) ORDER BY `phone`',
-				$like,
-				$vendors
-			));
+			if(!isset($row['dial_keys_json']) || $row['dial_keys_json'] === '' || $row['dial_keys_json'] === null)
+			{
+				$missing++;
+			}
 		}
 
-		$result = array();
-		foreach($rows as $r)
+		if(count($rows) > 0 && $missing >= count($rows))
 		{
-			$path = $this->resolve_path($r['filename']);
-			if(!$path)
+			$this->scan(TRUE);
+			$rows = $this->fetch_tftpboot_vendor_rows($vendors);
+		}
+		else
+		{
+			for($i = 0; $i < 30; $i++)
 			{
-				continue;
-			}
-
-			$content = file_get_contents($path);
-			$parsed = $this->parse_content($r['vendor'], $content);
-			foreach($parsed['speedDialKeys'] as $k)
-			{
-				$hay = $k['number'].' '.$k['label'];
-				if(stripos($hay, $query) !== FALSE)
+				$n = $this->backfill_dial_keys_json($vendors, 80);
+				if($n <= 0)
 				{
-					$result[] = array(
-						'filename' => $r['filename'],
-						'label' => tftpboot_display_label($r['phone'], $r['mac']),
-						'slot' => $k['slot'],
-						'number' => $k['number'],
-						'title' => $k['label'],
-						'vendor' => $r['vendor'],
-					);
+					break;
 				}
 			}
+
+			$rows = $this->fetch_tftpboot_vendor_rows($vendors);
 		}
+
+		$query = trim($query);
+		$uniq = $this->aggregate_unique_dial_keys($rows);
+
+		$result = array();
+		foreach($uniq as $row)
+		{
+			if($query !== '')
+			{
+				$hay = $row['number'].' '.$row['title'];
+				if(stripos($hay, $query) === FALSE)
+				{
+					continue;
+				}
+			}
+
+			$result[] = $row;
+		}
+
+		usort($result, function($a, $b)
+		{
+			$c = strnatcasecmp($a['title'], $b['title']);
+			if($c !== 0)
+			{
+				return $c;
+			}
+
+			return strnatcasecmp($a['number'], $b['number']);
+		});
 
 		return $result;
 	}
 
+	public function search_keys($query, $vendors)
+	{
+		return $this->list_unique_dial_keys($vendors, $query);
+	}
+
 	public function bulk_save_keys($items, $vendors)
 	{
-		$ok = 0;
+		$this->scan(FALSE);
+		$rows = array();
+		if(!count($vendors) || !count($items))
+		{
+			return 0;
+		}
+
+		$this->core->db->select_assoc_ex($rows, rpv(
+			'SELECT `filename`, `vendor` FROM `@tftpboot_file` WHERE `vendor` IN ({r0}) ORDER BY `filename`',
+			$this->vendors_in_sql($vendors)
+		));
+
+		$files_ok = 0;
+		$keys_ok = 0;
+
 		foreach($items as $item)
 		{
-			$fn = isset($item['filename']) ? $item['filename'] : '';
-			if(!$fn || !in_array(isset($item['vendor']) ? $item['vendor'] : '', $vendors, TRUE))
+			$old_number = isset($item['old_number']) ? $item['old_number'] : (isset($item['number']) ? $item['number'] : '');
+			$old_title = isset($item['old_title']) ? $item['old_title'] : (isset($item['title']) ? $item['title'] : '');
+			$new_number = isset($item['number']) ? trim($item['number']) : '';
+			$new_title = isset($item['title']) ? trim($item['title']) : '';
+
+			if($this->normalize_dial_number($old_number) === '')
 			{
 				continue;
 			}
 
-			$path = $this->resolve_path($fn);
-			if(!$path)
+			if($new_number === $old_number && $this->normalize_dial_title($new_title) === $this->normalize_dial_title($old_title))
 			{
 				continue;
 			}
 
-			$content = file_get_contents($path);
-			$vendor = $item['vendor'];
-			$parsed = $this->parse_content($vendor, $content);
-			$this->backup_file($path);
-
-			foreach($parsed['speedDialKeys'] as &$k)
+			foreach($rows as $r)
 			{
-				if(intval($k['slot']) === intval($item['slot']))
+				if(!in_array($r['vendor'], $vendors, TRUE))
 				{
-					if(isset($item['number']))
+					continue;
+				}
+
+				$path = $this->resolve_path($r['filename']);
+				if(!$path)
+				{
+					continue;
+				}
+
+				$content = file_get_contents($path);
+				$vendor = $r['vendor'];
+				$parsed = $this->parse_content($vendor, $content);
+				$dirty = FALSE;
+
+				foreach($parsed['speedDialKeys'] as &$k)
+				{
+					if(!$this->dial_entry_match($k, $old_number, $old_title))
 					{
-						$k['number'] = $item['number'];
+						continue;
+					}
+
+					if($new_number !== '')
+					{
+						$k['number'] = $new_number;
 					}
 					if(isset($item['title']))
 					{
-						$k['label'] = $item['title'];
+						$k['label'] = $new_title;
 					}
-				}
-			}
-			unset($k);
 
-			if($vendor === 'fanvil')
-			{
-				foreach($parsed['speedDialKeys'] as &$k)
-				{
-					if(isset($item['number']))
+					if($vendor === 'fanvil')
 					{
-						$k['value'] = $item['number'].'@1/f';
+						$old_val = isset($k['value']) ? $k['value'] : '';
+						$num = $new_number !== '' ? $new_number : $k['number'];
+						if($old_val !== '' && preg_match('/^(\d+)(.*)$/', $old_val, $vm))
+						{
+							$k['value'] = $num.$vm[2];
+						}
+						elseif($num !== '')
+						{
+							$k['value'] = $num.'@1/f';
+						}
 					}
+
+					$dirty = TRUE;
+					$keys_ok++;
 				}
 				unset($k);
-				$new = $this->fanvil->apply_speed_dials($parsed['lines'], $parsed['keys_raw'], $parsed['speedDialKeys']);
-			}
-			elseif($vendor === 'cisco')
-			{
-				$new = $this->cisco->apply_speed_dials($content, $parsed['speedDialKeys']);
-			}
-			elseif($vendor === 'yealink')
-			{
-				$new = $this->yealink->apply_linekey($content, $parsed['speedDialKeys']);
-			}
-			else
-			{
-				continue;
-			}
 
-			if(file_put_contents($path, $new))
-			{
-				$ok++;
+				if(!$dirty)
+				{
+					continue;
+				}
+
+				$this->backup_file($path);
+
+				if($vendor === 'fanvil')
+				{
+					$new = $this->fanvil->apply_speed_dials($parsed['lines'], $parsed['keys_raw'], $parsed['speedDialKeys']);
+				}
+				elseif($vendor === 'cisco')
+				{
+					$new = $this->cisco->apply_speed_dials($content, $parsed['speedDialKeys']);
+				}
+				elseif($vendor === 'yealink')
+				{
+					$new = $this->yealink->apply_linekey($content, $parsed['speedDialKeys']);
+				}
+				else
+				{
+					continue;
+				}
+
+				if(file_put_contents($path, $new))
+				{
+					$files_ok++;
+				}
 			}
 		}
 
 		$this->scan(TRUE);
 
-		return $ok;
+		return $keys_ok > 0 ? $keys_ok : $files_ok;
+	}
+
+	public function bulk_delete_keys($items, $vendors)
+	{
+		$this->scan(FALSE);
+		$rows = array();
+		if(!count($vendors) || !count($items))
+		{
+			return 0;
+		}
+
+		$this->core->db->select_assoc_ex($rows, rpv(
+			'SELECT `filename`, `vendor` FROM `@tftpboot_file` WHERE `vendor` IN ({r0}) ORDER BY `filename`',
+			$this->vendors_in_sql($vendors)
+		));
+
+		$files_ok = 0;
+		$keys_ok = 0;
+
+		foreach($items as $item)
+		{
+			$old_number = isset($item['old_number']) ? $item['old_number'] : '';
+			$old_title = isset($item['old_title']) ? $item['old_title'] : '';
+
+			if($this->normalize_dial_number($old_number) === '')
+			{
+				continue;
+			}
+
+			foreach($rows as $r)
+			{
+				if(!in_array($r['vendor'], $vendors, TRUE))
+				{
+					continue;
+				}
+
+				$path = $this->resolve_path($r['filename']);
+				if(!$path)
+				{
+					continue;
+				}
+
+				$content = file_get_contents($path);
+				$vendor = $r['vendor'];
+				$parsed = $this->parse_content($vendor, $content);
+				$to_clear = array();
+
+				foreach($parsed['speedDialKeys'] as $k)
+				{
+					if(!$this->dial_entry_match($k, $old_number, $old_title))
+					{
+						continue;
+					}
+
+					if(isset($k['key_id']))
+					{
+						$to_clear[] = $k['key_id'];
+					}
+				}
+
+				if(!count($to_clear))
+				{
+					continue;
+				}
+
+				$this->backup_file($path);
+
+				if($vendor === 'fanvil')
+				{
+					$this->fanvil->clear_dss_keys($parsed['lines'], $parsed['keys_raw'], $to_clear);
+					$new = implode("\n", $parsed['lines']);
+				}
+				else
+				{
+					continue;
+				}
+
+				if(file_put_contents($path, $new))
+				{
+					$files_ok++;
+					$keys_ok += count($to_clear);
+				}
+			}
+		}
+
+		$this->scan(TRUE);
+
+		return $keys_ok;
 	}
 
 	public function directory_rows()
@@ -808,7 +1324,7 @@ class TftpBoot
 	public function list_unknown_files()
 	{
 		$rows = array();
-		if($this->core->db->select_assoc_ex($rows, rpv("SELECT `filename`, `vendor`, `model`, `phone`, `mac` FROM `@tftpboot_file` WHERE `vendor` = 'unknown' OR `model` = 'unknown' ORDER BY `filename`")))
+		if($this->core->db->select_assoc_ex($rows, rpv("SELECT `filename`, `vendor`, `model`, `phone`, `mac` FROM `@tftpboot_file` WHERE `vendor` = 'unknown' ORDER BY `filename`")))
 		{
 			return $rows;
 		}

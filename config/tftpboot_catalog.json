@@ -8,8 +8,22 @@
         {
           "id": "x1s",
           "title": "X1S / X1SP",
-          "match": ["Fanvil X1S", "Fanvil X1SP"],
+          "match": ["Fanvil X1S/X1SP", "Fanvil X1S", "Fanvil X1SP"],
           "dss_slots": 8,
+          "sections": ["sip", "dss", "net"]
+        },
+        {
+          "id": "x3s",
+          "title": "X3S",
+          "match": ["Fanvil X3S"],
+          "dss_slots": 16,
+          "sections": ["sip", "dss", "net"]
+        },
+        {
+          "id": "x210",
+          "title": "X210",
+          "match": ["Fanvil X210"],
+          "dss_slots": 60,
           "sections": ["sip", "dss", "net"]
         },
         {
@@ -20,7 +34,28 @@
           "sections": ["sip", "dss", "net"]
         },
         {
-          "id": "unknown",
+          "id": "x301",
+          "title": "X301(P)",
+          "match": ["Fanvil X301"],
+          "dss_slots": 24,
+          "sections": ["sip", "dss", "net"]
+        },
+        {
+          "id": "x5u",
+          "title": "X5U",
+          "match": ["Fanvil X5U"],
+          "dss_slots": 32,
+          "sections": ["sip", "dss", "net"]
+        },
+        {
+          "id": "x6u",
+          "title": "X6U",
+          "match": ["Fanvil X6U"],
+          "dss_slots": 32,
+          "sections": ["sip", "dss", "net"]
+        },
+        {
+          "id": "other",
           "title": "Прочие Fanvil",
           "match": ["Fanvil"],
           "dss_slots": 32,

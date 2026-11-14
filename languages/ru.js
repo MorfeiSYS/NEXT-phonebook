@@ -15,5 +15,9 @@ const LL = {
 	ContactStatusTooltipAdDeleted: 'Не найден при последней синхронизации с AD (помечен удалённым)',
 	ContactStatusTooltipAdDisabled: 'Учётная запись отключена в AD',
 	ContactStatusTooltipListHidden: 'Скрыт массовой операцией администратора',
-	ContactStatusTooltipNotVisible: 'Скрыт из справочника вручную администратором'
+	ContactStatusTooltipNotVisible: 'Скрыт из справочника вручную администратором',
+
+	Save:						'Сохранить',
+	TftpBootBulkEmpty:			'Нет данных. Нажмите «Пересканировать каталог» в настройках телефонов.',
+	TftpBootBulkPageInfo:		'Записи %1–%2 из %3'
 };

@@ -38,5 +38,20 @@ function tftpboot_admin_catalog_save(&$core, $params, $post_data)
 		}
 	}
 
+	if(isset($post_data['bulk_page_size']))
+	{
+		$n = intval($post_data['bulk_page_size']);
+		if($n < 5)
+		{
+			$n = 5;
+		}
+		if($n > 500)
+		{
+			$n = 500;
+		}
+
+		$core->Config->set_global('tftpboot_bulk_page_size', (string) $n);
+	}
+
 	tftpboot_json_send(array('code' => 0, 'message' => LL('Save')));
 }

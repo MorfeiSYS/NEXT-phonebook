@@ -119,6 +119,34 @@ function tftpboot_user_policy(&$core)
 	return $best;
 }
 
+function tftpboot_bulk_vendor_choices($svc)
+{
+	$list = $svc->get_enabled_vendors('bulk');
+	if(!count($list))
+	{
+		return array('fanvil', 'cisco', 'yealink', 'grandstream', 'eltex', 'unknown');
+	}
+
+	return $list;
+}
+
+/**
+ * @return array{0: array, 1: bool} vendors, explicit selection from request
+ */
+function tftpboot_bulk_vendors_from_post($post_data, $svc)
+{
+	$allowed = tftpboot_bulk_vendor_choices($svc);
+
+	if(array_key_exists('vendors', $post_data))
+	{
+		$raw = isset($post_data['vendors']) && is_array($post_data['vendors']) ? $post_data['vendors'] : array();
+
+		return array(array_values(array_intersect($raw, $allowed)), TRUE);
+	}
+
+	return array($allowed, FALSE);
+}
+
 function tftpboot_json_send($data)
 {
 	echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);

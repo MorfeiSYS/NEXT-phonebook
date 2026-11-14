@@ -16,11 +16,11 @@ if(!isset($tftpboot_settings))
 		'sync_auto_interval' => '60',
 		'sync_fields' => 'dss_title,display_name',
 		'scan_cache_ttl' => '300',
+		'bulk_page_size' => '50',
 		'sync_cron_key' => '',
 	);
 }
 ?>
-<script src="<?php ls('tftpboot.js') ?>"></script>
 
 <h3><?php L('TftpBootAdmin') ?></h3>
 <p><a href="<?php ln('tftpboot') ?>"><?php L('TftpBootTitle') ?></a></p>
@@ -52,6 +52,7 @@ if(!isset($tftpboot_settings))
 	<label><?php L('TftpBootSyncInterval') ?> <input type="number" name="sync_auto_interval" value="<?php eh($tftpboot_settings['sync_auto_interval']); ?>" min="5" /></label><br />
 	<label><?php L('TftpBootSyncFields') ?> <input type="text" name="sync_fields" value="<?php eh($tftpboot_settings['sync_fields']); ?>" /></label><br />
 	<label><?php L('TftpBootScanTtl') ?> <input type="number" name="scan_cache_ttl" value="<?php eh($tftpboot_settings['scan_cache_ttl']); ?>" /></label><br />
+	<label><?php L('TftpBootBulkPageSize') ?> <input type="number" name="bulk_page_size" value="<?php eh($tftpboot_settings['bulk_page_size']); ?>" min="5" max="500" /></label><br />
 	<p><?php L('TftpBootCronUrl') ?>: <code><?php ln('tftpboot_sync_run') ?>?key=<?php eh($tftpboot_settings['sync_cron_key']); ?></code></p>
 
 	<h4><?php L('TftpBootUnknownFiles') ?></h4>
@@ -102,5 +103,8 @@ if(!isset($tftpboot_settings))
 	<p><button type="submit" class="button-accept"><?php L('Save') ?></button>
 	<button type="button" class="button-other" onclick="return tftpboot_rescan_admin()"><?php L('TftpBootRescan') ?></button></p>
 </form>
+
+<script src="<?php ls('tftpboot.js') ?>"></script>
+<script>tftpboot_bind_admin();</script>
 
 <?php include(TEMPLATES_DIR.'tpl.footer.php'); ?>
