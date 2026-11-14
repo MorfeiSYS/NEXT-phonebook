@@ -652,6 +652,100 @@ require_once(ROOT_DIR.'inc.config.php');
 
 		case 11:
 		{
+			echo "Create tftpboot tables...\n";
+			if(!$core->db->put(rpv('
+				CREATE TABLE IF NOT EXISTS `@tftpboot_file` (
+					`id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+					`filename` varchar(512) NOT NULL DEFAULT \'\',
+					`mac` varchar(32) NOT NULL DEFAULT \'\',
+					`vendor` varchar(64) NOT NULL DEFAULT \'\',
+					`model` varchar(128) NOT NULL DEFAULT \'\',
+					`phone` varchar(32) NOT NULL DEFAULT \'\',
+					`dss_search` text,
+					`mtime` int(10) unsigned NOT NULL DEFAULT 0,
+					`auto_detected` tinyint(1) NOT NULL DEFAULT 1,
+					PRIMARY KEY (`id`),
+					UNIQUE KEY `filename` (`filename`(191)),
+					KEY `vendor_model` (`vendor`, `model`(64)),
+					KEY `phone` (`phone`)
+				) ENGINE=InnoDB DEFAULT CHARSET=utf8
+			')))
+			{
+				echo 'ERROR['.__LINE__.']: '.$core->db->get_last_error().PHP_EOL;
+			}
+			if(!$core->db->put(rpv('
+				CREATE TABLE IF NOT EXISTS `@tftpboot_override` (
+					`id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+					`filename` varchar(512) NOT NULL DEFAULT \'\',
+					`mac` varchar(32) NOT NULL DEFAULT \'\',
+					`vendor` varchar(64) NOT NULL DEFAULT \'\',
+					`model` varchar(128) NOT NULL DEFAULT \'\',
+					PRIMARY KEY (`id`),
+					UNIQUE KEY `filename` (`filename`(191))
+				) ENGINE=InnoDB DEFAULT CHARSET=utf8
+			')))
+			{
+				echo 'ERROR['.__LINE__.']: '.$core->db->get_last_error().PHP_EOL;
+			}
+			if(!$core->db->put(rpv('
+				CREATE TABLE IF NOT EXISTS `@tftpboot_group_policy` (
+					`id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+					`sid` varchar(256) NOT NULL DEFAULT \'\',
+					`dn` varchar(1024) NOT NULL DEFAULT \'\',
+					`mode` varchar(32) NOT NULL DEFAULT \'buttons_only\',
+					`allowed_sections_json` text,
+					PRIMARY KEY (`id`),
+					UNIQUE KEY `sid` (`sid`(191))
+				) ENGINE=InnoDB DEFAULT CHARSET=utf8
+			')))
+			{
+				echo 'ERROR['.__LINE__.']: '.$core->db->get_last_error().PHP_EOL;
+			}
+			if(!$core->db->put(rpv('
+				CREATE TABLE IF NOT EXISTS `@tftpboot_sync_queue` (
+					`id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+					`created` datetime NOT NULL,
+					`uid` int(10) unsigned NOT NULL DEFAULT 0,
+					`status` varchar(32) NOT NULL DEFAULT \'pending\',
+					`payload_json` mediumtext,
+					PRIMARY KEY (`id`)
+				) ENGINE=InnoDB DEFAULT CHARSET=utf8
+			')))
+			{
+				echo 'ERROR['.__LINE__.']: '.$core->db->get_last_error().PHP_EOL;
+			}
+			$default_catalog = @file_get_contents(ROOT_DIR.'config/tftpboot_catalog.json');
+			if($default_catalog === FALSE)
+			{
+				$default_catalog = '{"vendors":[]}';
+			}
+			$default_vendors = json_encode(array(
+				'editor' => array('fanvil', 'cisco', 'yealink', 'grandstream', 'eltex'),
+				'bulk' => array('fanvil', 'cisco', 'yealink', 'grandstream', 'eltex'),
+			));
+			$core->db->put(rpv("INSERT INTO @config (`uid`, `name`, `value`, `description`) VALUES (0, 'tftpboot_catalog_json', {s0}, {s1}) ON DUPLICATE KEY UPDATE `value` = `value`", $default_catalog, 'TFTP phone vendor/model catalog'));
+			$core->db->put(rpv("INSERT INTO @config (`uid`, `name`, `value`, `description`) VALUES (0, 'tftpboot_vendor_enabled_json', {s0}, {s1}) ON DUPLICATE KEY UPDATE `value` = `value`", $default_vendors, 'Enabled vendors for editor and bulk'));
+			$core->db->put(rpv("INSERT INTO @config (`uid`, `name`, `value`, `description`) VALUES (0, 'tftpboot_sync_source', 'phonebook', {s0}) ON DUPLICATE KEY UPDATE `value` = `value`", 'Name sync source: api|phonebook|custom_url'));
+			$core->db->put(rpv("INSERT INTO @config (`uid`, `name`, `value`, `description`) VALUES (0, 'tftpboot_sync_api_url', '', {s0}) ON DUPLICATE KEY UPDATE `value` = `value`", 'API URL template with {NUMBER}'));
+			$core->db->put(rpv("INSERT INTO @config (`uid`, `name`, `value`, `description`) VALUES (0, 'tftpboot_sync_api_key', '', {s0}) ON DUPLICATE KEY UPDATE `value` = `value`", 'API key for sync'));
+			$core->db->put(rpv("INSERT INTO @config (`uid`, `name`, `value`, `description`) VALUES (0, 'tftpboot_sync_custom_url', '', {s0}) ON DUPLICATE KEY UPDATE `value` = `value`", 'Custom JSON URL for sync'));
+			$core->db->put(rpv("INSERT INTO @config (`uid`, `name`, `value`, `description`) VALUES (0, 'tftpboot_sync_auto', '0', {s0}) ON DUPLICATE KEY UPDATE `value` = `value`", 'Auto sync 0/1'));
+			$core->db->put(rpv("INSERT INTO @config (`uid`, `name`, `value`, `description`) VALUES (0, 'tftpboot_sync_auto_interval', '60', {s0}) ON DUPLICATE KEY UPDATE `value` = `value`", 'Auto sync interval minutes'));
+			$core->db->put(rpv("INSERT INTO @config (`uid`, `name`, `value`, `description`) VALUES (0, 'tftpboot_sync_fields', 'dss_title,display_name', {s0}) ON DUPLICATE KEY UPDATE `value` = `value`", 'Fields to sync'));
+			$core->db->put(rpv("INSERT INTO @config (`uid`, `name`, `value`, `description`) VALUES (0, 'tftpboot_scan_cache_ttl', '300', {s0}) ON DUPLICATE KEY UPDATE `value` = `value`", 'Scan cache TTL seconds'));
+			$cron_key = function_exists('random_bytes') ? bin2hex(random_bytes(16)) : md5(uniqid('tftpboot', TRUE));
+			$core->db->put(rpv("INSERT INTO @config (`uid`, `name`, `value`, `description`) VALUES (0, 'tftpboot_sync_cron_key', {s0}, {s1}) ON DUPLICATE KEY UPDATE `value` = `value`", $cron_key, 'Cron key for tftpboot_sync_run'));
+			echo "Set db_version = '12'...\n";
+			if(!$core->db->put(rpv("UPDATE @config SET `value` = 12 WHERE `uid` = 0 AND `name` = 'db_version' LIMIT 1")))
+			{
+				echo 'ERROR['.__LINE__.']: '.$core->db->get_last_error().PHP_EOL;
+			}
+			echo "\n\nUpgrade to version 12 complete!\n";
+		}
+		break;
+
+		case 12:
+		{
 			echo "Upgrade doesn't required\n";
 		}
 		break;

@@ -6,6 +6,7 @@ function permission_get(&$core, $params, $post_data)
 
 	assert_permission_ajax(0, PB_ACCESS_ADMIN);
 
+	$permission = array();
 	if(!$core->db->select_assoc_ex($permission, rpv("SELECT m.`id`, m.`oid`, m.`sid`, m.`dn`, m.`allow_bits` FROM `@access` AS m WHERE m.`id` = # LIMIT 1", $id)))
 	{
 		echo '{"code": 1, "message": "Failed get permissions"}';
@@ -14,6 +15,7 @@ function permission_get(&$core, $params, $post_data)
 
 	if(defined('LDAP_USE_SID') && LDAP_USE_SID)
 	{
+		$records = array();
 		if($core->LDAP->search($records, '(&(objectCategory=group)(objectSID='.$permission[0]['sid'].'))', array('distinguishedName')) != 1)
 		{
 			echo '{"code": 1, "message": "Failed get DN by SID"}';
@@ -56,7 +58,7 @@ function permission_get(&$core, $params, $post_data)
 				'name' => 'allow_bits',
 				'title' => LL('AllowRights'),
 				'value' => ord($permission[0]['allow_bits'][0]) | (ord($permission[0]['allow_bits'][1]) << 8) | (ord($permission[0]['allow_bits'][2]) << 16) | (ord($permission[0]['allow_bits'][3]) << 24),
-				'list' => array(LL('Admin'), LL('Operator'))
+				'list' => array(LL('Admin'), LL('Operator'), LL('TftpBoot'))
 			),
 			array(
 				'type' => 'flags',

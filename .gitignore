@@ -9,3 +9,6 @@ photos/*
 !photos/map4.png
 !photos/map5.png
 !photos/placeholder.txt
+
+# Локальный TFTP (прошивки, cfg телефонов); в репозиторий не коммитим
+/tftpboot/

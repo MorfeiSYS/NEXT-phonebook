@@ -38,9 +38,11 @@ define('UA_ADMIN',		0x0008);  /// User is admin
 
 if(!defined('PB_ACCESS_ADMIN')) define('PB_ACCESS_ADMIN', 1);
 if(!defined('PB_ACCESS_OPERATOR')) define('PB_ACCESS_OPERATOR', 2);
+if(!defined('PB_ACCESS_TFTPBOOT')) define('PB_ACCESS_TFTPBOOT', 3);
 if(!defined('PB_ROLE_USER')) define('PB_ROLE_USER', 0);
 if(!defined('PB_ROLE_OPERATOR')) define('PB_ROLE_OPERATOR', 1);
 if(!defined('PB_ROLE_ADMIN')) define('PB_ROLE_ADMIN', 2);
+if(!defined('DB_PREFIX')) define('DB_PREFIX', 'pb_');
 
 class UserAuth
 {
@@ -150,6 +152,10 @@ class UserAuth
 				return FALSE;
 			}
 
+			$sam_account_name = $login;
+			$user_data = array();
+			$records = array();
+
 			if(strpos($login, '\\'))
 			{
 				list($domain, $sam_account_name) = explode('\\', $login, 2);
@@ -203,6 +209,7 @@ class UserAuth
 		}
 		else  // internal authorization method
 		{
+			$user_data = array();
 			if(!$this->core->db->select_ex($user_data, rpv("
 					SELECT
 						m.`id`,
@@ -250,6 +257,7 @@ class UserAuth
 
 	public function logon_by_token($login, $token)
 	{
+		$user_data = array();
 		if($this->core->db->select_ex($user_data, rpv("
 			SELECT
 				m.`id`,
@@ -391,6 +399,7 @@ class UserAuth
 	{
 		if($this->uid && !$this->is_ldap_user())  // Only internal user can change self password
 		{
+			$user = array();
 			if($this->core->db->select_ex($user, rpv('SELECT u.`id` FROM `@users` AS u WHERE u.`id` = # AND u.`passwd` = MD5(!) AND (u.`flags` & ({%UA_DISABLED} | {%UA_LDAP} | {%UA_DELETED})) = 0 LIMIT 1', $this->uid, $passwd.$this->salt)))
 			{
 				if(intval($user[0][0]) == $this->uid)
@@ -431,6 +440,7 @@ class UserAuth
 		}
 		else
 		{
+			$users = array();
 			if(!$this->core->db->select_ex($users, rpv('SELECT u.`id` FROM `@users` AS u WHERE (u.`login` = ! OR u.`mail` = !) AND (u.`flags` & ({%UA_DELETED} | {%UA_LDAP})) = 0 LIMIT 1', $login, $mail)))
 			{
 				if($this->core->db->put(rpv('INSERT INTO `@users` (`login`, `mail`, `passwd`, `flags`, `role`) VALUES (!, !, \'\', #, #)', $login, $mail, $admin_flag, $role)))
@@ -512,6 +522,7 @@ class UserAuth
 			{
 				//$this->core->db->put(rpv('INSERT INTO `@log` (`date`, `uid`, `type`, `p1`, `ip`) VALUES (NOW(), #, #, #, !)', 0, LOG_LOGIN_ACTIVATE, $id, $ip));
 				$mail = FALSE;
+				$result = array();
 				if($this->core->db->select_ex($result, rpv('SELECT u.`mail` FROM @users AS u WHERE u.`id` = # LIMIT 1', $id)))
 				{
 					$mail = $result[0][0];
@@ -536,6 +547,7 @@ class UserAuth
 
 	public function find_user_by_mail(&$mail)
 	{
+		$result = array();
 		if($this->core->db->select_ex($result, rpv('SELECT u.`id`, u.`mail` FROM @users AS u WHERE u.`mail` = ! AND (u.`flags` & ({%UA_DISABLED} | {%UA_LDAP})) = 0 LIMIT 1', $mail)))
 		{
 			$mail = $result[0][1];
@@ -547,6 +559,7 @@ class UserAuth
 
 	private function load_user_info()
 	{
+		$result = array();
 		if(!$this->core->db->select_ex($result, rpv('SELECT u.`login`, u.`sid`, u.`flags`, u.`role` FROM @users AS u WHERE u.`id` = # AND (u.`flags` & ({%UA_DISABLED} | {%UA_DELETED})) = 0 LIMIT 1', $this->uid)))
 		{
 			$this->core->error_ex($this->core->get_last_error(), $this->rise_exception);
@@ -564,6 +577,7 @@ class UserAuth
 
 	public function get_user_info_ex($uid)
 	{
+		$result = array();
 		if(!$this->core->db->select_ex($result, rpv('SELECT u.`id`, u.`login`, u.`sid`, u.`mail`, u.`flags`, u.`role` FROM @users AS u WHERE u.`id` = # LIMIT 1', $uid)))
 		{
 			return FALSE;
@@ -650,6 +664,7 @@ class UserAuth
 					return TRUE;
 				}
 				*/
+				$records = array();
 				if($this->ldap->search($records, '(&(objectCategory=person)(objectClass=user)(sAMAccountName='.ldap_escape($this->get_login(), '', LDAP_ESCAPE_FILTER).')(memberOf:1.2.840.113556.1.4.1941:='.ldap_escape($group, '', LDAP_ESCAPE_FILTER).'))', array('samaccountname', 'objectsid')) != 1)
 				{
 					return FALSE;
@@ -678,6 +693,7 @@ class UserAuth
 
 		$link = $this->ldap->get_link();
 
+		$result = array();
 		if(	$this->uid
 			&& $this->is_ldap_user()
 			&& $link
@@ -707,6 +723,7 @@ class UserAuth
 				
 				if(defined('LDAP_USE_SID') && LDAP_USE_SID)
 				{
+					$records = array();
 					if($this->ldap->search($records, '(&(objectCategory=group)(objectSID='.$row[0].'))', array('distinguishedName')) != 1)
 					{
 						continue;
@@ -719,6 +736,7 @@ class UserAuth
 					$group_dn = $row[1];
 				}
 				
+				$records = array();
 				if($this->ldap->search($records, '(&(objectClass=user)(objectCategory=person)(sAMAccountName='.ldap_escape($this->get_login(), '', LDAP_ESCAPE_FILTER).')(memberOf:1.2.840.113556.1.4.1941:='.$group_dn.'))', array('samaccountname', 'objectsid')) == 1)
 				{
 					$this->rights[$object_id] = $this->merge_permissions($this->rights[$object_id], $row[2]);
@@ -855,6 +873,21 @@ class UserAuth
 
 		if($level == PB_ACCESS_OPERATOR)
 		{
+			return ($role >= PB_ROLE_OPERATOR);
+		}
+
+		if($level == PB_ACCESS_TFTPBOOT)
+		{
+			if($role >= PB_ROLE_ADMIN)
+			{
+				return TRUE;
+			}
+
+			if($this->is_ldap_user())
+			{
+				return $this->has_access_bit($object_id, PB_ACCESS_TFTPBOOT);
+			}
+
 			return ($role >= PB_ROLE_OPERATOR);
 		}
 

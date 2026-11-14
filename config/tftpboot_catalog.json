@@ -1,0 +1,102 @@
+{
+  "vendors": [
+    {
+      "id": "fanvil",
+      "title": "Fanvil",
+      "sort": 10,
+      "models": [
+        {
+          "id": "x1s",
+          "title": "X1S / X1SP",
+          "match": ["Fanvil X1S", "Fanvil X1SP"],
+          "dss_slots": 8,
+          "sections": ["sip", "dss", "net"]
+        },
+        {
+          "id": "x210i",
+          "title": "X210i",
+          "match": ["Fanvil X210i"],
+          "dss_slots": 60,
+          "sections": ["sip", "dss", "net"]
+        },
+        {
+          "id": "unknown",
+          "title": "Прочие Fanvil",
+          "match": ["Fanvil"],
+          "dss_slots": 32,
+          "sections": ["sip", "dss", "net"]
+        }
+      ]
+    },
+    {
+      "id": "cisco",
+      "title": "Cisco",
+      "sort": 20,
+      "models": [
+        {
+          "id": "sip",
+          "title": "SIP",
+          "match": ["cisco"],
+          "dss_slots": 8,
+          "sections": ["sip", "dss"]
+        }
+      ]
+    },
+    {
+      "id": "yealink",
+      "title": "Yealink",
+      "sort": 30,
+      "models": [
+        {
+          "id": "generic",
+          "title": "Yealink",
+          "match": ["yealink"],
+          "dss_slots": 16,
+          "sections": ["sip", "dss"]
+        }
+      ]
+    },
+    {
+      "id": "grandstream",
+      "title": "Grandstream",
+      "sort": 40,
+      "models": [
+        {
+          "id": "generic",
+          "title": "Grandstream",
+          "match": ["grandstream", "gs_provision"],
+          "dss_slots": 8,
+          "sections": ["sip"]
+        }
+      ]
+    },
+    {
+      "id": "eltex",
+      "title": "Eltex",
+      "sort": 50,
+      "models": [
+        {
+          "id": "gateway",
+          "title": "FXS Gateway",
+          "match": ["eltex", "FXS"],
+          "dss_slots": 0,
+          "sections": ["sip"]
+        }
+      ]
+    },
+    {
+      "id": "unknown",
+      "title": "Не определён",
+      "sort": 99,
+      "models": [
+        {
+          "id": "unknown",
+          "title": "Не определён",
+          "match": [],
+          "dss_slots": 16,
+          "sections": ["dss"]
+        }
+      ]
+    }
+  ]
+}

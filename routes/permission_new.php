@@ -35,7 +35,7 @@ function permission_new(&$core, $params, $post_data)
 				'name' => 'allow_bits',
 				'title' => LL('AllowRights'),
 				'value' => 0,
-				'list' => array(LL('Admin'), LL('Operator'))
+				'list' => array(LL('Admin'), LL('Operator'), LL('TftpBoot'))
 			),
 			array(
 				'type' => 'flags',

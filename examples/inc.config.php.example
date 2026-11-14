@@ -42,6 +42,10 @@
 	
 	define('LOG_FILE', '/var/log/pb/pb.log');
 
+	// IP phone TFTP configs (visual editor module)
+	// define('TFTBOOT_DIR', __DIR__.'/tftpboot');
+	// define('TFTBOOT_BACKUP_DIR', __DIR__.'/tftpboot/.backups');
+
 	define('PB_LDAP_FILTER', '(&(objectCategory=person)(objectClass=user)(sAMAccountType=805306368)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))');
 	define('PB_MAPS_COUNT', 5);
 

@@ -42,6 +42,9 @@
 				</ul>
 			</li>
 			<li><a href="<?php ln('all') ?>"><?php L('ShowAll') ?></a></li>
+			<?php if($core->UserAuth->get_id() && user_has_tftpboot()) { ?>
+				<li><a href="<?php ln('tftpboot') ?>"><?php L('TftpBootTitle') ?></a></li>
+			<?php } ?>
 			<?php if($core->UserAuth->get_id()) { ?>
 				<?php if(user_is_admin()) { ?>
 				<li><a href="<?php ln('handshakes') ?>"><?php L('Handshakes') ?></a></li>

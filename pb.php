@@ -17,7 +17,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-define('DB_VERSION', 11);
+define('DB_VERSION', 12);
 
 if(!defined('ROOT_DIR'))
 {
@@ -69,6 +69,7 @@ require_once(ROOT_DIR.'inc.config.php');
 	require_once(ROOT_DIR.'modules'.DIRECTORY_SEPARATOR.'Core.php');
 	// require_once(ROOT_DIR.'languages'.DIRECTORY_SEPARATOR.APP_LANGUAGE.'.php');
 	require_once(ROOT_DIR.'inc.utils.php');
+	require_once(ROOT_DIR.'inc.tftpboot.php');
 
 function assert_permission_ajax($section_id, $allow_bit)
 {
@@ -93,6 +94,13 @@ function user_is_operator()
 	global $core;
 
 	return $core->UserAuth->check_permission(0, PB_ACCESS_OPERATOR);
+}
+
+function user_has_tftpboot()
+{
+	global $core;
+
+	return user_has_tftpboot_access($core);
 }
 
 function role_label($role)
@@ -452,10 +460,11 @@ function exception_handler_ajax($exception)
 
 	define('PB_ACCESS_ADMIN', 1);
 	define('PB_ACCESS_OPERATOR', 2);
+	define('PB_ACCESS_TFTPBOOT', 3);
 	define('PB_ROLE_USER', 0);
 	define('PB_ROLE_OPERATOR', 1);
 	define('PB_ROLE_ADMIN', 2);
-	$core->UserAuth->set_bits_representation('ao');
+	$core->UserAuth->set_bits_representation('aot');
 
 	$g_maps_catalog = maps_catalog_load($core);
 	$g_maps_count = count($g_maps_catalog['byId']);
@@ -597,6 +606,20 @@ function exception_handler_ajax($exception)
 			$core->Router->add_route('contact_save', 'contact_save', TRUE);
 		}
 
+		if(user_has_tftpboot())
+		{
+			$core->Router->add_route('tftpboot', 'tftpboot');
+			$core->Router->add_route('tftpboot_tree', 'tftpboot_tree', TRUE);
+			$core->Router->add_route('tftpboot_config_get', 'tftpboot_config_get', TRUE);
+			$core->Router->add_route('tftpboot_config_save', 'tftpboot_config_save', TRUE);
+			$core->Router->add_route('tftpboot_keys_search', 'tftpboot_keys_search', TRUE);
+			$core->Router->add_route('tftpboot_keys_bulk_save', 'tftpboot_keys_bulk_save', TRUE);
+			$core->Router->add_route('tftpboot_directory', 'tftpboot_directory', TRUE);
+			$core->Router->add_route('tftpboot_sync_preview', 'tftpboot_sync_preview', TRUE);
+			$core->Router->add_route('tftpboot_sync_apply', 'tftpboot_sync_apply', TRUE);
+			$core->Router->add_route('tftpboot_rescan', 'tftpboot_rescan', TRUE);
+		}
+
 		if(user_is_admin())
 		{
 			$core->Router->add_route('handshakes', 'handshakes');
@@ -647,10 +670,17 @@ function exception_handler_ajax($exception)
 			$core->Router->add_route('register_approve', 'register_approve');
 
 			$core->Router->add_route('memcached_flush', 'memcached_flush', TRUE);
+
+			$core->Router->add_route('tftpboot_admin', 'tftpboot_admin');
+			$core->Router->add_route('tftpboot_admin_catalog_save', 'tftpboot_admin_catalog_save', TRUE);
+			$core->Router->add_route('tftpboot_admin_override_save', 'tftpboot_admin_override_save', TRUE);
+			$core->Router->add_route('tftpboot_admin_policy_save', 'tftpboot_admin_policy_save', TRUE);
 		}
 
 	}
 	
+	$core->Router->add_route('tftpboot_sync_run', 'tftpboot_sync_run', TRUE);
+
 	$core->Router->add_route('logoff', 'logoff');
 
 	$core->Router->add_route('language_change', 'language_change', TRUE);
