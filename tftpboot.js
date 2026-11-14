@@ -137,17 +137,60 @@ function tftpboot_dial_err(key) {
 	return 'Number required when label is set';
 }
 
-function tftpboot_validate_dial_pair(label, number, spec) {
-	if (spec) return '';
+function tftpboot_validate_dial_pair_detail(label, number, spec) {
+	if (spec) return null;
 	var lab = String(label || '').trim();
 	var num = String(number || '').trim();
-	if (!lab && !num) return '';
-	if (lab && !num) return tftpboot_dial_err('dialNumberRequired');
-	if (num && !lab) return tftpboot_dial_err('dialLabelRequired');
+	if (!lab && !num) return null;
+	if (lab && !num) return { code: 'dialNumberRequired', message: tftpboot_dial_err('dialNumberRequired') };
+	if (num && !lab) return { code: 'dialLabelRequired', message: tftpboot_dial_err('dialLabelRequired') };
 	if (tftpboot_star_dial_prefix(num) && !tftpboot_is_valid_star_dial(num)) {
-		return tftpboot_dial_err('starDialInvalid');
+		return { code: 'starDialInvalid', message: tftpboot_dial_err('starDialInvalid') };
 	}
-	return '';
+	return null;
+}
+
+function tftpboot_validate_dial_pair(label, number, spec) {
+	var d = tftpboot_validate_dial_pair_detail(label, number, spec);
+	return d ? d.message : '';
+}
+
+function tftpboot_clear_dial_field_errors(root) {
+	var scope = root || document;
+	scope.querySelectorAll('.tftpboot-field-error').forEach(function (el) {
+		el.classList.remove('tftpboot-field-error');
+	});
+}
+
+function tftpboot_mark_dial_field_error(el) {
+	if (!el) return;
+	el.classList.add('tftpboot-field-error');
+	if (typeof el.scrollIntoView === 'function') {
+		el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+	}
+	if (typeof el.focus === 'function') {
+		try { el.focus({ preventScroll: true }); } catch (e) { el.focus(); }
+	}
+}
+
+function tftpboot_dial_error_input(card, code, bulkIdx) {
+	var useBulk = bulkIdx != null && bulkIdx !== '';
+	if (code === 'dialLabelRequired') {
+		if (useBulk) return document.querySelector('.tftpboot-bulk-title[data-idx="' + bulkIdx + '"]');
+		return card ? card.querySelector('.tftpboot-key-title') : null;
+	}
+	if (useBulk) return document.querySelector('.tftpboot-bulk-num[data-idx="' + bulkIdx + '"]');
+	return card ? card.querySelector('.tftpboot-key-number') : null;
+}
+
+function tftpboot_show_dial_pair_error(card, code, message, bulkIdx) {
+	tftpboot_clear_dial_field_errors(
+		bulkIdx != null && bulkIdx !== ''
+			? document.getElementById('tftpboot-bulk-table')
+			: document.getElementById('tftpboot-editor')
+	);
+	tftpboot_mark_dial_field_error(tftpboot_dial_error_input(card, code, bulkIdx));
+	f_notify(message, 'error');
 }
 
 function tftpboot_sanitize_dial_number(raw) {
@@ -175,6 +218,7 @@ function tftpboot_bind_dial_number_input(el) {
 	};
 	el.addEventListener('input', run);
 	el.addEventListener('paste', function () { setTimeout(run, 0); });
+	el.addEventListener('input', function () { el.classList.remove('tftpboot-field-error'); });
 }
 
 function tftpboot_card_star_transfer(card) {
@@ -817,7 +861,10 @@ function tftpboot_create_key_card(k, grid) {
 		card.dataset.clear = '1';
 	};
 	card.querySelectorAll('input').forEach(function (inp) {
-		inp.addEventListener('input', function () { delete card.dataset.clear; });
+		inp.addEventListener('input', function () {
+			delete card.dataset.clear;
+			inp.classList.remove('tftpboot-field-error');
+		});
 	});
 	tftpboot_sync_card_auto_state(card);
 	tftpboot_bind_dnd(card, grid);
@@ -1019,7 +1066,10 @@ function tftpboot_save_editor() {
 	var fn = document.getElementById('tftpboot-editor-filename').value;
 	var keys = [];
 	var clearIds = [];
+	var blocked = false;
+	tftpboot_clear_dial_field_errors(document.getElementById('tftpboot-editor'));
 	document.querySelectorAll('#tftpboot-editor-sections .tftpboot-key-card').forEach(function (card) {
+		if (blocked) return;
 		var numRaw = card.querySelector('.tftpboot-key-number').value;
 		var spec = tftpboot_special_line_value(numRaw);
 		var numVal = spec || tftpboot_sanitize_dial_number(numRaw);
@@ -1036,6 +1086,12 @@ function tftpboot_save_editor() {
 		if (!String(row.label).trim() && tftpboot_type3_line_value(row.number)) {
 			row.label = tftpboot_type3_default_title(row.number);
 		}
+		var err = tftpboot_validate_dial_pair_detail(row.label, row.number, spec);
+		if (err) {
+			blocked = true;
+			tftpboot_show_dial_pair_error(card, err.code, err.message);
+			return;
+		}
 		if (card.dataset.keyId) row.key_id = card.dataset.keyId;
 		if (card.dataset.section) row.section = card.dataset.section;
 		keys.push(row);
@@ -1043,16 +1099,7 @@ function tftpboot_save_editor() {
 			clearIds.push(card.dataset.keyId);
 		}
 	});
-	var vi;
-	for (vi = 0; vi < keys.length; vi++) {
-		var row = keys[vi];
-		var spec = tftpboot_special_line_value(row.number);
-		var verr = tftpboot_validate_dial_pair(row.label, row.number, spec);
-		if (verr) {
-			f_notify(verr, 'error');
-			return;
-		}
-	}
+	if (blocked) return;
 	var post = { filename: fn, speedDialKeys: keys, clear_key_ids: clearIds };
 	var disp = document.getElementById('tftpboot-sip-display');
 	if (disp) post.displayName = disp.value;
@@ -1212,6 +1259,9 @@ function tftpboot_bulk_render_table(rows) {
 	document.querySelectorAll('.tftpboot-bulk-num').forEach(function (inp) {
 		tftpboot_bind_dial_number_input(inp);
 	});
+	document.querySelectorAll('.tftpboot-bulk-title').forEach(function (inp) {
+		inp.addEventListener('input', function () { inp.classList.remove('tftpboot-field-error'); });
+	});
 }
 
 function tftpboot_bulk_delete_one(idx) {
@@ -1285,9 +1335,9 @@ function tftpboot_bulk_save_one(idx) {
 	var titEl = document.querySelector('.tftpboot-bulk-title[data-idx="' + idx + '"]');
 	var number = tftpboot_sanitize_dial_number(numEl ? numEl.value : r.number);
 	var title = titEl ? titEl.value : r.title;
-	var verr = tftpboot_validate_dial_pair(title, number, '');
-	if (verr) {
-		f_notify(verr, 'error');
+	var err = tftpboot_validate_dial_pair_detail(title, number, '');
+	if (err) {
+		tftpboot_show_dial_pair_error(null, err.code, err.message, idx);
 		return;
 	}
 	var item = {
