@@ -48,6 +48,14 @@
     --color-disabled: gray;
 	--color-input-bg: white;
 	--color-error-border: #ebccd1;
+    --menu-tftpboot-pulse-bg-weak: #3d523d;
+    --menu-tftpboot-pulse-bg-strong: #5f8f5f;
+    --menu-tftpboot-pulse-inset: rgba(184, 230, 184, 0.55);
+    --menu-tftpboot-pulse-glow: rgba(184, 230, 184, 0.5);
+    --menu-tftpboot-badge-glow: rgba(184, 230, 184, 0.85);
+    --tftpboot-tab-pulse-bg-mid: #e4f8e4;
+    --tftpboot-tab-pulse-ring-0: rgba(214, 245, 214, 0);
+    --tftpboot-tab-pulse-ring-mid: rgba(214, 245, 214, 0.35);
 }
 
 :root[data-theme-color="dark"] {
@@ -109,6 +117,14 @@
     --color-disabled: #777;
     --color-input-bg: #333;
 	--color-error-border: #ebccd1;
+    --menu-tftpboot-pulse-bg-weak: #3b5b3c;
+    --menu-tftpboot-pulse-bg-strong: #47944a;
+    --menu-tftpboot-pulse-inset: rgba(76, 175, 80, 0.55);
+    --menu-tftpboot-pulse-glow: rgba(76, 175, 80, 0.5);
+    --menu-tftpboot-badge-glow: rgba(102, 187, 106, 0.85);
+    --tftpboot-tab-pulse-bg-mid: #3a7b3d;
+    --tftpboot-tab-pulse-ring-0: rgba(76, 175, 80, 0);
+    --tftpboot-tab-pulse-ring-mid: rgba(76, 175, 80, 0.35);
 }
 
 pre {
@@ -1197,13 +1213,13 @@ ul.tree-menu:before {
 		opacity: 1;
 		border-color: var(--color-button-accept);
 		background: var(--color-button-accept);
-		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1), 0 0 0 0 color-mix(in srgb, var(--color-button-accept) 45%, transparent);
+		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1), 0 0 0 0 var(--tftpboot-tab-pulse-ring-0);
 	}
 	50% {
 		opacity: 0.85;
 		border-color: var(--color-button-accept-hover);
-		background: color-mix(in srgb, var(--color-button-accept) 65%, var(--color-bg-2));
-		box-shadow: 0 3px 14px rgba(0, 0, 0, 0.14), 0 0 0 6px color-mix(in srgb, var(--color-button-accept) 35%, transparent);
+		background: var(--tftpboot-tab-pulse-bg-mid);
+		box-shadow: 0 3px 14px rgba(0, 0, 0, 0.14), 0 0 0 6px var(--tftpboot-tab-pulse-ring-mid);
 	}
 }
 .tftpboot-tab.tftpboot-tab-moderation.tftpboot-moderation-pending:not(.active) {
@@ -1216,14 +1232,14 @@ ul.tree-menu:before {
 }
 @keyframes menu-tftpboot-pulse {
 	0%, 100% {
-		background-color: color-mix(in srgb, var(--color-button-accept) 32%, var(--color-menu-bg));
+		background-color: var(--menu-tftpboot-pulse-bg-weak);
 		box-shadow: inset 0 0 0 0 transparent, 0 0 0 0 transparent;
 	}
 	50% {
-		background-color: color-mix(in srgb, var(--color-button-accept) 78%, var(--color-menu-bg));
+		background-color: var(--menu-tftpboot-pulse-bg-strong);
 		box-shadow:
-			inset 0 0 0 1px color-mix(in srgb, var(--color-button-accept) 55%, transparent),
-			0 0 16px color-mix(in srgb, var(--color-button-accept) 50%, transparent);
+			inset 0 0 0 1px var(--menu-tftpboot-pulse-inset),
+			0 0 16px var(--menu-tftpboot-pulse-glow);
 	}
 }
 @keyframes menu-tftpboot-badge-pulse {
@@ -1233,12 +1249,13 @@ ul.tree-menu:before {
 	}
 	50% {
 		color: var(--color-button-accept-hover);
-		text-shadow: 0 0 10px color-mix(in srgb, var(--color-button-accept) 85%, transparent);
+		text-shadow: 0 0 10px var(--menu-tftpboot-badge-glow);
 	}
 }
 .menu-bar li a.menu-tftpboot-pending {
 	font-weight: 600;
 	color: var(--color-white);
+	background-color: var(--menu-tftpboot-pulse-bg-weak);
 	animation: menu-tftpboot-pulse 3.2s ease-in-out infinite;
 }
 .menu-tftpboot-badge { margin-left: 0.25em; }
@@ -1262,6 +1279,10 @@ ul.tree-menu:before {
 	.menu-bar li a.menu-tftpboot-pending,
 	.menu-bar li a.menu-tftpboot-pending .menu-tftpboot-badge {
 		animation: none;
+	}
+	.menu-bar li a.menu-tftpboot-pending {
+		background-color: var(--menu-tftpboot-pulse-bg-strong);
+		box-shadow: inset 0 0 0 1px var(--menu-tftpboot-pulse-inset);
 	}
 }
 .tftpboot-panel label { display: block; margin: 0.5em 0; }

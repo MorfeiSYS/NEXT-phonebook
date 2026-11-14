@@ -4,6 +4,7 @@
 
 ### Fixed
 
+- TFTP модерация: зелёное мигание пункта «Телефоны» в главном меню и пульс вкладок — в Firefox (без `color-mix` в `@keyframes`).
 - `api.php`: `inc.config.php` подключается до проверки `API_FREEEPBX_KEYS` (раньше ключи из конфига не учитывались).
 
 ### Security
