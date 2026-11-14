@@ -351,6 +351,21 @@ function assert_admin_page(&$core)
 	}
 }
 
+function log_db_params($params, $max_len = 4096)
+{
+	if(!is_string($params))
+	{
+		$params = (string) $params;
+	}
+
+	if(strlen($params) > $max_len)
+	{
+		return substr($params, 0, $max_len - 3).'...';
+	}
+
+	return $params;
+}
+
 function log_db($operation, $params, $flags)
 {
 	global $core;
@@ -358,7 +373,7 @@ function log_db($operation, $params, $flags)
 	$core->db->put(rpv('INSERT INTO @logs (`date`, `uid`, `operation`, `params`, `flags`) VALUES (NOW(), #, !, !, #)',
 		$core->UserAuth->get_id(),
 		$operation,
-		$params,
+		log_db_params($params),
 		$flags
 	));
 }
@@ -625,6 +640,7 @@ function exception_handler_ajax($exception)
 		if(user_is_admin())
 		{
 			$core->Router->add_route('handshakes', 'handshakes');
+			$core->Router->add_route('logs', 'logs');
 			$core->Router->add_route('contacts_sync', 'contacts_sync', TRUE);
 			$core->Router->add_route('contacts_hide_disabled', 'contacts_hide_disabled', TRUE);
 			$core->Router->add_route('contacts_show_all_enabled', 'contacts_show_all_enabled', TRUE);

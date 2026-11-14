@@ -15,5 +15,7 @@ function contacts_reveal_admin_hidden(&$core, $params, $post_data)
 			)
 	'));
 
+	log_db('Reveal admin hidden contacts', '', 0);
+
 	echo '{"code": 0, "message": "'.json_escape(LL('MessageRevealAdminHidden')).'"}';
 }

@@ -31,5 +31,7 @@ function map_set(&$core, $params, $post_data)
 	imagepng($src, ROOT_DIR.'photos'.DIRECTORY_SEPARATOR.'map'.$id.'.png');
 	imagedestroy($src);
 
+	log_db('Map image set', '{map_id='.$id.'}', 0);
+
 	echo '{"code": 0, "id": '.$id.', "message": "Map image changed (ID '.$id.')"}';
 }

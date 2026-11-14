@@ -18,5 +18,6 @@ function tftpboot_rescan(&$core, $params, $post_data)
 	{
 		$out['new_models'] = $new_models;
 	}
+	log_db('tftpboot rescan', 'new_models='.count($new_models), 0);
 	tftpboot_json_send($out);
 }

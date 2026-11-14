@@ -26,5 +26,6 @@ function tftpboot_keys_bulk_delete(&$core, $params, $post_data)
 		exit;
 	}
 
+	log_db('tftpboot bulk delete', 'keys='.$n.';vendors='.implode(',', $vendors), 0);
 	tftpboot_json_send(array('code' => 0, 'message' => LL('TftpBootBulkDeleted'), 'keys' => $n));
 }

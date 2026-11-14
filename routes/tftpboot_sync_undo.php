@@ -27,5 +27,6 @@ function tftpboot_sync_undo(&$core, $params, $post_data)
 		tftpboot_sync_undo_clear($core);
 	}
 
+	log_db('tftpboot sync undo', 'keys='.$n, 0);
 	tftpboot_json_send(array('code' => 0, 'message' => LL('TftpBootSyncUndoDone'), 'keys' => $n, 'has_undo' => FALSE));
 }

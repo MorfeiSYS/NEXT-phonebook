@@ -8,6 +8,8 @@ function contact_delete(&$core, $params, $post_data)
 
 	$core->db->put(rpv('DELETE FROM `@contacts` WHERE `id` = # AND `adid` = \'\' LIMIT 1', $id));
 
+	log_db('Deleted contact', '{id='.$id.'}', 0);
+
 	$filename = ROOT_DIR.'photos'.DIRECTORY_SEPARATOR.'t'.$id.'.jpg';
 
 	if(file_exists($filename))

@@ -35,6 +35,8 @@ function contact_location_set(&$core, $params, $post_data)
 
 	$core->db->put(rpv('UPDATE `@contacts` SET `map` = #, `x` = #, `y` = # WHERE `id` = # LIMIT 1', $map_id, $pos_x, $pos_y, $id));
 
+	log_db('Contact location set', 'id='.$id.';map='.$map_id.';x='.$pos_x.';y='.$pos_y, 0);
+
 	echo '{"code": 0, "id": '.$id.', "map": '.json_escape($map_id).', "x": '.json_escape($pos_x).', "y": '.json_escape($pos_y).', "message": "Location set (ID '.$id.')"}';
 }
 

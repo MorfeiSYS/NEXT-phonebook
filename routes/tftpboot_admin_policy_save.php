@@ -30,5 +30,6 @@ function tftpboot_admin_policy_save(&$core, $params, $post_data)
 
 	$svc = tftpboot_instance($core);
 	$svc->save_policy($sid, $dn, $mode, $sections);
+	log_db('tftpboot policy save', 'sid='.$sid.';mode='.$mode, 0);
 	tftpboot_json_send(array('code' => 0, 'message' => LL('Save')));
 }

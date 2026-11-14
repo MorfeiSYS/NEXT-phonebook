@@ -122,6 +122,8 @@ function contact_save(&$core, $params, $post_data)
 
 		$v_id = $core->db->last_id();
 
+		log_db('Added contact', '{id='.$v_id.',name="'.substr($v_first_name, 0, 200).'"}', 0);
+
 		echo '{"code": 0, "id": '.$v_id.', "message": "Added (ID '.$v_id.')"}';
 	}
 	else
@@ -170,6 +172,8 @@ function contact_save(&$core, $params, $post_data)
 			$v_type,
 			$v_id
 		));
+
+		log_db('Updated contact', '{id='.$v_id.',name="'.substr($v_first_name, 0, 200).'"}', 0);
 
 		echo '{"code": 0, "id": '.$v_id.',"message": "Updated (ID '.$v_id.')"}';
 	}

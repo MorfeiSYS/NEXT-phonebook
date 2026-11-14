@@ -14,6 +14,8 @@ function contact_photo_delete(&$core, $params, $post_data)
 
 	$core->db->put(rpv('UPDATE `@contacts` SET `flags` = (`flags` & ~{%PB_CONTACT_WITH_PHOTO}) WHERE `id` = # LIMIT 1', $id));
 
+	log_db('Contact photo delete', '{id='.$id.'}', 0);
+
 	echo '{"code": 0, "id": '.$id.', "message": "Photo deleted (ID '.$id.')"}';
 }
 
