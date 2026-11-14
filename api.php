@@ -3,6 +3,7 @@
 Api для подключения справочника к FreePBX
 */
 
+require_once __DIR__.DIRECTORY_SEPARATOR.'inc.config.php';
 
 // Проверяем наличие параметра NUMBER
 if (!isset($_GET['NUMBER'])) {
@@ -60,10 +61,6 @@ if(empty($validKeys) || !in_array($apiKey, $validKeys, true)) {
     echo 'Ошибка: неавторизованный доступ.';
     exit;
 }
-
-
-// Подключаем конфигурационный файл
-require_once 'inc.config.php';
 
 // Устанавливаем соединение с базой данных
 $mysqli = new mysqli(DB_RW_HOST, DB_USER, DB_PASSWD, DB_NAME);

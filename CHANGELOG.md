@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed
+
+- `api.php`: `inc.config.php` подключается до проверки `API_FREEEPBX_KEYS` (раньше ключи из конфига не учитывались).
+
 ### Security
 
 - CSRF: сессионный токен, проверка на POST (заголовок `X-CSRF-Token` / поле `csrf_token`), исключение `tftpboot_sync_run`.
