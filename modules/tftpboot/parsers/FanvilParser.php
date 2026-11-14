@@ -588,6 +588,18 @@ class TftpFanvilParser
 
 			if($num === '' && $title === '')
 			{
+				$line_type = isset($k['line_type']) ? $k['line_type'] : NULL;
+				$line_value = isset($k['line_value']) ? $k['line_value'] : NULL;
+				$line_title = isset($k['line_title']) ? $k['line_title'] : NULL;
+
+				$this->set_fkey_field($lines, $slot, 'Type', '0', $line_type);
+				$this->set_fkey_field($lines, $slot, 'Value', '', $line_value);
+				$this->set_fkey_field($lines, $slot, 'Title', '', $line_title);
+
+				$k['type'] = 0;
+				$k['value'] = '';
+				$k['title'] = '';
+
 				continue;
 			}
 

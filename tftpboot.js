@@ -1360,9 +1360,29 @@ function tftpboot_bind_dnd(card, grid) {
 		card.dataset.dialSuffix = s1;
 		tftpboot_sync_card_auto_state(from);
 		tftpboot_sync_card_auto_state(card);
-		delete from.dataset.clear;
-		delete card.dataset.clear;
+		tftpboot_mark_clear_if_empty(from);
+		tftpboot_mark_clear_if_empty(card);
 	});
+}
+
+function tftpboot_card_is_empty(card) {
+	if (!card) return true;
+	var titleEl = card.querySelector('.tftpboot-key-title');
+	var numEl = card.querySelector('.tftpboot-key-number');
+	var lab = titleEl ? String(titleEl.value || '').trim() : '';
+	var num = numEl ? String(numEl.value || '').trim() : '';
+	if (lab || num) return false;
+	if (tftpboot_special_line_value(num)) return false;
+	return true;
+}
+
+function tftpboot_mark_clear_if_empty(card) {
+	if (!card || !card.dataset.keyId) return;
+	if (tftpboot_card_is_empty(card)) {
+		card.dataset.clear = '1';
+	} else {
+		delete card.dataset.clear;
+	}
 }
 
 function tftpboot_close_editor() {
