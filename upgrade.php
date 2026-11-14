@@ -99,7 +99,7 @@ require_once(ROOT_DIR.'inc.config.php');
 
 	if(!defined('DB_VERSION'))
 	{
-		define('DB_VERSION', 14);
+		define('DB_VERSION', 15);
 	}
 
 	$core = new Core(TRUE);
@@ -794,6 +794,39 @@ require_once(ROOT_DIR.'inc.config.php');
 		}
 
 		case 14:
+		{
+			echo "Create tftpboot_moderation_request...\n";
+			if(!$core->db->put(rpv('
+				CREATE TABLE IF NOT EXISTS `@tftpboot_moderation_request` (
+					`id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+					`created` datetime NOT NULL,
+					`status` varchar(32) NOT NULL DEFAULT \'pending\',
+					`uid` int(10) unsigned NOT NULL DEFAULT 0,
+					`contact_id` int(10) unsigned NOT NULL DEFAULT 0,
+					`filename` varchar(512) NOT NULL DEFAULT \'\',
+					`payload_json` mediumtext,
+					`baseline_json` mediumtext,
+					`reviewer_uid` int(10) unsigned NOT NULL DEFAULT 0,
+					`reviewed` datetime DEFAULT NULL,
+					`reject_note` varchar(512) NOT NULL DEFAULT \'\',
+					PRIMARY KEY (`id`),
+					KEY `status_created` (`status`, `created`),
+					KEY `filename` (`filename`(191)),
+					KEY `uid` (`uid`)
+				) ENGINE=InnoDB DEFAULT CHARSET=utf8
+			')))
+			{
+				echo 'ERROR['.__LINE__.']: '.$core->db->get_last_error().PHP_EOL;
+			}
+			echo "Set db_version = '15'...\n";
+			if(!$core->db->put(rpv("UPDATE @config SET `value` = 15 WHERE `uid` = 0 AND `name` = 'db_version' LIMIT 1")))
+			{
+				echo 'ERROR['.__LINE__.']: '.$core->db->get_last_error().PHP_EOL;
+			}
+			echo "\n\nUpgrade to version 15 complete!\n";
+		}
+
+		case 15:
 		{
 			echo "\nDatabase schema is up to date (version ".DB_VERSION.").\n";
 		}

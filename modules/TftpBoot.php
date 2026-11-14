@@ -1137,6 +1137,7 @@ class TftpBoot
 
 	public function save_config($filename, $post, $policy)
 	{
+		tftpboot_sanitize_speed_dial_post($post);
 		$path = $this->resolve_path($filename);
 		if(!$path)
 		{
@@ -1342,6 +1343,23 @@ class TftpBoot
 		{
 			return 0;
 		}
+
+		foreach($items as &$item)
+		{
+			if(!is_array($item))
+			{
+				continue;
+			}
+			if(isset($item['number']))
+			{
+				$item['number'] = tftpboot_sanitize_speed_dial_number($item['number']);
+			}
+			if(isset($item['old_number']))
+			{
+				$item['old_number'] = tftpboot_sanitize_speed_dial_number($item['old_number']);
+			}
+		}
+		unset($item);
 
 		$this->core->db->select_assoc_ex($rows, rpv(
 			'SELECT `filename`, `vendor` FROM `@tftpboot_file` WHERE `vendor` IN ({r0}) ORDER BY `filename`',
@@ -2072,5 +2090,315 @@ class TftpBoot
 			$mode,
 			$json
 		));
+	}
+
+	public function count_moderation_pending()
+	{
+		$cnt = array();
+		if(!$this->core->db->select_ex($cnt, rpv("SELECT COUNT(*) FROM `@tftpboot_moderation_request` WHERE `status` = 'pending'")))
+		{
+			return 0;
+		}
+
+		return isset($cnt[0][0]) ? intval($cnt[0][0]) : 0;
+	}
+
+	public function get_self_pending_status($uid, $filename)
+	{
+		$rows = array();
+		if(!$this->core->db->select_assoc_ex(
+			$rows,
+			rpv(
+				"SELECT `id`, `status`, `created`, `reject_note` FROM `@tftpboot_moderation_request` ".
+				"WHERE `uid` = # AND `filename` = ! ORDER BY `id` DESC LIMIT 1",
+				intval($uid),
+				$filename
+			)
+		))
+		{
+			return NULL;
+		}
+
+		return $rows[0];
+	}
+
+	public function submit_moderation_request($uid, $contact_id, $filename, $post, $policy)
+	{
+		tftpboot_sanitize_speed_dial_post($post);
+		$baseline_cfg = $this->get_config_for_editor($filename, $policy);
+		if(!$baseline_cfg)
+		{
+			return array('code' => 1, 'message' => 'Not found');
+		}
+
+		$baseline = array(
+			'speedDialKeys' => isset($baseline_cfg['speedDialKeys']) ? $baseline_cfg['speedDialKeys'] : array(),
+		);
+		$payload_json = json_encode($post, JSON_UNESCAPED_UNICODE);
+		$baseline_json = json_encode($baseline, JSON_UNESCAPED_UNICODE);
+
+		$this->core->db->put(rpv(
+			"DELETE FROM `@tftpboot_moderation_request` WHERE `filename` = ! AND `status` = 'pending'",
+			$filename
+		));
+
+		if(!$this->core->db->put(rpv(
+			"INSERT INTO `@tftpboot_moderation_request` (`created`, `status`, `uid`, `contact_id`, `filename`, `payload_json`, `baseline_json`) ".
+			"VALUES (NOW(), 'pending', #, #, !, !, !)",
+			intval($uid),
+			intval($contact_id),
+			$filename,
+			$payload_json,
+			$baseline_json
+		)))
+		{
+			return array('code' => 1, 'message' => 'DB error');
+		}
+
+		log_db('tftpboot moderation submit', $filename, 0);
+
+		return array('code' => 0, 'message' => LL('TftpBootModerationSubmitted'));
+	}
+
+	public function list_moderation_pending()
+	{
+		$rows = array();
+		if(!$this->core->db->select_assoc_ex(
+			$rows,
+			rpv(
+				'SELECT r.`id`, r.`created`, r.`filename`, r.`uid`, r.`contact_id`, f.`phone`, f.`mac`, f.`vendor`, '.
+				'c.`last_name`, c.`first_name`, c.`middle_name`, u.`login` AS submitter_login '.
+				'FROM `@tftpboot_moderation_request` AS r '.
+				'LEFT JOIN `@tftpboot_file` AS f ON f.`filename` = r.`filename` '.
+				'LEFT JOIN `@contacts` AS c ON c.`id` = r.`contact_id` '.
+				'LEFT JOIN `@users` AS u ON u.`id` = r.`uid` '.
+				"WHERE r.`status` = 'pending' ORDER BY r.`created`"
+			)
+		))
+		{
+			return array();
+		}
+
+		foreach($rows as &$row)
+		{
+			$row['display_name'] = trim($row['last_name'].' '.$row['first_name'].' '.$row['middle_name']);
+			$row['phone_label'] = tftpboot_display_label($row['phone'], $row['mac']);
+		}
+		unset($row);
+
+		return $rows;
+	}
+
+	private function moderation_key_index($k)
+	{
+		if(!is_array($k))
+		{
+			return '';
+		}
+		if(!empty($k['key_id']))
+		{
+			return 'id:'.$k['key_id'];
+		}
+		$sec = isset($k['section']) ? $k['section'] : '';
+		$slot = isset($k['slot']) ? $k['slot'] : '';
+
+		return 's:'.$sec.':'.$slot;
+	}
+
+	private function moderation_keys_map($keys)
+	{
+		$map = array();
+		if(!is_array($keys))
+		{
+			return $map;
+		}
+		foreach($keys as $k)
+		{
+			$idx = $this->moderation_key_index($k);
+			if($idx !== '')
+			{
+				$map[$idx] = $k;
+			}
+		}
+
+		return $map;
+	}
+
+	public function build_moderation_diff($baseline_keys, $proposed_keys, $clear_ids = array())
+	{
+		$old = $this->moderation_keys_map($baseline_keys);
+		$new = $this->moderation_keys_map($proposed_keys);
+		$ids = array_unique(array_merge(array_keys($old), array_keys($new)));
+		$diff = array();
+
+		foreach($ids as $idx)
+		{
+			$was = isset($old[$idx]) ? $old[$idx] : NULL;
+			$now = isset($new[$idx]) ? $new[$idx] : NULL;
+			$label_was = $was ? trim((string)(isset($was['label']) ? $was['label'] : '')) : '';
+			$label_now = $now ? trim((string)(isset($now['label']) ? $now['label'] : '')) : '';
+			$num_was = $was ? trim((string)(isset($was['number']) ? $was['number'] : '')) : '';
+			$num_now = $now ? trim((string)(isset($now['number']) ? $now['number'] : '')) : '';
+
+			if($label_was === $label_now && $num_was === $num_now)
+			{
+				continue;
+			}
+
+			$key_id = '';
+			if($was && !empty($was['key_id']))
+			{
+				$key_id = $was['key_id'];
+			}
+			elseif($now && !empty($now['key_id']))
+			{
+				$key_id = $now['key_id'];
+			}
+
+			$diff[] = array(
+				'key_id' => $key_id,
+				'label_was' => $label_was,
+				'label_now' => $label_now,
+				'number_was' => $num_was,
+				'number_now' => $num_now,
+			);
+		}
+
+		if(is_array($clear_ids))
+		{
+			foreach($clear_ids as $cid)
+			{
+				$cid = (string)$cid;
+				if($cid === '')
+				{
+					continue;
+				}
+				$found = FALSE;
+				foreach($diff as $d)
+				{
+					if($d['key_id'] === $cid)
+					{
+						$found = TRUE;
+						break;
+					}
+				}
+				if($found)
+				{
+					continue;
+				}
+				foreach($baseline_keys as $k)
+				{
+					if(isset($k['key_id']) && (string)$k['key_id'] === $cid)
+					{
+						$diff[] = array(
+							'key_id' => $cid,
+							'label_was' => isset($k['label']) ? $k['label'] : '',
+							'label_now' => '',
+							'number_was' => isset($k['number']) ? $k['number'] : '',
+							'number_now' => '',
+						);
+						break;
+					}
+				}
+			}
+		}
+
+		return $diff;
+	}
+
+	public function get_moderation_request($id)
+	{
+		$rows = array();
+		if(!$this->core->db->select_assoc_ex(
+			$rows,
+			rpv(
+				'SELECT r.*, f.`phone`, f.`mac`, c.`last_name`, c.`first_name`, c.`middle_name`, u.`login` AS submitter_login '.
+				'FROM `@tftpboot_moderation_request` AS r '.
+				'LEFT JOIN `@tftpboot_file` AS f ON f.`filename` = r.`filename` '.
+				'LEFT JOIN `@contacts` AS c ON c.`id` = r.`contact_id` '.
+				'LEFT JOIN `@users` AS u ON u.`id` = r.`uid` '.
+				'WHERE r.`id` = # AND r.`status` = \'pending\' LIMIT 1',
+				intval($id)
+			)
+		))
+		{
+			return NULL;
+		}
+
+		$row = $rows[0];
+		$payload = json_decode($row['payload_json'], TRUE);
+		$baseline = json_decode($row['baseline_json'], TRUE);
+		if(!is_array($payload))
+		{
+			$payload = array();
+		}
+		if(!is_array($baseline))
+		{
+			$baseline = array();
+		}
+
+		$proposed = isset($payload['speedDialKeys']) ? $payload['speedDialKeys'] : array();
+		$base_keys = isset($baseline['speedDialKeys']) ? $baseline['speedDialKeys'] : array();
+		$clear = isset($payload['clear_key_ids']) ? $payload['clear_key_ids'] : array();
+
+		$row['display_name'] = trim($row['last_name'].' '.$row['first_name'].' '.$row['middle_name']);
+		$row['phone_label'] = tftpboot_display_label($row['phone'], $row['mac']);
+		$row['diff'] = $this->build_moderation_diff($base_keys, $proposed, $clear);
+
+		return $row;
+	}
+
+	public function approve_moderation($id, $reviewer_uid)
+	{
+		$req = $this->get_moderation_request($id);
+		if(!$req)
+		{
+			return array('code' => 1, 'message' => 'Not found');
+		}
+
+		$post = json_decode($req['payload_json'], TRUE);
+		if(!is_array($post))
+		{
+			return array('code' => 1, 'message' => 'Invalid payload');
+		}
+
+		$policy = array('mode' => 'buttons_only', 'sections' => array('dss'));
+		$result = $this->save_config($req['filename'], $post, $policy);
+		if(!empty($result['code']))
+		{
+			return $result;
+		}
+
+		$this->core->db->put(rpv(
+			"UPDATE `@tftpboot_moderation_request` SET `status` = 'approved', `reviewer_uid` = #, `reviewed` = NOW() WHERE `id` = #",
+			intval($reviewer_uid),
+			intval($id)
+		));
+		log_db('tftpboot moderation approve', $req['filename'].' #'.$id, 0);
+
+		return array('code' => 0, 'message' => LL('TftpBootModerationApproved'));
+	}
+
+	public function reject_moderation($id, $reviewer_uid, $note = '')
+	{
+		$rows = array();
+		if(!$this->core->db->select_assoc_ex(
+			$rows,
+			rpv("SELECT `id`, `filename` FROM `@tftpboot_moderation_request` WHERE `id` = # AND `status` = 'pending' LIMIT 1", intval($id))
+		))
+		{
+			return array('code' => 1, 'message' => 'Not found');
+		}
+
+		$note = trim(mb_substr((string)$note, 0, 500, 'UTF-8'));
+		$this->core->db->put(rpv(
+			"UPDATE `@tftpboot_moderation_request` SET `status` = 'rejected', `reviewer_uid` = #, `reviewed` = NOW(), `reject_note` = ! WHERE `id` = #",
+			intval($reviewer_uid),
+			$note,
+			intval($id)
+		));
+		log_db('tftpboot moderation reject', $rows[0]['filename'].' #'.$id, 0);
+
+		return array('code' => 0, 'message' => LL('TftpBootModerationRejected'));
 	}
 }

@@ -17,7 +17,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-define('DB_VERSION', 13);
+define('DB_VERSION', 15);
 
 if(!defined('ROOT_DIR'))
 {
@@ -621,11 +621,14 @@ function exception_handler_ajax($exception)
 			$core->Router->add_route('contact_save', 'contact_save', TRUE);
 		}
 
-		if(user_has_tftpboot())
+		if(user_has_tftpboot_menu($core))
 		{
 			$core->Router->add_route('tftpboot', 'tftpboot');
+		}
+
+		if(user_has_tftpboot())
+		{
 			$core->Router->add_route('tftpboot_tree', 'tftpboot_tree', TRUE);
-			$core->Router->add_route('tftpboot_config_get', 'tftpboot_config_get', TRUE);
 			$core->Router->add_route('tftpboot_config_save', 'tftpboot_config_save', TRUE);
 			$core->Router->add_route('tftpboot_keys_search', 'tftpboot_keys_search', TRUE);
 			$core->Router->add_route('tftpboot_keys_bulk_save', 'tftpboot_keys_bulk_save', TRUE);
@@ -635,6 +638,25 @@ function exception_handler_ajax($exception)
 			$core->Router->add_route('tftpboot_sync_apply', 'tftpboot_sync_apply', TRUE);
 			$core->Router->add_route('tftpboot_sync_undo', 'tftpboot_sync_undo', TRUE);
 			$core->Router->add_route('tftpboot_rescan', 'tftpboot_rescan', TRUE);
+		}
+
+		if(user_has_tftpboot() || user_can_tftpboot_self($core))
+		{
+			$core->Router->add_route('tftpboot_config_get', 'tftpboot_config_get', TRUE);
+		}
+
+		if(user_can_tftpboot_self($core))
+		{
+			$core->Router->add_route('tftpboot_self_files', 'tftpboot_self_files', TRUE);
+			$core->Router->add_route('tftpboot_moderation_submit', 'tftpboot_moderation_submit', TRUE);
+		}
+
+		if(user_can_tftpboot_moderate($core))
+		{
+			$core->Router->add_route('tftpboot_moderation_list', 'tftpboot_moderation_list', TRUE);
+			$core->Router->add_route('tftpboot_moderation_get', 'tftpboot_moderation_get', TRUE);
+			$core->Router->add_route('tftpboot_moderation_approve', 'tftpboot_moderation_approve', TRUE);
+			$core->Router->add_route('tftpboot_moderation_reject', 'tftpboot_moderation_reject', TRUE);
 		}
 
 		if(user_is_admin())

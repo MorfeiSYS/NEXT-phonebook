@@ -7,6 +7,10 @@ var tftpboot_state = {
 function tftpboot_init(opts) {
 	tftpboot_state.policy = opts.policy || { mode: 'buttons_only', sections: ['dss'] };
 	tftpboot_state.isAdmin = !!opts.isAdmin;
+	tftpboot_state.selfOnly = !!opts.selfOnly;
+	tftpboot_state.canModerate = !!opts.canModerate;
+	tftpboot_state.moderationRequestId = 0;
+	tftpboot_state.selfFiles = [];
 	tftpboot_state.bulkVendors = opts.bulkVendors || [];
 	tftpboot_state.bulkPageSize = parseInt(opts.bulkPageSize, 10) || 50;
 	if (tftpboot_state.bulkPageSize < 5) tftpboot_state.bulkPageSize = 5;
@@ -15,11 +19,23 @@ function tftpboot_init(opts) {
 	tftpboot_state.syncApiFetch = !!opts.syncApiFetch;
 	tftpboot_state.syncHasUndo = !!opts.syncHasUndo;
 	tftpboot_bind_tabs();
-	tftpboot_render_bulk_vendors();
-	tftpboot_render_sync_vendors();
-	tftpboot_load_tree();
-	var openBtn = document.getElementById('tftpboot-open-btn');
-	if (openBtn) openBtn.onclick = tftpboot_open_selected;
+	if (tftpboot_state.selfOnly) {
+		tftpboot_self_init();
+	} else {
+		tftpboot_render_bulk_vendors();
+		tftpboot_render_sync_vendors();
+		tftpboot_load_tree();
+		var openBtn = document.getElementById('tftpboot-open-btn');
+		if (openBtn) openBtn.onclick = tftpboot_open_selected;
+	}
+	var modOpen = document.getElementById('tftpboot-moderation-open');
+	if (modOpen) modOpen.onclick = tftpboot_moderation_open_modal;
+	var modBack = document.getElementById('tftpboot-moderation-back');
+	if (modBack) modBack.onclick = tftpboot_moderation_show_list;
+	var modApprove = document.getElementById('tftpboot-moderation-approve');
+	if (modApprove) modApprove.onclick = tftpboot_moderation_approve;
+	var modReject = document.getElementById('tftpboot-moderation-reject');
+	if (modReject) modReject.onclick = tftpboot_moderation_reject;
 	var bulkQ = document.getElementById('tftpboot-bulk-q');
 	if (bulkQ) {
 		bulkQ.oninput = tftpboot_bulk_filter;
@@ -66,7 +82,226 @@ function tftpboot_bind_tabs() {
 			var panel = document.getElementById('tftpboot-panel-' + tab);
 			if (panel) panel.style.display = 'block';
 			if (tab === 'bulk') tftpboot_bulk_fetch();
+			if (tab === 'moderation') {
+				var modBtn = document.getElementById('tftpboot-moderation-open');
+				if (modBtn) modBtn.focus();
+			}
 		};
+	});
+}
+
+function tftpboot_sanitize_dial_number(raw) {
+	var s = String(raw || '');
+	if (tftpboot_special_line_value(s)) return s.trim();
+	var d = s.replace(/\D/g, '');
+	if (d.length > 11) d = d.slice(0, 11);
+	return d;
+}
+
+function tftpboot_bind_dial_number_input(el) {
+	if (!el || el.disabled || el.readOnly) return;
+	el.setAttribute('maxlength', '11');
+	el.setAttribute('inputmode', 'numeric');
+	el.setAttribute('pattern', '[0-9]*');
+	var run = function () {
+		if (tftpboot_special_line_value(el.value)) return;
+		var v = tftpboot_sanitize_dial_number(el.value);
+		if (el.value !== v) el.value = v;
+	};
+	el.addEventListener('input', run);
+	el.addEventListener('paste', function () { setTimeout(run, 0); });
+}
+
+function tftpboot_self_init() {
+	var openBtn = document.getElementById('tftpboot-self-open-btn');
+	if (openBtn) openBtn.onclick = tftpboot_self_open_selected;
+	var sel = document.getElementById('tftpboot-self-file');
+	if (sel) sel.onchange = tftpboot_self_update_status;
+	tftpboot_http('tftpboot_self_files', {}, function (res) {
+		if (!res || res.code) {
+			f_notify(res && res.message ? res.message : 'Error', 'error');
+			return;
+		}
+		tftpboot_state.selfFiles = res.files || [];
+		if (!sel) return;
+		sel.innerHTML = '';
+		tftpboot_state.selfFiles.forEach(function (f) {
+			var o = document.createElement('option');
+			o.value = f.filename;
+			o.textContent = f.label || f.filename;
+			sel.appendChild(o);
+		});
+		tftpboot_self_update_status();
+	});
+}
+
+function tftpboot_self_update_status() {
+	var sel = document.getElementById('tftpboot-self-file');
+	var box = document.getElementById('tftpboot-self-status');
+	if (!sel || !box) return;
+	var fn = sel.value;
+	var row = null;
+	tftpboot_state.selfFiles.forEach(function (f) {
+		if (f.filename === fn) row = f;
+	});
+	if (!row || !row.moderation) {
+		box.style.display = 'none';
+		box.textContent = '';
+		return;
+	}
+	var st = row.moderation.status;
+	var lbl = tftpboot_state.labels || {};
+	if (st === 'pending') {
+		box.textContent = lbl.selfStatusPending || 'Pending moderation';
+		box.style.display = '';
+	} else if (st === 'rejected') {
+		var note = row.moderation.reject_note ? ': ' + row.moderation.reject_note : '';
+		box.textContent = (lbl.selfStatusRejected || 'Rejected') + note;
+		box.style.display = '';
+	} else {
+		box.style.display = 'none';
+	}
+}
+
+function tftpboot_self_open_selected() {
+	var sel = document.getElementById('tftpboot-self-file');
+	if (!sel || !sel.value) return;
+	tftpboot_open_editor(sel.value);
+}
+
+function tftpboot_moderation_close() {
+	var m = document.getElementById('tftpboot-moderation-modal');
+	if (m) m.style.display = 'none';
+	tftpboot_state.moderationRequestId = 0;
+}
+
+function tftpboot_moderation_open_modal() {
+	var m = document.getElementById('tftpboot-moderation-modal');
+	if (!m) return;
+	m.style.display = 'block';
+	tftpboot_moderation_show_list();
+	tftpboot_moderation_load_list();
+}
+
+function tftpboot_moderation_show_list() {
+	var list = document.getElementById('tftpboot-moderation-list-view');
+	var detail = document.getElementById('tftpboot-moderation-detail-view');
+	if (list) list.style.display = '';
+	if (detail) detail.style.display = 'none';
+	tftpboot_state.moderationRequestId = 0;
+	var note = document.getElementById('tftpboot-moderation-reject-note');
+	if (note) note.value = '';
+}
+
+function tftpboot_moderation_load_list() {
+	var box = document.getElementById('tftpboot-moderation-list');
+	if (!box) return;
+	box.innerHTML = '<p>' + escapeHtml((tftpboot_state.labels && tftpboot_state.labels.moderationLoading) || '…') + '</p>';
+	tftpboot_http('tftpboot_moderation_list', {}, function (res) {
+		if (!res || res.code) {
+			box.innerHTML = '<p>' + escapeHtml(res && res.message ? res.message : 'Error') + '</p>';
+			return;
+		}
+		var items = res.items || [];
+		var empty = (tftpboot_state.labels && tftpboot_state.labels.moderationEmpty) || 'No pending requests';
+		if (!items.length) {
+			box.innerHTML = '<p>' + escapeHtml(empty) + '</p>';
+			return;
+		}
+		var html = '<table class="tftpboot-table"><thead><tr><th>' +
+			escapeHtml(tftpboot_state.labels.keyNumber || 'Phone') + '</th><th>' +
+			escapeHtml(tftpboot_state.labels.keyTitle || 'User') + '</th><th></th></tr></thead><tbody>';
+		items.forEach(function (it) {
+			html += '<tr><td>' + escapeHtml(it.phone_label || '') + '</td><td>' +
+				escapeHtml(it.display_name || it.submitter_login || '') + '</td><td>' +
+				'<button type="button" class="button-other tftpboot-mod-review" data-id="' + it.id + '">' +
+				escapeHtml((tftpboot_state.labels && tftpboot_state.labels.moderationReview) || 'Review') +
+				'</button></td></tr>';
+		});
+		html += '</tbody></table>';
+		box.innerHTML = html;
+		box.querySelectorAll('.tftpboot-mod-review').forEach(function (btn) {
+			btn.onclick = function () {
+				tftpboot_moderation_open_detail(parseInt(btn.getAttribute('data-id'), 10));
+			};
+		});
+	});
+}
+
+function tftpboot_moderation_open_detail(id) {
+	if (!id) return;
+	var list = document.getElementById('tftpboot-moderation-list-view');
+	var detail = document.getElementById('tftpboot-moderation-detail-view');
+	if (list) list.style.display = 'none';
+	if (detail) detail.style.display = '';
+	var meta = document.getElementById('tftpboot-moderation-detail-meta');
+	var diffBox = document.getElementById('tftpboot-moderation-diff');
+	if (diffBox) diffBox.innerHTML = '';
+	tftpboot_http('tftpboot_moderation_get', { id: id }, function (res) {
+		if (!res || res.code || !res.request) {
+			f_notify(res && res.message ? res.message : 'Error', 'error');
+			tftpboot_moderation_show_list();
+			return;
+		}
+		var r = res.request;
+		tftpboot_state.moderationRequestId = id;
+		if (meta) {
+			meta.textContent = (r.phone_label || '') + ' — ' + (r.display_name || r.submitter_login || '') + ' (' + (r.created || '') + ')';
+		}
+		tftpboot_moderation_render_diff(r.diff || []);
+	});
+}
+
+function tftpboot_moderation_render_diff(diff) {
+	var box = document.getElementById('tftpboot-moderation-diff');
+	if (!box) return;
+	var lbl = tftpboot_state.labels || {};
+	var keyH = lbl.moderationDiffKey || 'Key';
+	var wasH = lbl.moderationDiffWas || 'Was';
+	var nowH = lbl.moderationDiffNow || 'Now';
+	if (!diff.length) {
+		box.innerHTML = '<p>' + escapeHtml(lbl.moderationNoDiff || 'No button changes') + '</p>';
+		return;
+	}
+	var html = '<table class="tftpboot-table"><thead><tr><th>' + escapeHtml(keyH) +
+		'</th><th>' + escapeHtml(lbl.keyTitle || 'Label') + '</th><th>' + escapeHtml(lbl.keyNumber || 'Number') + '</th></tr></thead><tbody>';
+	diff.forEach(function (d) {
+		var key = d.key_id || '—';
+		var lab = escapeHtml(d.label_was || '—') + ' → ' + escapeHtml(d.label_now || '—');
+		var num = escapeHtml(d.number_was || '—') + ' → ' + escapeHtml(d.number_now || '—');
+		html += '<tr><td>' + escapeHtml(key) + '</td><td>' + lab + '</td><td>' + num + '</td></tr>';
+	});
+	html += '</tbody></table>';
+	box.innerHTML = html;
+}
+
+function tftpboot_moderation_approve() {
+	var id = tftpboot_state.moderationRequestId;
+	if (!id) return;
+	tftpboot_http('tftpboot_moderation_approve', { id: id }, function (res) {
+		f_notify(res && res.message ? res.message : 'OK', res && res.code ? 'error' : 'success');
+		if (res && !res.code) {
+			tftpboot_moderation_close();
+			var tab = document.querySelector('.tftpboot-tab-moderation');
+			if (tab) {
+				var m = tab.textContent.match(/\((\d+)\)/);
+				if (m) {
+					var n = Math.max(0, parseInt(m[1], 10) - 1);
+					tab.textContent = tab.textContent.replace(/\s*\(\d+\)/, n > 0 ? ' (' + n + ')' : '');
+				}
+			}
+		}
+	});
+}
+
+function tftpboot_moderation_reject() {
+	var id = tftpboot_state.moderationRequestId;
+	if (!id) return;
+	var noteEl = document.getElementById('tftpboot-moderation-reject-note');
+	var note = noteEl ? noteEl.value : '';
+	tftpboot_http('tftpboot_moderation_reject', { id: id, note: note }, function (res) {
+		f_notify(res && res.message ? res.message : 'OK', res && res.code ? 'error' : 'success');
+		if (res && !res.code) tftpboot_moderation_close();
 	});
 }
 
@@ -395,6 +630,8 @@ function tftpboot_key_title_placeholder() {
 }
 
 function tftpboot_key_number_placeholder() {
+	if (tftpboot_state.labels && tftpboot_state.labels.dialNumberHint) return tftpboot_state.labels.dialNumberHint;
+	if (typeof LL === 'object' && LL && LL.TftpBootDialNumberHint) return LL.TftpBootDialNumberHint;
 	if (tftpboot_state.labels && tftpboot_state.labels.keyNumber) return tftpboot_state.labels.keyNumber;
 	if (typeof LL === 'object' && LL && LL.TftpBootNumber) return LL.TftpBootNumber;
 	return 'Number';
@@ -445,8 +682,13 @@ function tftpboot_create_key_card(k, grid) {
 	}
 	var numInp = card.querySelector('.tftpboot-key-number');
 	if (numInp) {
+		if (!tftpboot_card_is_auto(card)) tftpboot_bind_dial_number_input(numInp);
 		numInp.addEventListener('input', function () {
 			tftpboot_sync_card_auto_state(card);
+			if (!tftpboot_card_is_auto(card)) {
+				var v = tftpboot_sanitize_dial_number(numInp.value);
+				if (numInp.value !== v) numInp.value = v;
+			}
 		});
 	}
 	var clr = card.querySelector('.tftpboot-key-clear');
@@ -666,10 +908,11 @@ function tftpboot_save_editor() {
 	document.querySelectorAll('#tftpboot-editor-sections .tftpboot-key-card').forEach(function (card) {
 		var numRaw = card.querySelector('.tftpboot-key-number').value;
 		var spec = tftpboot_special_line_value(numRaw);
+		var numVal = spec || tftpboot_sanitize_dial_number(numRaw);
 		var row = {
 			slot: parseInt(card.dataset.slot, 10),
 			label: card.querySelector('.tftpboot-key-title').value,
-			number: spec || numRaw,
+			number: numVal,
 			dial_suffix: spec ? '' : (card.dataset.dialSuffix || '')
 		};
 		if (!String(row.label).trim() && tftpboot_type3_line_value(row.number)) {
@@ -685,9 +928,13 @@ function tftpboot_save_editor() {
 	var post = { filename: fn, speedDialKeys: keys, clear_key_ids: clearIds };
 	var disp = document.getElementById('tftpboot-sip-display');
 	if (disp) post.displayName = disp.value;
-	tftpboot_http('tftpboot_config_save', post, function (res) {
+	var action = tftpboot_state.selfOnly ? 'tftpboot_moderation_submit' : 'tftpboot_config_save';
+	tftpboot_http(action, post, function (res) {
 		f_notify(res && res.message ? res.message : 'OK', res && res.code ? 'error' : 'success');
-		if (res && !res.code) tftpboot_close_editor();
+		if (res && !res.code) {
+			tftpboot_close_editor();
+			if (tftpboot_state.selfOnly) tftpboot_self_init();
+		}
 	});
 }
 
@@ -834,6 +1081,9 @@ function tftpboot_bulk_render_table(rows) {
 	document.querySelectorAll('.tftpboot-bulk-del').forEach(function (btn) {
 		btn.onclick = function () { tftpboot_bulk_delete_one(parseInt(btn.getAttribute('data-idx'), 10)); };
 	});
+	document.querySelectorAll('.tftpboot-bulk-num').forEach(function (inp) {
+		tftpboot_bind_dial_number_input(inp);
+	});
 }
 
 function tftpboot_bulk_delete_one(idx) {
@@ -908,7 +1158,7 @@ function tftpboot_bulk_save_one(idx) {
 	var item = {
 		old_number: r.old_number || r.number,
 		old_title: r.old_title !== undefined ? r.old_title : r.title,
-		number: numEl ? numEl.value : r.number,
+		number: tftpboot_sanitize_dial_number(numEl ? numEl.value : r.number),
 		title: titEl ? titEl.value : r.title
 	};
 	tftpboot_http('tftpboot_keys_bulk_save', { items: [item], vendors: tftpboot_selected_vendors() }, function (res) {

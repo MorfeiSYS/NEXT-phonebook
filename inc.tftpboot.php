@@ -327,3 +327,233 @@ function tftpboot_display_label($phone, $mac)
 
 	return ($phone !== '' ? $phone : '?').' - '.$mac;
 }
+
+function tftpboot_special_dial_token($number)
+{
+	$v = strtoupper(trim((string)$number));
+	if($v === 'AUTO')
+	{
+		return $v;
+	}
+	if(preg_match('/^SIP\d+$/', $v))
+	{
+		return $v;
+	}
+	if($v === 'F_SMS' || $v === 'F_MWI' || $v === 'F_RECORD')
+	{
+		return $v;
+	}
+
+	return '';
+}
+
+function tftpboot_sanitize_speed_dial_number($number, $allow_special = TRUE)
+{
+	$raw = trim((string)$number);
+	if($allow_special)
+	{
+		$spec = tftpboot_special_dial_token($raw);
+		if($spec !== '')
+		{
+			return $spec;
+		}
+	}
+	$digits = preg_replace('/\D+/', '', $raw);
+	if(strlen($digits) > 11)
+	{
+		$digits = substr($digits, 0, 11);
+	}
+
+	return $digits;
+}
+
+function tftpboot_sanitize_speed_dial_post(&$post)
+{
+	if(!isset($post['speedDialKeys']) || !is_array($post['speedDialKeys']))
+	{
+		return;
+	}
+
+	foreach($post['speedDialKeys'] as &$k)
+	{
+		if(!is_array($k))
+		{
+			continue;
+		}
+		if(isset($k['number']))
+		{
+			$k['number'] = tftpboot_sanitize_speed_dial_number($k['number']);
+		}
+	}
+	unset($k);
+}
+
+function tftpboot_self_contact(&$core)
+{
+	if(!$core->UserAuth->get_id() || !$core->UserAuth->is_ldap_user())
+	{
+		return NULL;
+	}
+
+	$login = $core->UserAuth->get_login();
+	$rows = array();
+	if(!$core->db->select_assoc_ex(
+		$rows,
+		rpv(
+			'SELECT `id`, `samaccountname`, `first_name`, `last_name`, `middle_name`, `phone_internal` '.
+			'FROM `@contacts` WHERE `samaccountname` = ! LIMIT 1',
+			$login
+		)
+	))
+	{
+		return NULL;
+	}
+
+	return $rows[0];
+}
+
+function tftpboot_self_phone_numbers(&$core)
+{
+	$contact = tftpboot_self_contact($core);
+	if(!$contact)
+	{
+		return array();
+	}
+
+	return tftpboot_extract_phone_numbers($contact['phone_internal']);
+}
+
+function tftpboot_self_config_files(&$core)
+{
+	$nums = tftpboot_self_phone_numbers($core);
+	if(!count($nums))
+	{
+		return array();
+	}
+
+	$svc = tftpboot_instance($core);
+	$in = array();
+	foreach($nums as $n)
+	{
+		$in[] = '\''.sql_escape((string)$n).'\'';
+	}
+	if(!count($in))
+	{
+		return array();
+	}
+
+	$rows = array();
+	$sql = 'SELECT `filename`, `phone`, `mac`, `vendor`, `model` FROM `@tftpboot_file` WHERE `phone` IN ('.implode(',', $in).') ORDER BY `phone`, `filename`';
+	if(!$core->db->select_assoc_ex($rows, $sql))
+	{
+		return array();
+	}
+
+	$out = array();
+	foreach($rows as $row)
+	{
+		if(!$svc->resolve_path($row['filename']))
+		{
+			continue;
+		}
+		$out[] = $row;
+	}
+
+	return $out;
+}
+
+function user_can_tftpboot_self(&$core)
+{
+	if(!$core->UserAuth->get_id() || !$core->UserAuth->is_ldap_user())
+	{
+		return FALSE;
+	}
+
+	return count(tftpboot_self_config_files($core)) > 0;
+}
+
+function user_has_tftpboot_menu(&$core)
+{
+	return user_has_tftpboot_access($core) || user_can_tftpboot_self($core);
+}
+
+function tftpboot_is_self_only_user(&$core)
+{
+	return user_can_tftpboot_self($core) && !user_has_tftpboot_access($core);
+}
+
+function tftpboot_self_file_allowed(&$core, $filename)
+{
+	$filename = trim((string)$filename);
+	if($filename === '')
+	{
+		return FALSE;
+	}
+
+	foreach(tftpboot_self_config_files($core) as $row)
+	{
+		if($row['filename'] === $filename)
+		{
+			return TRUE;
+		}
+	}
+
+	return FALSE;
+}
+
+function assert_tftpboot_self_file(&$core, $filename)
+{
+	if(!tftpboot_self_file_allowed($core, $filename))
+	{
+		echo '{"code": 1, "message": "'.json_escape(LL('AccessDenied')).'"}';
+		exit;
+	}
+}
+
+function assert_tftpboot_self_ajax(&$core)
+{
+	if(!user_can_tftpboot_self($core))
+	{
+		echo '{"code": 1, "message": "'.json_escape(LL('AccessDenied')).'"}';
+		exit;
+	}
+}
+
+function user_can_tftpboot_moderate(&$core)
+{
+	if(!$core->UserAuth->get_id())
+	{
+		return FALSE;
+	}
+
+	if(user_is_admin())
+	{
+		return TRUE;
+	}
+
+	return user_is_operator() && user_has_tftpboot_access($core);
+}
+
+function assert_tftpboot_moderate_ajax(&$core)
+{
+	if(!user_can_tftpboot_moderate($core))
+	{
+		echo '{"code": 1, "message": "'.json_escape(LL('AccessDenied')).'"}';
+		exit;
+	}
+}
+
+function assert_tftpboot_config_ajax(&$core)
+{
+	if(user_has_tftpboot_access($core))
+	{
+		return;
+	}
+	if(user_can_tftpboot_self($core))
+	{
+		return;
+	}
+
+	echo '{"code": 1, "message": "'.json_escape(LL('AccessDenied')).'"}';
+	exit;
+}
