@@ -134,6 +134,33 @@ class UserAuth
 		}
 	}
 
+	private function hash_password($passwd)
+	{
+		return password_hash($passwd.$this->salt, PASSWORD_DEFAULT);
+	}
+
+	private function verify_password($passwd, $stored)
+	{
+		$stored = (string) $stored;
+		if($stored === '')
+		{
+			return FALSE;
+		}
+
+		if($stored[0] === '$')
+		{
+			return password_verify($passwd.$this->salt, $stored);
+		}
+
+		return hash_equals(md5($passwd.$this->salt), $stored);
+	}
+
+	private function upgrade_password_hash($uid, $passwd)
+	{
+		$hash = $this->hash_password($passwd);
+		$this->core->db->put(rpv('UPDATE `@users` SET `passwd` = ! WHERE `id` = # LIMIT 1', $hash, $uid));
+	}
+
 	private function ldap_resolve_account($bind_login, $sam_guess)
 	{
 		$records = array();
@@ -255,18 +282,22 @@ class UserAuth
 						m.`id`,
 						m.`login`,
 						m.`flags`,
-						m.`sid`
+						m.`sid`,
+						m.`passwd`
 					FROM
 						@users AS m
 					WHERE
 						m.`login` = !
-						AND m.`passwd` = MD5(!)
 						AND (m.`flags` & ({%UA_DISABLED} | {%UA_LDAP} | {%UA_DELETED})) = 0x0000
 					LIMIT 1
-				", $login, $passwd.$this->salt
+				", $login
 			)))
 			{
-				//$this->core->db->put(rpv('INSERT INTO `@log` (`date`, `uid`, `type`, `p1`, `ip`) VALUES (NOW(), #, #, #, !)', 0, LOG_LOGIN_FAILED, 0, $ip));
+				return FALSE;
+			}
+
+			if(!$this->verify_password($passwd, $user_data[0][4]))
+			{
 				return FALSE;
 			}
 
@@ -274,6 +305,12 @@ class UserAuth
 			$this->login = $user_data[0][1];
 			$this->flags = intval($user_data[0][2]);
 			$this->token = $user_data[0][3];
+
+			$stored = $user_data[0][4];
+			if($stored !== '' && $stored[0] !== '$')
+			{
+				$this->upgrade_password_hash($user_data[0][0], $passwd);
+			}
 		}
 
 		$this->loaded = TRUE;
@@ -285,8 +322,8 @@ class UserAuth
 			$this->core->db->put(rpv('UPDATE @users SET `sid` = !, `reset_token` = NULL WHERE `id` = # LIMIT 1', $this->token, $this->uid));
 		}
 
-		setcookie('zh', $this->token, time() + 2592000, $this->cookie_path);
-		setcookie('zl', $this->login, time() + 2592000, $this->cookie_path);
+		pb_set_cookie('zh', $this->token, time() + 2592000);
+		pb_set_cookie('zl', $this->login, time() + 2592000);
 
 		//$this->core->db->put(rpv('UPDATE @users SET `sid` = ! WHERE `id` = # LIMIT 1', $this->token, $this->uid));
 
@@ -322,8 +359,8 @@ class UserAuth
 			$this->token = $user_data[0][3];
 
 			// Extend cookie life time
-			setcookie('zh', $this->token, time() + 2592000, $this->cookie_path);
-			setcookie('zl', $this->login, time() + 2592000, $this->cookie_path);
+			pb_set_cookie('zh', $this->token, time() + 2592000);
+			pb_set_cookie('zl', $this->login, time() + 2592000);
 
 			return TRUE;
 		}
@@ -339,8 +376,8 @@ class UserAuth
 		}
 
 		$_SESSION[DB_PREFIX.'uid'] = 0;
-		setcookie('zh', '', time() - 60, $this->cookie_path);
-		setcookie('zl', '', time() - 60, $this->cookie_path);
+		pb_set_cookie('zh', '', time() - 60);
+		pb_set_cookie('zl', '', time() - 60);
 
 		$this->loaded = FALSE;
 		$this->uid = 0;
@@ -357,7 +394,7 @@ class UserAuth
 			return 0;
 		}
 
-		if(!$this->core->db->put(rpv('INSERT INTO @users (login, passwd, mail, flags) VALUES (!, MD5(!), !, {%UA_DISABLED})', $login, $passwd.$this->salt, $mail)))
+		if(!$this->core->db->put(rpv('INSERT INTO @users (login, passwd, mail, flags) VALUES (!, !, !, {%UA_DISABLED})', $login, $this->hash_password($passwd), $mail)))
 		{
 			$this->core->error_ex($this->core->get_last_error(), $this->rise_exception);
 			return 0;
@@ -372,7 +409,7 @@ class UserAuth
 
 		if($this->core->db->select(rpv('SELECT u.`id` FROM @users AS u WHERE u.`id` = # AND u.`reset_token` = ! AND (u.`flags` & ({%UA_DISABLED} | {%UA_LDAP} | {%UA_DELETED})) = 0 LIMIT 1', $uid, $token)))
 		{
-			if($this->core->db->put(rpv('UPDATE `@users` SET `passwd` = MD5(!), `reset_token` = NULL WHERE `id` = # AND `reset_token` = ! LIMIT 1', $passwd.$this->salt, $uid, $token), $affected))
+			if($this->core->db->put(rpv('UPDATE `@users` SET `passwd` = !, `reset_token` = NULL WHERE `id` = # AND `reset_token` = ! LIMIT 1', $this->hash_password($passwd), $uid, $token), $affected))
 			{
 				//return ($affected > 0);
 				return TRUE;
@@ -400,7 +437,7 @@ class UserAuth
 
 		if($uid)
 		{
-			if($this->core->db->put(rpv('UPDATE `@users` SET `passwd` = MD5(!) WHERE `id` = # AND (`flags` & ({%UA_DISABLED} | {%UA_LDAP} | {%UA_DELETED})) = 0 LIMIT 1', $passwd.$this->salt, $uid), $affected))
+			if($this->core->db->put(rpv('UPDATE `@users` SET `passwd` = ! WHERE `id` = # AND (`flags` & ({%UA_DISABLED} | {%UA_LDAP} | {%UA_DELETED})) = 0 LIMIT 1', $this->hash_password($passwd), $uid), $affected))
 			{
 				//return ($affected > 0);
 				return TRUE;
@@ -416,7 +453,7 @@ class UserAuth
 
 		if($uid)
 		{
-			if($this->core->db->put(rpv('UPDATE `@users` SET `passwd` = MD5(!), `sid` = NULL, `reset_token` = NULL WHERE `id` = # AND (`flags` & ({%UA_LDAP} | {%UA_DELETED})) = 0 LIMIT 1', $passwd.$this->salt, $uid), $affected))
+			if($this->core->db->put(rpv('UPDATE `@users` SET `passwd` = !, `sid` = NULL, `reset_token` = NULL WHERE `id` = # AND (`flags` & ({%UA_LDAP} | {%UA_DELETED})) = 0 LIMIT 1', $this->hash_password($passwd), $uid), $affected))
 			{
 				return ($affected > 0);
 			}
@@ -439,13 +476,11 @@ class UserAuth
 	{
 		if($this->uid && !$this->is_ldap_user())  // Only internal user can change self password
 		{
-			$user = array();
-			if($this->core->db->select_ex($user, rpv('SELECT u.`id` FROM `@users` AS u WHERE u.`id` = # AND u.`passwd` = MD5(!) AND (u.`flags` & ({%UA_DISABLED} | {%UA_LDAP} | {%UA_DELETED})) = 0 LIMIT 1', $this->uid, $passwd.$this->salt)))
+			$stored_row = array();
+			if($this->core->db->select_ex($stored_row, rpv('SELECT u.`passwd` FROM `@users` AS u WHERE u.`id` = # AND (u.`flags` & ({%UA_DISABLED} | {%UA_LDAP} | {%UA_DELETED})) = 0 LIMIT 1', $this->uid))
+				&& $this->verify_password($passwd, $stored_row[0][0]))
 			{
-				if(intval($user[0][0]) == $this->uid)
-				{
-					return TRUE;
-				}
+				return TRUE;
 			}
 		}
 

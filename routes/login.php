@@ -8,7 +8,7 @@ function login(&$core, $params, $post_data)
 	}
 	else
 	{
-		$return_url = $_SERVER['REQUEST_URI'];
+		$return_url = safe_internal_redirect_url(@$_SERVER['REQUEST_URI']);
 	}
 
 	$core->UserAuth->logoff();

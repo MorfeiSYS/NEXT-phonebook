@@ -54,6 +54,31 @@ class Router
 		$this->exception_handler_ajax = $function;
 	}
 
+	public function resolve_action($uri)
+	{
+		$params = explode('/', $uri);
+		$action = (isset($params[0]) && $params[0] !== '') ? $params[0] : '';
+
+		if($action !== '' && isset($this->routes[$action]))
+		{
+			return $action;
+		}
+
+		if(isset($this->routes['contacts']))
+		{
+			return 'contacts';
+		}
+
+		$keys = array_keys($this->routes);
+
+		return $keys ? $keys[0] : '';
+	}
+
+	public function is_ajax_action($action)
+	{
+		return isset($this->routes[$action]) && !empty($this->routes[$action]['ajax']);
+	}
+
 	public function process($uri, $post_data)
 	{
 		$params = explode('/', $uri);

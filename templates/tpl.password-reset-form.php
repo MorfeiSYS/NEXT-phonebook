@@ -1,7 +1,12 @@
-<?php include(TEMPLATES_DIR.'tpl.header.php'); ?>
+<?php
+if(!isset($user_id)) { $user_id = ''; }
+if(!isset($reset_token)) { $reset_token = ''; }
+if(!isset($error_msg)) { $error_msg = ''; }
+include(TEMPLATES_DIR.'tpl.header.php'); ?>
 			<div class="login-block">
 				<h1><?php L('ResetPassword') ?></h1>
 				<form action="<?php ln('password_reset') ?>" method="post">
+					<input type="hidden" name="csrf_token" value="<?php eh(csrf_token()); ?>"/>
 					<input type="hidden" name="uid" value="<?php eh($user_id); ?>"/>
 					<input type="hidden" name="reset_token" value="<?php eh($reset_token); ?>"/>
 					<?php L('NewPassword') ?>

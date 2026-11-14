@@ -30,7 +30,7 @@ function fseekline($fh, $line, $flag)
 					$ln++;
 					if($ln >= $line)
 					{
-						return ftell($fp);
+						return ftell($fh);
 					}
 				}
 			}
@@ -466,7 +466,7 @@ function rpv_v2($string, $data)
 		}
 		else if($string[$i] === "!")	// safe string
 		{
-			$val = "'".(isset($data[$n])?(get_magic_quotes_gpc()?$data[$n]:addslashes(trim($data[$n]))):"")."'";
+			$val = "'".(isset($data[$n]) ? addslashes(trim((string) $data[$n])) : '')."'";
 			$string = substr_replace($string, $val, $i, 1);
 			$dl = strlen($val);
 			$i += $dl;
@@ -580,6 +580,156 @@ function build_query($qa)
 function eh($str)
 {
 	echo htmlspecialchars((string) $str);
+}
+
+function pb_request_is_https()
+{
+	if(defined('WEB_URL') && stripos(WEB_URL, 'https://') === 0)
+	{
+		return TRUE;
+	}
+
+	return !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
+}
+
+function pb_cookie_path()
+{
+	if(defined('WEB_LINK_BASE_PATH') && WEB_LINK_BASE_PATH !== '')
+	{
+		return WEB_LINK_BASE_PATH;
+	}
+
+	return '/';
+}
+
+function pb_cookie_options($expires)
+{
+	return array(
+		'expires' => $expires,
+		'path' => pb_cookie_path(),
+		'secure' => pb_request_is_https(),
+		'httponly' => TRUE,
+		'samesite' => 'Lax',
+	);
+}
+
+/** Options for session_set_cookie_params() (uses lifetime, not expires). */
+function pb_session_cookie_params($lifetime = 0)
+{
+	return array(
+		'lifetime' => $lifetime,
+		'path' => pb_cookie_path(),
+		'secure' => pb_request_is_https(),
+		'httponly' => TRUE,
+		'samesite' => 'Lax',
+	);
+}
+
+function pb_set_cookie($name, $value, $expires)
+{
+	setcookie($name, $value, pb_cookie_options($expires));
+}
+
+/**
+ * Relative in-app redirect target only (blocks open redirects).
+ */
+function safe_internal_redirect_url($url)
+{
+	$url = trim((string) $url);
+	if($url === '')
+	{
+		return '';
+	}
+
+	if(preg_match('#^(?:https?:)?//#i', $url))
+	{
+		return '';
+	}
+
+	if($url[0] !== '/')
+	{
+		return '';
+	}
+
+	$base = pb_cookie_path();
+	if($base !== '/' && strpos($url, $base) !== 0)
+	{
+		return '';
+	}
+
+	return $url;
+}
+
+function csrf_token()
+{
+	if(empty($_SESSION['_csrf_token']))
+	{
+		$_SESSION['_csrf_token'] = bin2hex(random_bytes(32));
+	}
+
+	return $_SESSION['_csrf_token'];
+}
+
+function csrf_validate($token)
+{
+	if($token === '' || empty($_SESSION['_csrf_token']))
+	{
+		return FALSE;
+	}
+
+	return hash_equals($_SESSION['_csrf_token'], (string) $token);
+}
+
+function csrf_request_token()
+{
+	if(!empty($_SERVER['HTTP_X_CSRF_TOKEN']))
+	{
+		return (string) $_SERVER['HTTP_X_CSRF_TOKEN'];
+	}
+
+	if(!empty($_POST['csrf_token']))
+	{
+		return (string) $_POST['csrf_token'];
+	}
+
+	return '';
+}
+
+function csrf_exempt_actions()
+{
+	return array(
+		'tftpboot_sync_run',
+	);
+}
+
+function csrf_enforce_or_exit($action, $is_ajax)
+{
+	if($_SERVER['REQUEST_METHOD'] !== 'POST' || php_sapi_name() === 'cli')
+	{
+		return;
+	}
+
+	if(in_array($action, csrf_exempt_actions(), TRUE))
+	{
+		return;
+	}
+
+	if(csrf_validate(csrf_request_token()))
+	{
+		return;
+	}
+
+	if($is_ajax)
+	{
+		header('Content-Type: text/plain; charset=utf-8');
+		echo json_encode(array('code' => 1, 'message' => 'Invalid CSRF token'), JSON_UNESCAPED_UNICODE);
+		exit;
+	}
+
+	http_response_code(403);
+	header('Content-Type: text/html; charset=utf-8');
+	echo 'Invalid CSRF token';
+	exit;
 }
 
 function formatBytes($bytes, $precision = 3) {

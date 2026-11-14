@@ -191,6 +191,8 @@ $config = <<<'EOT'
 
 	define('LOG_FILE', '#log_file#');
 
+	define('API_FREEEPBX_KEYS', '');
+
 	define('PB_LDAP_FILTER', '#ldap_filter#');
 
 	$g_icons = array('Human', 'Printer', 'Fax (change inc.config.php)');
@@ -802,16 +804,17 @@ function build_config($config, $params)
 
 					$db = new MySQLDB();
 					$db->connect(@$_POST['db_host'], @$_POST['db_root_user'], @$_POST['db_root_passwd'], @$_POST['db_name']);
+					$admin_pass_hash = password_hash(@$_POST['admin_passwd'].'UserAuth', PASSWORD_DEFAULT);
 					$db->put(rpv("
 						INSERT
 							INTO pb_users (login, passwd, mail, flags, role)
-							VALUES ({s0}, MD5({s1}), {s2}, 0x0008, 2)
+							VALUES ({s0}, {s1}, {s2}, 0x0008, 2)
 						-- ON DUPLICATE KEY UPDATE
-						--	SET passwd = MD5({s1}),
+						--	SET passwd = {s1},
 						--	mail = {s2}
 						",
 						@$_POST['admin_user'],
-						@$_POST['admin_passwd'].'UserAuth',
+						$admin_pass_hash,
 						@$_POST['mail_admin']
 					));
 
@@ -889,6 +892,7 @@ function build_config($config, $params)
 			}
 			button {
 				-webkit-appearance: button;
+				appearance: button;
 				cursor: pointer
 			}
 			button::-moz-focus-inner,

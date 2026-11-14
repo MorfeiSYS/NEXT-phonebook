@@ -34,15 +34,28 @@ if (strlen($apiKey) > 64) {
     exit;
 }
 
-// Массив допустимых API ключей
-$validKeys = [
-    "15fsdg34jhv32EFwerWEFWwe4lhb1514v",
-    "17fsdh34jhv33EFwerWEFjwe4lhb1515v",
-    "18fsGh55jhv13EFwerWTFjwe4lhb1715v"
-];
+$validKeys = array();
+if(defined('API_FREEEPBX_KEYS') && API_FREEEPBX_KEYS !== '')
+{
+	if(is_array(API_FREEEPBX_KEYS))
+	{
+		$validKeys = API_FREEEPBX_KEYS;
+	}
+	else
+	{
+		foreach(explode(',', API_FREEEPBX_KEYS) as $k)
+		{
+			$k = trim($k);
+			if($k !== '')
+			{
+				$validKeys[] = $k;
+			}
+		}
+	}
+}
 
 // Проверяем валидность API ключа
-if (!in_array($apiKey, $validKeys)) {
+if(empty($validKeys) || !in_array($apiKey, $validKeys, true)) {
     http_response_code(401); // Возвращаем ошибку 401 Unauthorized
     echo 'Ошибка: неавторизованный доступ.';
     exit;
@@ -121,13 +134,11 @@ $mysqli->close();
 exit;
 }
 
-if (strlen($number) > 5 && strlen($number) < 10){
-// Просто возвращаем номер
-if (!$result->num_rows) {
-    http_response_code(200); // Если номера в книге нет Возвращаем 200 OK! и тот номер который отправлен в API.
+if (strlen($number) > 5 && strlen($number) < 10) {
+    http_response_code(200);
     echo $number;
+    $mysqli->close();
     exit;
-}
 }
 
 if (strlen($number) >= 10){

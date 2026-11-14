@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Security
+
+- CSRF: сессионный токен, проверка на POST (заголовок `X-CSRF-Token` / поле `csrf_token`), исключение `tftpboot_sync_run`.
+- Cookie сессии и `zl`/`zh`/`lang`: HttpOnly, Secure (при HTTPS), SameSite=Lax.
+- Исправлен XSS в автодополнении (`pb.js`), open redirect после входа, ключи FreePBX API вынесены в `API_FREEEPBX_KEYS` (`inc.config.php`).
+- Пароли локальных пользователей: `password_hash` / `password_verify` с прозрачной миграцией с MD5 при входе.
+
 ### Added
 
 - TFTP: самообслуживание для доменных пользователей с номером из AD и конфигом в tftpboot — раздел «Мой телефон», отправка правок быстрых кнопок на модерацию.

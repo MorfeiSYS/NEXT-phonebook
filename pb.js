@@ -175,6 +175,11 @@ function f_http(url, _f_callback, _callback_params, content_type, data)
 		xhr.setRequestHeader('Content-Type', content_type);
 	}
 
+	if((content_type || data) && typeof g_csrf_token !== 'undefined' && g_csrf_token)
+	{
+		xhr.setRequestHeader('X-CSRF-Token', g_csrf_token);
+	}
+
 	xhr.send(data);
 
 	return true;
@@ -543,7 +548,14 @@ function f_send_form(action)
 		},
 		form_id,
 		null,                                    //'application/x-www-form-urlencoded',
-		new FormData(gi(form_id + '-fields'))    //json2url(form_data)
+		(function() {
+			var fd = new FormData(gi(form_id + '-fields'));
+			if(typeof g_csrf_token !== 'undefined' && g_csrf_token)
+			{
+				fd.append('csrf_token', g_csrf_token);
+			}
+			return fd;
+		})()
 	);
 
 	return false;
@@ -2088,8 +2100,12 @@ function autocomplete_on_input(ev)
 				for(i = 0; i < data.list.length; i++)
 				{
 					b = document.createElement('DIV');
-					b.innerHTML = (''+data.list[i]).replace(new RegExp('(' + el.value + ')', 'i'), '<strong>$1</strong>');
-					b.setAttribute('onclick', 'autocomplete_on_click(\'' + el.id + '\', \'' + data.list[i] + '\');');
+					(function(item, inputId) {
+						b.textContent = item;
+						b.addEventListener('click', function() {
+							autocomplete_on_click(inputId, item);
+						});
+					})(String(data.list[i]), el.id);
 					a.appendChild(b);
 				}
 			}

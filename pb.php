@@ -51,8 +51,6 @@ require_once(ROOT_DIR.'inc.config.php');
 		define('WEB_LINK_BASE_PATH', '/');
 	}
 
-	session_name('ZID');
-	session_start();
 	error_reporting(E_ALL);
 	define('Z_PROTECTED', 'YES');
 
@@ -71,13 +69,22 @@ require_once(ROOT_DIR.'inc.config.php');
 	require_once(ROOT_DIR.'inc.utils.php');
 	require_once(ROOT_DIR.'inc.tftpboot.php');
 
+	session_set_cookie_params(pb_session_cookie_params(0));
+	session_name('ZID');
+	session_start();
+	csrf_token();
+
 function assert_permission_ajax($section_id, $allow_bit)
 {
 	global $core;
 
 	if(!$core->UserAuth->check_permission($section_id, $allow_bit))
 	{
-		echo '{"code": 1, "message": "'.LL('AccessDeniedToSection').' '.$section_id.' '.LL('forUser').' '.$core->UserAuth->get_login().'!"}';
+		header('Content-Type: text/plain; charset=utf-8');
+		echo json_encode(array(
+			'code' => 1,
+			'message' => LL('AccessDeniedToSection').' '.$section_id.' '.LL('forUser').' '.$core->UserAuth->get_login().'!',
+		), JSON_UNESCAPED_UNICODE);
 		exit;
 	}
 }
@@ -734,6 +741,9 @@ function exception_handler_ajax($exception)
 
 	$core->Router->add_route('register_form', 'register_form', TRUE);
 	$core->Router->add_route('register', 'register', TRUE);
+
+	$__csrf_action = $core->Router->resolve_action($path);
+	csrf_enforce_or_exit($__csrf_action, $core->Router->is_ajax_action($__csrf_action));
 
 	$core->Router->process($path, $data);
 

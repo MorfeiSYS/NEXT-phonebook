@@ -13,7 +13,7 @@ function contacts_import_xml(&$core, $params, $post_data)
 	$result_ok = 0;
 	$result_fail = 0;
 
-	$xml = simplexml_load_file(@$_FILES['file']['tmp_name']);
+	$xml = simplexml_load_file(@$_FILES['file']['tmp_name'], 'SimpleXMLElement', LIBXML_NONET);
 	if($xml === FALSE)
 	{
 		echo '{"code": 1, "message": "XML load and parse failed"}';

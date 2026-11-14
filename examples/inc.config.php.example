@@ -42,6 +42,9 @@
 	
 	define('LOG_FILE', '/var/log/pb/pb.log');
 
+	// FreePBX caller-ID API (api.php): comma-separated keys or define as array()
+	define('API_FREEEPBX_KEYS', '');
+
 	// IP phone TFTP configs (visual editor module)
 	// define('TFTBOOT_DIR', __DIR__.'/tftpboot');
 	// define('TFTBOOT_BACKUP_DIR', __DIR__.'/tftpboot/.backups');

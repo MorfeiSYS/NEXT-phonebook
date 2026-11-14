@@ -25,9 +25,10 @@ function logon(&$core, $params, $post_data)
 	}
 	*/
 	
-	if(!empty($post_data['return']))
+	$return_url = safe_internal_redirect_url(@$post_data['return']);
+	if($return_url !== '')
 	{
-		header('Location: '.$post_data['return']);
+		header('Location: '.$return_url);
 	}
 	else
 	{

@@ -12,9 +12,9 @@ function complete_group(&$core, $params, $post_data)
 	
 	if(defined('USE_LDAP') && USE_LDAP && !empty($search) && strlen($search) >= 3)
 	{
-		if($core->LDAP->search($result, '(&(objectCategory=group)(cn='.ldap_escape($search, null, LDAP_ESCAPE_FILTER).'*))', array('distinguishedName')))
+		$result = array();
+		if($core->LDAP->search($result, '(&(objectCategory=group)(cn='.ldap_escape($search, '', LDAP_ESCAPE_FILTER).'*))', array('distinguishedName')))
 		{
-			log_file(print_r($result, TRUE));
 			foreach($result as $row)
 			{
 				$result_json['list'][] = $row['distinguishedName'][0];

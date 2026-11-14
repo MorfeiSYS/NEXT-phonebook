@@ -10,7 +10,7 @@ function language_change(&$core, $params, $post_data)
 
 	$language = @$post_data['value'];
 
-	setcookie('lang', $language, time() + 31536000);
+	pb_set_cookie('lang', $language, time() + 31536000);
 	if($core->UserAuth->get_id())
 	{
 		$core->Config->set_user('language', $language);

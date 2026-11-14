@@ -1,7 +1,11 @@
-<?php include(TEMPLATES_DIR.'tpl.header.php'); ?>
+<?php
+if(!isset($return_url)) { $return_url = ''; }
+if(!isset($error_msg)) { $error_msg = ''; }
+include(TEMPLATES_DIR.'tpl.header.php'); ?>
 			<div class="login-block">
 				<h1><?php L('LoginHdr') ?></h1>
 				<form action="<?php ln('logon'); ?>" method="post">
+					<input name="csrf_token" type="hidden" value="<?php eh(csrf_token()); ?>"/>
 					<input name="return" type="hidden" value="<?php eh($return_url); ?>"/><br />
 					<?php L('UserName') ?>
 					<input name="login" type="text" autofocus="autofocus" placeholder="domain\user_name"/><br />

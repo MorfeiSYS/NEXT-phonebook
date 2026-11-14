@@ -17,9 +17,10 @@
 			is_operator = <?php echo (user_is_operator() ? '1' : '0'); ?>;
 			g_tftpboot_can_moderate = <?php echo ($core->UserAuth->get_id() && user_can_tftpboot_moderate($core) ? '1' : '0'); ?>;
 			g_tftpboot_moderation_poll_sec = <?php echo ($core->UserAuth->get_id() && user_can_tftpboot_moderate($core)) ? intval(tftpboot_moderation_poll_interval_sec($core)) : 60; ?>;
-			g_link_prefix = '<?php echo WEB_LINK_PREFIX; ?>';
-			g_link_static_prefix = '<?php echo WEB_LINK_STATIC_PREFIX; ?>';
+			g_link_prefix = <?php echo json_encode(WEB_LINK_PREFIX, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); ?>;
+			g_link_static_prefix = <?php echo json_encode(WEB_LINK_STATIC_PREFIX, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); ?>;
 			g_map_image_urls = <?php echo json_encode(isset($g_maps_catalog_js_urls) ? $g_maps_catalog_js_urls : array(), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); ?>;
+			g_csrf_token = <?php echo json_encode(csrf_token(), JSON_UNESCAPED_UNICODE); ?>;
 		</script>
 		<script type="text/javascript">
 			document.documentElement.setAttribute("data-theme-color", localStorage.getItem("theme-color") || <?php echo json_encode(theme_default_value($core)); ?>);
