@@ -423,8 +423,27 @@ function tftpboot_self_phone_numbers(&$core)
 	return tftpboot_extract_phone_numbers($contact['phone_internal']);
 }
 
+function tftpboot_schema_ready(&$core)
+{
+	static $ready = NULL;
+
+	if($ready !== NULL)
+	{
+		return $ready;
+	}
+
+	$ready = intval($core->Config->get_global('db_version', 0)) >= 11;
+
+	return $ready;
+}
+
 function tftpboot_self_config_files(&$core)
 {
+	if(!tftpboot_schema_ready($core))
+	{
+		return array();
+	}
+
 	$nums = tftpboot_self_phone_numbers($core);
 	if(!count($nums))
 	{
@@ -432,19 +451,26 @@ function tftpboot_self_config_files(&$core)
 	}
 
 	$svc = tftpboot_instance($core);
-	$in = array();
+	$in_sql = array();
 	foreach($nums as $n)
 	{
-		$in[] = '\''.sql_escape((string)$n).'\'';
+		$in_sql[] = '\''.sql_escape((string)$n).'\'';
 	}
-	if(!count($in))
-	{
-		return array();
-	}
-
 	$rows = array();
-	$sql = 'SELECT `filename`, `phone`, `mac`, `vendor`, `model` FROM `@tftpboot_file` WHERE `phone` IN ('.implode(',', $in).') ORDER BY `phone`, `filename`';
-	if(!$core->db->select_assoc_ex($rows, $sql))
+	try
+	{
+		if(!$core->db->select_assoc_ex(
+			$rows,
+			rpv(
+				'SELECT `filename`, `phone`, `mac`, `vendor`, `model` FROM `@tftpboot_file` WHERE `phone` IN ({r0}) ORDER BY `phone`, `filename`',
+				implode(',', $in_sql)
+			)
+		))
+		{
+			return array();
+		}
+	}
+	catch(mysqli_sql_exception $e)
 	{
 		return array();
 	}
