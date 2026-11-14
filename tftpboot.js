@@ -500,6 +500,9 @@ function tftpboot_http(action, data, cb, timeoutMs) {
 		if (cb) cb({ code: 1, message: 'AJAX error: timeout or connection lost' });
 	};
 	xhr.setRequestHeader('Content-Type', 'application/json');
+	if (typeof g_csrf_token !== 'undefined' && g_csrf_token) {
+		xhr.setRequestHeader('X-CSRF-Token', g_csrf_token);
+	}
 	xhr.send(JSON.stringify(data || {}));
 }
 

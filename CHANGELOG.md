@@ -4,6 +4,7 @@
 
 ### Fixed
 
+- TFTP «Проверить телефоны» / длительные POST (`tftpboot_sync_preview`, apply, undo): в `tftpboot_http` с таймаутом не передавался `X-CSRF-Token` — Invalid CSRF token.
 - TFTP модерация: зелёное мигание в Firefox — пункт «Телефоны» в меню; вкладки «Выбор телефона», «Все кнопки», «Синхронизация», «Модерация» и DSS-вкладки (пульс `background-color`/`border-color` с литеральными hex, без `color-mix` и `var()` в кадрах).
 - `api.php`: `inc.config.php` подключается до проверки `API_FREEEPBX_KEYS` (раньше ключи из конфига не учитывались).
 
