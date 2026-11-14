@@ -704,7 +704,7 @@ function csrf_exempt_actions()
 
 function csrf_enforce_or_exit($action, $is_ajax)
 {
-	if($_SERVER['REQUEST_METHOD'] !== 'POST' || php_sapi_name() === 'cli')
+	if(($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST' || php_sapi_name() === 'cli')
 	{
 		return;
 	}
