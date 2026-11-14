@@ -140,6 +140,43 @@ class TftpFanvilParser
 		return $this->is_type2_line_fkey($k) || $this->is_type3_line_fkey($k);
 	}
 
+	private function fkey_row_is_empty($row)
+	{
+		return trim((string)$row['number']) === '' && trim((string)$row['label']) === '';
+	}
+
+	private function fkey_empty_needs_fix($k)
+	{
+		$type = isset($k['type']) ? intval($k['type']) : 0;
+		$val = trim(isset($k['value']) ? (string)$k['value'] : '');
+		$title = trim(isset($k['title']) ? (string)$k['title'] : '');
+
+		return $type !== 0 || $val !== '' || $title !== '';
+	}
+
+	private function fkey_special_needs_fix($k, $row)
+	{
+		$type = isset($k['type']) ? intval($k['type']) : 0;
+		$val = strtoupper(trim(isset($k['value']) ? (string)$k['value'] : ''));
+		$title = trim(isset($k['title']) ? (string)$k['title'] : '');
+
+		$t2 = $this->normalize_type2_line_value($row['number']);
+		if($t2 !== NULL)
+		{
+			return $type !== 2 || $val !== $t2;
+		}
+
+		$t3 = $this->normalize_type3_line_value($row['number']);
+		if($t3 !== NULL)
+		{
+			$exp_title = trim((string)$row['label']);
+
+			return $type !== 3 || $val !== $t3 || $title !== $exp_title;
+		}
+
+		return FALSE;
+	}
+
 	private function set_line_colon_value($line, $value)
 	{
 		$pos = strpos($line, ':');
@@ -591,6 +628,59 @@ class TftpFanvilParser
 		}
 
 		return implode("\n", $lines);
+	}
+
+	public function normalize_editable_fkeys(&$lines, &$keys_raw)
+	{
+		$editor = $this->editor_speed_dial_keys(array('keys_raw' => $keys_raw));
+		$to_clear = array();
+		$to_apply = array();
+
+		foreach($editor as $row)
+		{
+			if(!isset($row['key_id']) || !isset($keys_raw[$row['key_id']]))
+			{
+				continue;
+			}
+
+			$k = $keys_raw[$row['key_id']];
+
+			if($this->fkey_row_is_empty($row))
+			{
+				if($this->fkey_empty_needs_fix($k))
+				{
+					$to_clear[] = $row['key_id'];
+				}
+
+				continue;
+			}
+
+			if(!empty($row['fkey_auto']) && $this->fkey_special_needs_fix($k, $row))
+			{
+				$to_apply[] = array(
+					'key_id' => $row['key_id'],
+					'slot' => intval($row['slot']),
+					'section' => $row['section'],
+					'number' => $row['number'],
+					'label' => $row['label'],
+				);
+			}
+		}
+
+		$n = 0;
+		if(count($to_clear))
+		{
+			$this->clear_dss_keys($lines, $keys_raw, $to_clear);
+			$n += count($to_clear);
+		}
+
+		if(count($to_apply))
+		{
+			$this->apply_speed_dials($lines, $keys_raw, $to_apply);
+			$n += count($to_apply);
+		}
+
+		return $n;
 	}
 
 	public function apply_sip_fields(&$lines, $sip_updates)

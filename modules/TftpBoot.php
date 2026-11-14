@@ -1549,6 +1549,66 @@ class TftpBoot
 		return $keys_ok;
 	}
 
+	public function sync_normalize_fkeys($vendors)
+	{
+		$this->ensure_dial_keys_column();
+		if(!count($vendors))
+		{
+			return 0;
+		}
+
+		$rows = array();
+		if(!$this->core->db->select_assoc_ex($rows, rpv(
+			'SELECT `filename`, `vendor` FROM `@tftpboot_file` WHERE `vendor` IN ({r0}) ORDER BY `filename`',
+			$this->vendors_in_sql($vendors)
+		)))
+		{
+			return 0;
+		}
+
+		$keys_ok = 0;
+		$touched = array();
+
+		foreach($rows as $r)
+		{
+			if($r['vendor'] !== 'fanvil')
+			{
+				continue;
+			}
+
+			$path = $this->resolve_path($r['filename']);
+			if(!$path)
+			{
+				continue;
+			}
+
+			$content = file_get_contents($path);
+			$parsed = $this->parse_content('fanvil', $content);
+			$lines = $parsed['lines'];
+			$keys_raw = $parsed['keys_raw'];
+			$n = $this->fanvil->normalize_editable_fkeys($lines, $keys_raw);
+			if($n <= 0)
+			{
+				continue;
+			}
+
+			$this->backup_file($path);
+			$new = implode("\n", $lines);
+			if(file_put_contents($path, $new))
+			{
+				$keys_ok += $n;
+				$touched[] = $r['filename'];
+			}
+		}
+
+		if(count($touched))
+		{
+			$this->reindex_files($touched);
+		}
+
+		return $keys_ok;
+	}
+
 	public function directory_rows()
 	{
 		$rows = array();
@@ -1950,6 +2010,8 @@ class TftpBoot
 		{
 			$n += $this->bulk_delete_keys($deletes, $vendors);
 		}
+
+		$n += $this->sync_normalize_fkeys($vendors);
 
 		return $n;
 	}
