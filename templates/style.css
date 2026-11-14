@@ -1319,7 +1319,7 @@ ul.tree-menu:before {
 		box-shadow: inset 0 0 0 1px var(--menu-tftpboot-pulse-inset);
 	}
 }
-.tftpboot-self-status-rejected {
+.tftpboot-self-status-reject-note {
 	color: var(--color-error-text);
 	font-weight: 500;
 }

@@ -2,7 +2,9 @@ var tftpboot_state = {
 	tree: [], policy: {}, syncDiff: [], bulkRows: [], bulkAllRows: [],
 	bulkFilteredRows: [], bulkPage: 0, bulkPageSize: 50,
 	directoryAllRows: [], directoryFilteredRows: [], directoryPage: 0,
-	pickIndex: [], pickFilteredRows: [], pickMatchLimit: 50, labels: {}
+	pickIndex: [], pickFilteredRows: [], pickMatchLimit: 50,
+	moderationActionInFlight: false, moderationDetailSeq: 0,
+	moderationHttpMs: 180000, labels: {}
 };
 
 function tftpboot_init(opts) {
@@ -289,9 +291,15 @@ function tftpboot_self_update_status() {
 		box.textContent = lbl.selfStatusPending || 'Pending moderation';
 		box.style.display = '';
 	} else if (st === 'rejected') {
-		box.className = 'tftpboot-self-status tftpboot-self-status-rejected';
-		var note = row.moderation.reject_note ? ': ' + row.moderation.reject_note : '';
-		box.textContent = (lbl.selfStatusRejected || 'Rejected') + note;
+		box.className = 'tftpboot-self-status';
+		var title = lbl.selfStatusRejected || 'Rejected';
+		var rejectNote = row.moderation.reject_note ? String(row.moderation.reject_note) : '';
+		if (rejectNote) {
+			box.innerHTML = escapeHtml(title) + ': <span class="tftpboot-self-status-reject-note">'
+				+ escapeHtml(rejectNote) + '</span>';
+		} else {
+			box.textContent = title;
+		}
 		box.style.display = '';
 	} else {
 		box.className = 'tftpboot-self-status';
@@ -325,6 +333,8 @@ function tftpboot_moderation_show_list() {
 	if (list) list.style.display = '';
 	if (detail) detail.style.display = 'none';
 	tftpboot_state.moderationRequestId = 0;
+	tftpboot_state.moderationDetailSeq = (tftpboot_state.moderationDetailSeq || 0) + 1;
+	tftpboot_moderation_set_busy(false);
 	var note = document.getElementById('tftpboot-moderation-reject-note');
 	if (note) note.value = '';
 }
@@ -376,10 +386,17 @@ function tftpboot_moderation_open_detail(id) {
 	var detail = document.getElementById('tftpboot-moderation-detail-view');
 	if (list) list.style.display = 'none';
 	if (detail) detail.style.display = '';
+	tftpboot_state.moderationRequestId = 0;
+	tftpboot_state.moderationDetailSeq = (tftpboot_state.moderationDetailSeq || 0) + 1;
+	var detailSeq = tftpboot_state.moderationDetailSeq;
 	var meta = document.getElementById('tftpboot-moderation-detail-meta');
 	var diffBox = document.getElementById('tftpboot-moderation-diff');
-	if (diffBox) diffBox.innerHTML = '';
-	tftpboot_http('tftpboot_moderation_get', { id: id }, function (res) {
+	if (meta) meta.textContent = '';
+	if (diffBox) diffBox.innerHTML = '<p>' + escapeHtml((tftpboot_state.labels && tftpboot_state.labels.moderationLoading) || '…') + '</p>';
+	tftpboot_moderation_set_busy(true);
+	tftpboot_http_moderation('tftpboot_moderation_get', { id: id }, function (res) {
+		if (detailSeq !== tftpboot_state.moderationDetailSeq) return;
+		tftpboot_moderation_set_busy(false);
 		if (!res || res.code || !res.request) {
 			f_notify(res && res.message ? res.message : 'Error', 'error');
 			tftpboot_moderation_show_list();
@@ -419,8 +436,10 @@ function tftpboot_moderation_render_diff(diff) {
 
 function tftpboot_moderation_approve() {
 	var id = tftpboot_state.moderationRequestId;
-	if (!id) return;
-	tftpboot_http('tftpboot_moderation_approve', { id: id }, function (res) {
+	if (!id || tftpboot_state.moderationActionInFlight) return;
+	tftpboot_moderation_set_busy(true);
+	tftpboot_http_moderation('tftpboot_moderation_approve', { id: id }, function (res) {
+		tftpboot_moderation_set_busy(false);
 		f_notify(res && res.message ? res.message : 'OK', res && res.code ? 'error' : 'success');
 		if (res && !res.code) {
 			tftpboot_moderation_close();
@@ -461,7 +480,7 @@ function tftpboot_validate_reject_note_client(note) {
 
 function tftpboot_moderation_reject() {
 	var id = tftpboot_state.moderationRequestId;
-	if (!id) return;
+	if (!id || tftpboot_state.moderationActionInFlight) return;
 	var noteEl = document.getElementById('tftpboot-moderation-reject-note');
 	var note = noteEl ? noteEl.value : '';
 	var err = tftpboot_validate_reject_note_client(note);
@@ -471,7 +490,9 @@ function tftpboot_moderation_reject() {
 		f_notify(err, 'error');
 		return;
 	}
-	tftpboot_http('tftpboot_moderation_reject', { id: id, note: note }, function (res) {
+	tftpboot_moderation_set_busy(true);
+	tftpboot_http_moderation('tftpboot_moderation_reject', { id: id, note: note }, function (res) {
+		tftpboot_moderation_set_busy(false);
 		f_notify(res && res.message ? res.message : 'OK', res && res.code ? 'error' : 'success');
 		if (res && !res.code) {
 			tftpboot_moderation_close();
@@ -544,8 +565,30 @@ function tftpboot_sync_warm(done) {
 
 function tftpboot_http_is_timeout(res) {
 	if (!res || !res.message) return false;
-	var m = String(res.message);
-	return m.indexOf('timeout') >= 0 || m.indexOf('connection lost') >= 0;
+	var m = String(res.message).toLowerCase();
+	return m.indexOf('timeout') >= 0 || m.indexOf('connection lost') >= 0
+		|| m.indexOf('error code: 0') >= 0;
+}
+
+function tftpboot_moderation_set_busy(busy) {
+	tftpboot_state.moderationActionInFlight = !!busy;
+	['tftpboot-moderation-approve', 'tftpboot-moderation-reject', 'tftpboot-moderation-back'].forEach(function (id) {
+		var el = document.getElementById(id);
+		if (el) el.disabled = !!busy;
+	});
+	var loading = document.getElementById('loading');
+	if (loading) loading.style.display = busy ? 'block' : 'none';
+}
+
+function tftpboot_http_moderation(action, data, cb, retryCount) {
+	var ms = tftpboot_state.moderationHttpMs || 180000;
+	tftpboot_http(action, data, function (res) {
+		if ((!res || res.code) && (retryCount || 0) < 1 && tftpboot_http_is_timeout(res)) {
+			tftpboot_http_moderation(action, data, cb, (retryCount || 0) + 1);
+			return;
+		}
+		if (cb) cb(res);
+	}, ms);
 }
 
 function tftpboot_render_bulk_vendors() {
@@ -1368,7 +1411,14 @@ function tftpboot_save_editor() {
 	var disp = document.getElementById('tftpboot-sip-display');
 	if (disp) post.displayName = disp.value;
 	var action = tftpboot_state.selfOnly ? 'tftpboot_moderation_submit' : 'tftpboot_config_save';
-	tftpboot_http(action, post, function (res) {
+	var httpFn = tftpboot_state.selfOnly ? tftpboot_http_moderation : tftpboot_http;
+	if (tftpboot_state.moderationSubmitInFlight) return;
+	tftpboot_state.moderationSubmitInFlight = true;
+	var loading = document.getElementById('loading');
+	if (loading) loading.style.display = 'block';
+	httpFn(action, post, function (res) {
+		tftpboot_state.moderationSubmitInFlight = false;
+		if (loading) loading.style.display = 'none';
 		f_notify(res && res.message ? res.message : 'OK', res && res.code ? 'error' : 'success');
 		if (res && !res.code) {
 			tftpboot_close_editor();

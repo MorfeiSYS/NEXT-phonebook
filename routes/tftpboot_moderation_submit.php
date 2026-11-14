@@ -2,6 +2,7 @@
 
 function tftpboot_moderation_submit(&$core, $params, $post_data)
 {
+	@set_time_limit(180);
 	$post_data = tftpboot_merge_post($post_data);
 	assert_tftpboot_self_ajax($core);
 	$filename = isset($post_data['filename']) ? trim($post_data['filename']) : '';

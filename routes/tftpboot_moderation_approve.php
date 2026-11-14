@@ -2,6 +2,7 @@
 
 function tftpboot_moderation_approve(&$core, $params, $post_data)
 {
+	@set_time_limit(180);
 	$post_data = tftpboot_merge_post($post_data);
 	assert_tftpboot_moderate_ajax($core);
 	$id = isset($post_data['id']) ? intval($post_data['id']) : 0;
