@@ -2,7 +2,7 @@
 
 function tftpboot_sync_preview(&$core, $params, $post_data)
 {
-	@set_time_limit(180);
+	@set_time_limit(600);
 	$post_data = tftpboot_merge_post($post_data);
 	assert_tftpboot_ajax($core);
 	$svc = tftpboot_instance($core);

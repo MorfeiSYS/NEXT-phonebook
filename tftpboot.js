@@ -18,6 +18,10 @@ function tftpboot_init(opts) {
 	tftpboot_state.labels = opts.labels || {};
 	tftpboot_state.syncApiFetch = !!opts.syncApiFetch;
 	tftpboot_state.syncHasUndo = !!opts.syncHasUndo;
+	tftpboot_state.syncWarmDone = false;
+	tftpboot_state.syncWarmInFlight = false;
+	tftpboot_state.syncPreviewInFlight = false;
+	tftpboot_state.syncPreviewQueued = false;
 	tftpboot_bind_tabs();
 	if (tftpboot_state.selfOnly) {
 		tftpboot_self_init();
@@ -85,6 +89,7 @@ function tftpboot_bind_tabs() {
 			var panel = document.getElementById('tftpboot-panel-' + tab);
 			if (panel) panel.style.display = 'block';
 			if (tab === 'bulk') tftpboot_bulk_fetch();
+			if (tab === 'sync') tftpboot_sync_warm();
 			if (tab === 'moderation') {
 				var modBtn = document.getElementById('tftpboot-moderation-open');
 				if (modBtn) modBtn.focus();
@@ -438,6 +443,7 @@ function tftpboot_render_sync_vendors() {
 		chk.className = 'tftpboot-sync-vendor';
 		chk.value = v;
 		chk.checked = String(v).toLowerCase() === 'fanvil';
+		chk.onchange = function () { tftpboot_state.syncWarmDone = false; };
 		lbl.appendChild(chk);
 		lbl.appendChild(document.createTextNode(' ' + v));
 		box.appendChild(lbl);
@@ -448,6 +454,48 @@ function tftpboot_selected_sync_vendors() {
 	var v = [];
 	document.querySelectorAll('.tftpboot-sync-vendor:checked').forEach(function (el) { v.push(el.value); });
 	return v;
+}
+
+function tftpboot_sync_vendors_for_warm() {
+	var v = tftpboot_selected_sync_vendors();
+	if (v.length) {
+		return v;
+	}
+	return (tftpboot_state.bulkVendors || []).slice();
+}
+
+function tftpboot_sync_set_preview_busy(busy) {
+	var btn = document.getElementById('tftpboot-sync-preview');
+	if (btn) btn.disabled = !!busy;
+}
+
+function tftpboot_sync_warm(done) {
+	if (tftpboot_state.syncWarmDone || tftpboot_state.syncWarmInFlight) {
+		if (done) done();
+		return;
+	}
+	var vendors = tftpboot_sync_vendors_for_warm();
+	if (!vendors.length) {
+		tftpboot_state.syncWarmDone = true;
+		if (done) done();
+		return;
+	}
+	tftpboot_state.syncWarmInFlight = true;
+	tftpboot_http_long('tftpboot_sync_warm', { vendors: vendors }, function (res) {
+		tftpboot_state.syncWarmInFlight = false;
+		tftpboot_state.syncWarmDone = !!(res && !res.code);
+		if (done) done();
+		if (tftpboot_state.syncPreviewQueued) {
+			tftpboot_state.syncPreviewQueued = false;
+			tftpboot_sync_preview_run(0);
+		}
+	});
+}
+
+function tftpboot_http_is_timeout(res) {
+	if (!res || !res.message) return false;
+	var m = String(res.message);
+	return m.indexOf('timeout') >= 0 || m.indexOf('connection lost') >= 0;
 }
 
 function tftpboot_render_bulk_vendors() {
@@ -478,6 +526,12 @@ function tftpboot_http(action, data, cb, timeoutMs) {
 		f_http(g_link_prefix + action, cb, null, 'application/json', JSON.stringify(data || {}));
 		return;
 	}
+	var finished = false;
+	function finish(result) {
+		if (finished) return;
+		finished = true;
+		if (cb) cb(result);
+	}
 	xhr.open('post', g_link_prefix + action, true);
 	xhr.timeout = timeoutMs;
 	xhr.onreadystatechange = function () {
@@ -494,10 +548,10 @@ function tftpboot_http(action, data, cb, timeoutMs) {
 		} else {
 			result = { code: 1, message: 'AJAX error code: ' + xhr.status };
 		}
-		if (cb) cb(result);
+		finish(result);
 	};
 	xhr.ontimeout = function () {
-		if (cb) cb({ code: 1, message: 'AJAX error: timeout or connection lost' });
+		finish({ code: 1, message: 'AJAX error: timeout or connection lost' });
 	};
 	xhr.setRequestHeader('Content-Type', 'application/json');
 	if (typeof g_csrf_token !== 'undefined' && g_csrf_token) {
@@ -1426,6 +1480,32 @@ function tftpboot_sync_label(key, fallback) {
 }
 
 function tftpboot_sync_preview() {
+	if (tftpboot_state.syncPreviewInFlight) return;
+	var vendors = tftpboot_selected_sync_vendors();
+	if (!vendors.length) {
+		var msg = (typeof LL === 'object' && LL && LL.TftpBootBulkNoVendors) ? LL.TftpBootBulkNoVendors : 'Select vendors';
+		f_notify(msg, 'error');
+		return;
+	}
+	if (tftpboot_state.syncWarmInFlight) {
+		var loading = document.getElementById('loading');
+		if (loading) loading.style.display = 'block';
+		tftpboot_sync_set_preview_busy(true);
+		tftpboot_state.syncPreviewQueued = true;
+		return;
+	}
+	if (!tftpboot_state.syncWarmDone) {
+		var loadingW = document.getElementById('loading');
+		if (loadingW) loadingW.style.display = 'block';
+		tftpboot_sync_set_preview_busy(true);
+		tftpboot_state.syncPreviewQueued = true;
+		tftpboot_sync_warm();
+		return;
+	}
+	tftpboot_sync_preview_run(0);
+}
+
+function tftpboot_sync_preview_run(retryCount) {
 	var box = document.getElementById('tftpboot-sync-diff');
 	var applyBtn = document.getElementById('tftpboot-sync-apply');
 	if (box) box.innerHTML = '';
@@ -1435,11 +1515,21 @@ function tftpboot_sync_preview() {
 	var vendors = tftpboot_selected_sync_vendors();
 	if (!vendors.length) {
 		if (loading) loading.style.display = 'none';
-		var msg = (typeof LL === 'object' && LL && LL.TftpBootBulkNoVendors) ? LL.TftpBootBulkNoVendors : 'Select vendors';
-		f_notify(msg, 'error');
+		tftpboot_sync_set_preview_busy(false);
+		tftpboot_state.syncPreviewInFlight = false;
 		return;
 	}
+	tftpboot_state.syncPreviewInFlight = true;
+	tftpboot_sync_set_preview_busy(true);
 	tftpboot_http_long('tftpboot_sync_preview', { vendors: vendors }, function (res) {
+		if ((!res || res.code) && retryCount < 1 && tftpboot_http_is_timeout(res)) {
+			tftpboot_sync_warm(function () {
+				tftpboot_sync_preview_run(retryCount + 1);
+			});
+			return;
+		}
+		tftpboot_state.syncPreviewInFlight = false;
+		tftpboot_sync_set_preview_busy(false);
 		if (loading) loading.style.display = 'none';
 		if (!res || res.code) {
 			f_notify(res && res.message ? res.message : 'Error', 'error');
