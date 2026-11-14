@@ -1184,7 +1184,34 @@ ul.tree-menu:before {
     text-decoration: none;
     display: inline-block;
 }
-.tftpboot-tab.active { font-weight: bold; }
+.tftpboot-tab.active,
+.tftpboot-tab-link.active {
+	font-weight: 600;
+	border-color: var(--color-button-accept);
+	background: var(--color-button-accept);
+	box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
+	animation: tftpboot-main-tab-pulse 3.8s ease-in-out infinite;
+}
+@keyframes tftpboot-main-tab-pulse {
+	0%, 100% {
+		opacity: 1;
+		border-color: var(--color-button-accept);
+		background: var(--color-button-accept);
+		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1), 0 0 0 0 color-mix(in srgb, var(--color-button-accept) 45%, transparent);
+	}
+	50% {
+		opacity: 0.85;
+		border-color: var(--color-button-accept-hover);
+		background: color-mix(in srgb, var(--color-button-accept) 65%, var(--color-bg-2));
+		box-shadow: 0 3px 14px rgba(0, 0, 0, 0.14), 0 0 0 6px color-mix(in srgb, var(--color-button-accept) 35%, transparent);
+	}
+}
+@media (prefers-reduced-motion: reduce) {
+	.tftpboot-tab.active,
+	.tftpboot-tab-link.active {
+		animation: none;
+	}
+}
 .tftpboot-panel label { display: block; margin: 0.5em 0; }
 .tftpboot-sync-actions {
 	display: flex;
