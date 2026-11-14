@@ -346,6 +346,24 @@ function tftpboot_key_clear_title() {
 	return 'Clear';
 }
 
+function tftpboot_key_cell_title() {
+	if (tftpboot_state.labels && tftpboot_state.labels.keyCell) return tftpboot_state.labels.keyCell;
+	if (typeof LL === 'object' && LL && LL.TftpBootEditorCell) return LL.TftpBootEditorCell;
+	return 'Cell';
+}
+
+function tftpboot_key_title_placeholder() {
+	if (tftpboot_state.labels && tftpboot_state.labels.keyTitle) return tftpboot_state.labels.keyTitle;
+	if (typeof LL === 'object' && LL && LL.TftpBootKeyTitle) return LL.TftpBootKeyTitle;
+	return 'Title';
+}
+
+function tftpboot_key_number_placeholder() {
+	if (tftpboot_state.labels && tftpboot_state.labels.keyNumber) return tftpboot_state.labels.keyNumber;
+	if (typeof LL === 'object' && LL && LL.TftpBootNumber) return LL.TftpBootNumber;
+	return 'Number';
+}
+
 function tftpboot_create_key_card(k, grid) {
 	var card = document.createElement('div');
 	card.className = 'tftpboot-key-card';
@@ -353,7 +371,7 @@ function tftpboot_create_key_card(k, grid) {
 	card.dataset.slot = k.slot;
 	if (k.key_id) card.dataset.keyId = k.key_id;
 	if (k.section) card.dataset.section = k.section;
-	var label = (k.section_title ? escapeHtml(k.section_title) + ' #' + k.slot : '#' + k.slot);
+	var label = escapeHtml(tftpboot_key_cell_title()) + ' #' + k.slot;
 	var clrTitle = escapeHtml(tftpboot_key_clear_title());
 	var phoneTitle = escapeHtml(tftpboot_key_phone_title());
 	var dialSuffix = (k.dial_suffix !== undefined && k.dial_suffix !== null) ? String(k.dial_suffix) : '';
@@ -372,8 +390,10 @@ function tftpboot_create_key_card(k, grid) {
 		'<button type="button" class="tftpboot-key-phone" title="' + phoneTitle + '" aria-label="' + phoneTitle + '">&#9742;</button>' +
 		'<button type="button" class="tftpboot-key-clear" title="' + clrTitle + '">&times;</button>' +
 		'</span></span>' +
-		'<input type="text" class="tftpboot-key-title" value="' + escapeHtml(k.label || '') + '" placeholder="Title" />' +
-		'<input type="text" class="tftpboot-key-number" value="' + escapeHtml(k.number || '') + '" placeholder="Number" />';
+		'<input type="text" class="tftpboot-key-title" value="' + escapeHtml(k.label || '') + '" placeholder="' +
+			escapeHtml(tftpboot_key_title_placeholder()) + '" />' +
+		'<input type="text" class="tftpboot-key-number" value="' + escapeHtml(k.number || '') + '" placeholder="' +
+			escapeHtml(tftpboot_key_number_placeholder()) + '" />';
 	tftpboot_update_phone_icon(card);
 	var phoneBtn = card.querySelector('.tftpboot-key-phone');
 	if (phoneBtn) {

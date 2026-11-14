@@ -258,6 +258,7 @@
 		'TftpBootEditorSoftdss'		=> 'Софт кнопки',
 		'TftpBootEditorDsskey'		=> 'Быстрый набор',
 		'TftpBootSipDisplay'		=> 'Имя на экране',
+		'TftpBootEditorCell'		=> 'Ячейка',
 		'TftpBootCronUrl'			=> 'URL для cron',
 		'TftpBootUnknownFiles'		=> 'Неопознанные конфиги',
 		'TftpBootGroupPolicy'		=> 'Права операторов (по группе LDAP)',

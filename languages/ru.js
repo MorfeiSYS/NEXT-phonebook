@@ -28,5 +28,6 @@ const LL = {
 	TftpBootEditorSidekey:		'Кнопки на экране',
 	TftpBootEditorSoftdss:		'Софт кнопки',
 	TftpBootEditorDsskey:		'Быстрый набор',
-	TftpBootSipDisplay:			'Имя на экране'
+	TftpBootSipDisplay:			'Имя на экране',
+	TftpBootEditorCell:			'Ячейка'
 };

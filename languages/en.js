@@ -28,5 +28,6 @@ const LL = {
 	TftpBootEditorSidekey:		'On-screen keys',
 	TftpBootEditorSoftdss:		'Soft keys',
 	TftpBootEditorDsskey:		'Speed dial',
-	TftpBootSipDisplay:			'Display name'
+	TftpBootSipDisplay:			'Display name',
+	TftpBootEditorCell:			'Cell'
 };

@@ -116,7 +116,10 @@ if(!isset($tftpboot_is_admin))
 			editorSidekey: <?php echo json_encode(LL('TftpBootEditorSidekey'), JSON_UNESCAPED_UNICODE); ?>,
 			editorSoftdss: <?php echo json_encode(LL('TftpBootEditorSoftdss'), JSON_UNESCAPED_UNICODE); ?>,
 			editorDsskey: <?php echo json_encode(LL('TftpBootEditorDsskey'), JSON_UNESCAPED_UNICODE); ?>,
-			sipDisplay: <?php echo json_encode(LL('TftpBootSipDisplay'), JSON_UNESCAPED_UNICODE); ?>
+			sipDisplay: <?php echo json_encode(LL('TftpBootSipDisplay'), JSON_UNESCAPED_UNICODE); ?>,
+			keyCell: <?php echo json_encode(LL('TftpBootEditorCell'), JSON_UNESCAPED_UNICODE); ?>,
+			keyTitle: <?php echo json_encode(LL('TftpBootKeyTitle'), JSON_UNESCAPED_UNICODE); ?>,
+			keyNumber: <?php echo json_encode(LL('TftpBootNumber'), JSON_UNESCAPED_UNICODE); ?>
 		}
 	});
 </script>

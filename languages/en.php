@@ -258,6 +258,7 @@
 		'TftpBootEditorSoftdss'		=> 'Soft keys',
 		'TftpBootEditorDsskey'		=> 'Speed dial',
 		'TftpBootSipDisplay'		=> 'Display name',
+		'TftpBootEditorCell'		=> 'Cell',
 		'TftpBootCronUrl'			=> 'Cron URL',
 		'TftpBootUnknownFiles'		=> 'Unknown configs',
 		'TftpBootGroupPolicy'		=> 'Operator policies (LDAP group)',
