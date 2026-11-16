@@ -98,7 +98,7 @@
                                 ]
                             },
                             "m0\/dsskey config2": {
-                                "cols": 5,
+                                "cols": 2,
                                 "order": [
                                     1,
                                     2,
@@ -135,7 +135,7 @@
                                 ]
                             },
                             "m0\/dsskey config3": {
-                                "cols": 5,
+                                "cols": 2,
                                 "order": [
                                     1,
                                     2,

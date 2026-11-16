@@ -1558,6 +1558,8 @@ ul.tree-menu:before {
 .tftpboot-keys-grid.tftpboot-keys-grid--layout { display: grid; gap: 8px; }
 .tftpboot-layout-cell { cursor: grab; min-height: 3.5em; }
 .tftpboot-layout-section-block { margin: 1em 0 1.5em; }
+.tftpboot-layout-dsskey-page-title { margin: 0.5em 0 0.25em; font-size: 1em; font-weight: 600; }
+.tftpboot-layout-collapsible { margin-bottom: 0.75em; }
 #tftpboot-bulk-modal .tftpboot-bulk-modal-content {
 	max-width: min(920px, 94vw);
 	max-height: 90vh;

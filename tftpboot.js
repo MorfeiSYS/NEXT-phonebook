@@ -145,14 +145,24 @@ function tftpboot_layout_label(key, fb) {
 	return fb;
 }
 
-function tftpboot_layout_default_order_from_slots(slots, cols) {
+function tftpboot_layout_default_rows(slots, cols) {
+	var n = (slots || []).length;
+	if (n < 1) return 1;
+	cols = parseInt(cols, 10) || Math.min(5, n);
+	if (cols < 1) cols = 1;
+	return Math.ceil(n / cols);
+}
+
+function tftpboot_layout_default_order_from_slots(slots, cols, rows) {
 	slots = (slots || []).slice().sort(function (a, b) { return a - b; });
 	var n = slots.length;
 	if (n < 1) return [];
 	cols = parseInt(cols, 10) || Math.min(5, n);
 	if (cols < 1) cols = 1;
 	if (cols > 12) cols = 12;
-	var rows = Math.ceil(n / cols);
+	rows = parseInt(rows, 10);
+	if (!rows || rows < 1) rows = Math.ceil(n / cols);
+	if (rows > 64) rows = 64;
 	var order = [];
 	for (var r = 0; r < rows; r++) {
 		for (var c = 0; c < cols; c++) {
@@ -163,7 +173,7 @@ function tftpboot_layout_default_order_from_slots(slots, cols) {
 	return order;
 }
 
-function tftpboot_layout_order_from_slots(slots, savedOrder, cols) {
+function tftpboot_layout_order_from_slots(slots, savedOrder, cols, rows) {
 	slots = (slots || []).slice();
 	if (!slots.length) return [];
 	var allowed = {};
@@ -176,7 +186,7 @@ function tftpboot_layout_order_from_slots(slots, savedOrder, cols) {
 	slots.forEach(function (s) {
 		if (order.indexOf(s) < 0) order.push(s);
 	});
-	if (!order.length) order = tftpboot_layout_default_order_from_slots(slots, cols);
+	if (!order.length) order = tftpboot_layout_default_order_from_slots(slots, cols, rows);
 	return order;
 }
 
@@ -275,9 +285,11 @@ function tftpboot_layout_build_draft(saved, blueprint) {
 		var cols = Math.min(5, slots.length || 16);
 		var prev = saved.default || (saved.sections && saved.sections.default) || {};
 		if (prev.cols) cols = parseInt(prev.cols, 10) || cols;
+		var rows = prev.rows ? parseInt(prev.rows, 10) : tftpboot_layout_default_rows(slots, cols);
 		draft.default = {
 			cols: cols,
-			order: tftpboot_layout_order_from_slots(slots, prev.order, cols)
+			rows: rows,
+			order: tftpboot_layout_order_from_slots(slots, prev.order, cols, rows)
 		};
 		return draft;
 	}
@@ -287,12 +299,47 @@ function tftpboot_layout_build_draft(saved, blueprint) {
 		var cols = Math.min(5, slots.length || 16);
 		var prev = saved.sections && saved.sections[sec.id] ? saved.sections[sec.id] : {};
 		if (prev.cols) cols = parseInt(prev.cols, 10) || cols;
+		var rows = prev.rows ? parseInt(prev.rows, 10) : tftpboot_layout_default_rows(slots, cols);
 		draft.sections[sec.id] = {
 			cols: cols,
-			order: tftpboot_layout_order_from_slots(slots, prev.order, cols)
+			rows: rows,
+			order: tftpboot_layout_order_from_slots(slots, prev.order, cols, rows)
 		};
 	});
 	return draft;
+}
+
+function tftpboot_layout_append_collapsible(root, title, contentEl, collapsed) {
+	tftpboot_append_collapsible(root, title, contentEl, !!collapsed, 'tftpboot-layout-collapsible');
+}
+
+function tftpboot_layout_append_size_inputs(wrap, sec, spec) {
+	var colsLbl = tftpboot_layout_label('layoutCols', 'Columns');
+	var colsInp = document.createElement('input');
+	colsInp.type = 'number';
+	colsInp.min = '1';
+	colsInp.max = '12';
+	colsInp.className = 'tftpboot-layout-cols form-field';
+	colsInp.value = String(spec.cols || 5);
+	colsInp.dataset.sectionId = sec.id;
+	colsInp.onchange = function () { tftpboot_layout_size_change(sec.id, wrap); };
+	var rowsLbl = tftpboot_layout_label('layoutRows', 'Rows per column');
+	var rowsInp = document.createElement('input');
+	rowsInp.type = 'number';
+	rowsInp.min = '1';
+	rowsInp.max = '64';
+	rowsInp.className = 'tftpboot-layout-rows form-field';
+	var slotsN = (sec.slots || []).length || 16;
+	var rowsVal = spec.rows ? parseInt(spec.rows, 10) : tftpboot_layout_default_rows(sec.slots || [], spec.cols);
+	if (!rowsVal || rowsVal < 1) rowsVal = tftpboot_layout_default_rows(sec.slots || [], spec.cols);
+	rowsInp.value = String(rowsVal);
+	rowsInp.dataset.sectionId = sec.id;
+	rowsInp.onchange = function () { tftpboot_layout_size_change(sec.id, wrap); };
+	wrap.appendChild(document.createTextNode(colsLbl + ' '));
+	wrap.appendChild(colsInp);
+	wrap.appendChild(document.createTextNode(' ' + rowsLbl + ' '));
+	wrap.appendChild(rowsInp);
+	return { colsInp: colsInp, rowsInp: rowsInp };
 }
 
 function tftpboot_layout_section_tab_title(sec, dssList) {
@@ -305,38 +352,35 @@ function tftpboot_layout_section_tab_title(sec, dssList) {
 	return base + ' ' + (idx >= 0 ? idx + 1 : 1);
 }
 
-function tftpboot_layout_render_section_block(parent, sec, spec) {
+function tftpboot_layout_render_section_block(parent, sec, spec, showTitle) {
 	var wrap = document.createElement('div');
 	wrap.className = 'tftpboot-layout-section-block';
 	wrap.dataset.sectionId = sec.id;
-	var title = sec.id === 'default'
-		? tftpboot_layout_label('layoutDefault', 'Default grid')
-		: (sec.title || sec.id);
-	var head = document.createElement('h4');
-	head.textContent = title;
-	wrap.appendChild(head);
-	var colsLbl = tftpboot_layout_label('layoutCols', 'Columns');
-	var colsInp = document.createElement('input');
-	colsInp.type = 'number';
-	colsInp.min = '1';
-	colsInp.max = '12';
-	colsInp.className = 'tftpboot-layout-cols form-field';
-	colsInp.value = String(spec.cols || 5);
-	colsInp.dataset.sectionId = sec.id;
-	colsInp.onchange = function () { tftpboot_layout_cols_change(sec.id, colsInp); };
-	wrap.appendChild(document.createTextNode(colsLbl + ' '));
-	wrap.appendChild(colsInp);
+	if (showTitle !== false) {
+		var title = sec.id === 'default'
+			? tftpboot_layout_label('layoutDefault', 'Default grid')
+			: (sec.title || sec.id);
+		var head = document.createElement('h4');
+		head.textContent = title;
+		wrap.appendChild(head);
+	}
+	tftpboot_layout_append_size_inputs(wrap, sec, spec);
 	var grid = document.createElement('div');
 	grid.className = 'tftpboot-keys-grid tftpboot-layout-grid tftpboot-keys-grid--layout';
 	grid.dataset.sectionId = sec.id;
 	var order = spec.order && spec.order.length ? spec.order.slice()
-		: tftpboot_layout_default_order_from_slots(sec.slots || [], spec.cols);
+		: tftpboot_layout_default_order_from_slots(sec.slots || [], spec.cols, spec.rows);
 	order.forEach(function (slot) {
 		grid.appendChild(tftpboot_layout_create_cell(slot, grid));
 	});
-	tftpboot_apply_keys_grid_layout(grid, { cols: parseInt(colsInp.value, 10) || 5, order: order });
+	tftpboot_apply_keys_grid_layout(grid, {
+		cols: parseInt(spec.cols, 10) || 5,
+		rows: parseInt(spec.rows, 10) || tftpboot_layout_default_rows(sec.slots || [], spec.cols),
+		order: order
+	});
 	wrap.appendChild(grid);
 	parent.appendChild(wrap);
+	return wrap;
 }
 
 function tftpboot_layout_render_sections() {
@@ -352,13 +396,25 @@ function tftpboot_layout_render_sections() {
 		tftpboot_layout_render_section_block(box, sections[0], spec);
 		return;
 	}
-	var dss = sections.filter(function (s) { return s.kind === 'dsskey_page'; });
-	var other = sections.filter(function (s) { return s.kind !== 'dsskey_page'; });
-	other.forEach(function (sec) {
+	var sidekey = [];
+	var softdss = [];
+	var dss = [];
+	var other = [];
+	sections.forEach(function (sec) {
+		if (sec.kind === 'sidekey') sidekey.push(sec);
+		else if (sec.kind === 'softdss') softdss.push(sec);
+		else if (sec.kind === 'dsskey_page') dss.push(sec);
+		else other.push(sec);
+	});
+	sidekey.forEach(function (sec) {
 		var spec = draft.sections && draft.sections[sec.id] ? draft.sections[sec.id] : { cols: 5, order: [] };
-		tftpboot_layout_render_section_block(box, sec, spec);
+		var inner = document.createElement('div');
+		tftpboot_layout_render_section_block(inner, sec, spec, false);
+		var lbl = (sec.title || tftpboot_editor_label('sidekey'));
+		tftpboot_layout_append_collapsible(box, lbl, inner, true);
 	});
 	if (dss.length) {
+		var dssWrap = document.createElement('div');
 		var inner = document.createElement('div');
 		inner.className = 'tftpboot-dsskey-tabbed tftpboot-layout-dsskey-tabbed';
 		var panels = document.createElement('div');
@@ -371,32 +427,20 @@ function tftpboot_layout_render_sections() {
 			panel.className = 'tftpboot-layout-dsskey-panel';
 			panel.dataset.panel = String(idx);
 			if (idx > 0) panel.style.display = 'none';
-			var colsLbl = tftpboot_layout_label('layoutCols', 'Columns');
-			var colsInp = document.createElement('input');
-			colsInp.type = 'number';
-			colsInp.min = '1';
-			colsInp.max = '12';
-			colsInp.className = 'tftpboot-layout-cols form-field';
-			colsInp.value = String(spec.cols || 5);
-			colsInp.dataset.sectionId = sec.id;
-			colsInp.onchange = function () { tftpboot_layout_cols_change(sec.id, colsInp); };
-			panel.appendChild(document.createTextNode(colsLbl + ' '));
-			panel.appendChild(colsInp);
-			var grid = document.createElement('div');
-			grid.className = 'tftpboot-keys-grid tftpboot-layout-grid tftpboot-keys-grid--layout';
-			grid.dataset.sectionId = sec.id;
-			var order = spec.order && spec.order.length ? spec.order.slice()
-				: tftpboot_layout_default_order_from_slots(sec.slots || [], spec.cols);
-			order.forEach(function (slot) {
-				grid.appendChild(tftpboot_layout_create_cell(slot, grid));
-			});
-			tftpboot_apply_keys_grid_layout(grid, { cols: parseInt(colsInp.value, 10) || 5, order: order });
-			panel.appendChild(grid);
+			tftpboot_layout_render_section_block(panel, sec, spec, false);
+			var pageLbl = tftpboot_layout_section_tab_title(sec, dss);
+			var block = panel.querySelector('.tftpboot-layout-section-block');
+			if (block) {
+				var sub = document.createElement('h5');
+				sub.className = 'tftpboot-layout-dsskey-page-title';
+				sub.textContent = pageLbl;
+				panel.insertBefore(sub, block);
+			}
 			panels.appendChild(panel);
 			var btn = document.createElement('button');
 			btn.type = 'button';
 			btn.className = 'tftpboot-dsskey-tab' + (idx === 0 ? ' active' : '');
-			btn.textContent = tftpboot_layout_section_tab_title(sec, dss);
+			btn.textContent = pageLbl;
 			btn.dataset.panel = String(idx);
 			btn.onclick = function () {
 				tabs.querySelectorAll('.tftpboot-dsskey-tab').forEach(function (b) { b.classList.remove('active'); });
@@ -409,24 +453,45 @@ function tftpboot_layout_render_sections() {
 		});
 		inner.appendChild(panels);
 		inner.appendChild(tabs);
-		box.appendChild(inner);
+		dssWrap.appendChild(inner);
+		tftpboot_layout_append_collapsible(box, tftpboot_editor_label('dsskey'), dssWrap, false);
 	}
+	softdss.forEach(function (sec) {
+		var spec = draft.sections && draft.sections[sec.id] ? draft.sections[sec.id] : { cols: 5, order: [] };
+		var inner = document.createElement('div');
+		tftpboot_layout_render_section_block(inner, sec, spec, false);
+		var lbl = (sec.title || tftpboot_editor_label('softdss'));
+		tftpboot_layout_append_collapsible(box, lbl, inner, true);
+	});
+	other.forEach(function (sec) {
+		var spec = draft.sections && draft.sections[sec.id] ? draft.sections[sec.id] : { cols: 5, order: [] };
+		tftpboot_layout_render_section_block(box, sec, spec);
+	});
 }
 
-function tftpboot_layout_cols_change(sid, inp) {
-	var cols = parseInt(inp.value, 10) || 1;
+function tftpboot_layout_size_change(sid, wrap) {
+	if (!wrap) return;
+	var colsInp = wrap.querySelector('.tftpboot-layout-cols');
+	var rowsInp = wrap.querySelector('.tftpboot-layout-rows');
+	var cols = colsInp ? parseInt(colsInp.value, 10) || 1 : 1;
+	var rows = rowsInp ? parseInt(rowsInp.value, 10) || 1 : 1;
 	if (cols < 1) cols = 1;
 	if (cols > 12) cols = 12;
-	inp.value = String(cols);
+	if (rows < 1) rows = 1;
+	if (rows > 64) rows = 64;
+	if (colsInp) colsInp.value = String(cols);
+	if (rowsInp) rowsInp.value = String(rows);
 	if (sid === 'default' && tftpboot_state.layoutDraft.default) {
 		tftpboot_state.layoutDraft.default.cols = cols;
+		tftpboot_state.layoutDraft.default.rows = rows;
 	} else if (tftpboot_state.layoutDraft.sections && tftpboot_state.layoutDraft.sections[sid]) {
 		tftpboot_state.layoutDraft.sections[sid].cols = cols;
+		tftpboot_state.layoutDraft.sections[sid].rows = rows;
 	}
-	var grid = inp.parentNode.querySelector('.tftpboot-layout-grid');
+	var grid = wrap.querySelector('.tftpboot-layout-grid');
 	if (grid) {
 		var order = tftpboot_layout_grid_order(grid);
-		tftpboot_apply_keys_grid_layout(grid, { cols: cols, order: order });
+		tftpboot_apply_keys_grid_layout(grid, { cols: cols, rows: rows, order: order });
 	}
 }
 
@@ -478,17 +543,22 @@ function tftpboot_layout_sync_grid_order(grid) {
 	var sid = grid.dataset.sectionId;
 	if (!sid || !tftpboot_state.layoutDraft) return;
 	var order = tftpboot_layout_grid_order(grid);
-	var colsInp = grid.parentNode.querySelector('.tftpboot-layout-cols');
+	var block = grid.closest('.tftpboot-layout-section-block');
+	var colsInp = block ? block.querySelector('.tftpboot-layout-cols') : null;
+	var rowsInp = block ? block.querySelector('.tftpboot-layout-rows') : null;
 	var cols = colsInp ? parseInt(colsInp.value, 10) || 5 : 5;
+	var rows = rowsInp ? parseInt(rowsInp.value, 10) || 1 : 1;
 	if (sid === 'default') {
 		if (!tftpboot_state.layoutDraft.default) tftpboot_state.layoutDraft.default = {};
 		tftpboot_state.layoutDraft.default.order = order;
 		tftpboot_state.layoutDraft.default.cols = cols;
+		tftpboot_state.layoutDraft.default.rows = rows;
 	} else {
 		if (!tftpboot_state.layoutDraft.sections) tftpboot_state.layoutDraft.sections = {};
 		if (!tftpboot_state.layoutDraft.sections[sid]) tftpboot_state.layoutDraft.sections[sid] = {};
 		tftpboot_state.layoutDraft.sections[sid].order = order;
 		tftpboot_state.layoutDraft.sections[sid].cols = cols;
+		tftpboot_state.layoutDraft.sections[sid].rows = rows;
 	}
 }
 
@@ -1730,11 +1800,18 @@ function tftpboot_apply_keys_grid_layout(grid, spec) {
 		});
 		slots.sort(function (a, b) { return a - b; });
 		if (!slots.length) return;
-		order = tftpboot_layout_default_order_from_slots(slots, cols);
+		var rowsHint = parseInt(spec.rows, 10);
+		order = tftpboot_layout_default_order_from_slots(slots, cols, rowsHint);
 	}
+	var rows = parseInt(spec.rows, 10);
 	grid.classList.add('tftpboot-keys-grid--layout');
 	grid.style.display = 'grid';
 	grid.style.gridTemplateColumns = 'repeat(' + cols + ', minmax(0, 1fr))';
+	if (rows >= 1 && rows <= 64) {
+		grid.style.gridTemplateRows = 'repeat(' + rows + ', auto)';
+	} else {
+		grid.style.gridTemplateRows = '';
+	}
 	var bySlot = {};
 	Array.prototype.forEach.call(grid.children, function (card) {
 		var s = parseInt(card.dataset.slot, 10);

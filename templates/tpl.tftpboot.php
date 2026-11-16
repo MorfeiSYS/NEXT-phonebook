@@ -233,6 +233,7 @@ $tftpboot_editor_save_label = $tftpboot_self_only ? LL('TftpBootSubmitModeration
 			pickSearchLimit: <?php echo json_encode(LL('TftpBootPickSearchLimit'), JSON_UNESCAPED_UNICODE); ?>,
 			bulkNotInPhonebook: <?php echo json_encode(LL('TftpBootBulkNotInPhonebook'), JSON_UNESCAPED_UNICODE); ?>,
 			layoutCols: <?php echo json_encode(LL('TftpBootLayoutCols'), JSON_UNESCAPED_UNICODE); ?>,
+			layoutRows: <?php echo json_encode(LL('TftpBootLayoutRows'), JSON_UNESCAPED_UNICODE); ?>,
 			layoutDefault: <?php echo json_encode(LL('TftpBootLayoutDefault'), JSON_UNESCAPED_UNICODE); ?>
 		}
 	});

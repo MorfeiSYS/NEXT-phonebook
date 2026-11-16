@@ -320,14 +320,28 @@ class TftpBoot
 		}
 		$saved_order = (is_array($prev) && isset($prev['order']) && is_array($prev['order']))
 			? $prev['order'] : array();
+		$rows = 0;
+		if(is_array($prev) && isset($prev['rows']))
+		{
+			$r = intval($prev['rows']);
+			if($r >= 1 && $r <= 64)
+			{
+				$rows = $r;
+			}
+		}
+		if($rows < 1)
+		{
+			$rows = intval(ceil($n / $cols));
+		}
 
 		return array(
 			'cols' => $cols,
-			'order' => $this->layout_order_from_slots($slots, $saved_order, $cols),
+			'rows' => $rows,
+			'order' => $this->layout_order_from_slots($slots, $saved_order, $cols, $rows),
 		);
 	}
 
-	private function layout_default_order_from_slots($slots, $cols)
+	private function layout_default_order_from_slots($slots, $cols, $rows = 0)
 	{
 		$slots = array_values(is_array($slots) ? $slots : array());
 		sort($slots, SORT_NUMERIC);
@@ -345,7 +359,15 @@ class TftpBoot
 		{
 			$cols = 12;
 		}
-		$rows = intval(ceil($n / $cols));
+		$rows = intval($rows);
+		if($rows < 1)
+		{
+			$rows = intval(ceil($n / $cols));
+		}
+		if($rows > 64)
+		{
+			$rows = 64;
+		}
 		$order = array();
 		for($r = 0; $r < $rows; $r++)
 		{
@@ -362,7 +384,7 @@ class TftpBoot
 		return $order;
 	}
 
-	private function layout_order_from_slots($slots, $saved_order, $cols)
+	private function layout_order_from_slots($slots, $saved_order, $cols, $rows = 0)
 	{
 		$slots = array_map('intval', is_array($slots) ? $slots : array());
 		if(!count($slots))
@@ -395,7 +417,7 @@ class TftpBoot
 		}
 		if(!count($order))
 		{
-			return $this->layout_default_order_from_slots($slots, $cols);
+			return $this->layout_default_order_from_slots($slots, $cols, $rows);
 		}
 
 		return $order;
@@ -411,6 +433,14 @@ class TftpBoot
 		if($cols < 1 || $cols > 12)
 		{
 			return 'Invalid cols';
+		}
+		if(isset($grid['rows']))
+		{
+			$rows = intval($grid['rows']);
+			if($rows < 1 || $rows > 64)
+			{
+				return 'Invalid rows';
+			}
 		}
 		if(!isset($grid['order']) || !is_array($grid['order']))
 		{
@@ -703,6 +733,10 @@ class TftpBoot
 				'cols' => intval($def['cols']),
 				'order' => array_map('intval', $def['order']),
 			);
+			if(isset($def['rows']))
+			{
+				$clean['default']['rows'] = intval($def['rows']);
+			}
 		}
 		elseif(isset($layout['sections']) && is_array($layout['sections']))
 		{
@@ -727,6 +761,10 @@ class TftpBoot
 					'cols' => intval($grid['cols']),
 					'order' => array_map('intval', $grid['order']),
 				);
+				if(isset($grid['rows']))
+				{
+					$clean['sections'][$sec_id]['rows'] = intval($grid['rows']);
+				}
 			}
 			if(!count($clean['sections']))
 			{

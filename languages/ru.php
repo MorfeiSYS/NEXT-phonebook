@@ -211,6 +211,7 @@
 		'TftpBootTabLayout'			=> 'Шаблоны',
 		'TftpBootLayoutHint'			=> 'Расположение ячеек на экране редактора (номера Fkey в конфиге не меняются). Перетаскивайте ячейки целиком.',
 		'TftpBootLayoutCols'			=> 'Колонок',
+		'TftpBootLayoutRows'			=> 'Строк в колонке',
 		'TftpBootLayoutDefault'		=> 'Основная сетка',
 		'TftpBootLayoutSectionId'		=> 'ID секции',
 		'TftpBootLayoutSectionAdd'		=> 'Добавить секцию',
