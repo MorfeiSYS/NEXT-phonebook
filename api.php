@@ -5,6 +5,15 @@ Api для подключения справочника к FreePBX
 
 require_once __DIR__.DIRECTORY_SEPARATOR.'inc.config.php';
 
+header('Content-Type: text/plain; charset=utf-8');
+ini_set('html_errors', '0');
+
+function api_plain_line($text)
+{
+	$text = strip_tags((string)$text);
+	return preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', '', $text);
+}
+
 // Проверяем наличие параметра NUMBER
 if (!isset($_GET['NUMBER'])) {
     http_response_code(400); // Возвращаем ошибку 400 Bad Request
@@ -112,18 +121,15 @@ if ($lastName && $firstName && $middleName) {
 }
 
 // Преобразуем ФИО в нужный вид и ограничиваем длину до 30 символов
-$parts = explode(' ', $fullName);
-$lastname = $parts[0];
-$firstname = $parts[1];
+$parts = explode(' ', trim($fullName));
+$lastname = $parts[0] ?? '';
+$firstname = $parts[1] ?? '';
 $patronymic = $parts[2] ?? '';
 
 $shortName = $lastname . ' ' . mb_substr($firstname, 0, 1, 'UTF-8') . '.' . mb_substr($patronymic, 0, 1, 'UTF-8') . '.';
 $shortName = mb_substr($shortName, 0, 30, 'UTF-8');
 
-//Для фильтрации специальных символов в переменной
-$shortName = filter_var($shortName, FILTER_SANITIZE_STRING);
-// Возвращаем результат
-echo $shortName;
+echo api_plain_line($shortName);
 
 // Закрываем соединение с базой данных
 $mysqli->close();
@@ -155,18 +161,15 @@ $row = $result->fetch_assoc();
 $fio = $row['first_name'];
 
 // Преобразуем ФИО в нужный вид и ограничиваем длину до 30 символов
-$parts = explode(' ', $fio);
-$lastname = $parts[0];
-$firstname = $parts[1];
-$patronymic = $parts[2];
+$parts = explode(' ', trim($fio));
+$lastname = $parts[0] ?? '';
+$firstname = $parts[1] ?? '';
+$patronymic = $parts[2] ?? '';
 
 $shortName = $lastname . ' ' . mb_substr($firstname, 0, 1, 'UTF-8') . '.' . mb_substr($patronymic, 0, 1, 'UTF-8') . '.';
 $shortName = mb_substr($shortName, 0, 30, 'UTF-8');
 
-//Для фильтрации специальных символов в переменной
-$shortName = filter_var($shortName, FILTER_SANITIZE_STRING);
-// Возвращаем результат
-echo $shortName;
+echo api_plain_line($shortName);
 //echo json_encode($shortName);
 
 // Закрываем соединение с базой данных
@@ -177,4 +180,3 @@ exit;
 
 // Закрываем соединение с базой данных
 $mysqli->close();
-?>
