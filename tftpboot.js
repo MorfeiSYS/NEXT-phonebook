@@ -9,6 +9,7 @@ var tftpboot_state = {
 	pickIndex: [], pickFilteredRows: [], pickMatchLimit: 50,
 	moderationActionInFlight: false, moderationDetailSeq: 0,
 	moderationHttpMs: 180000, labels: {},
+	dialLabelMaxLen: 25, dialLabelForbiddenExtra: '',
 	layoutVendors: [], layoutDraft: {}, layoutBlueprint: null, editorLayout: {}
 };
 
@@ -34,6 +35,13 @@ function tftpboot_init(opts) {
 		tftpboot_state.bulkLookupMinName = 2;
 	}
 	if (tftpboot_state.bulkLookupMinName > 30) tftpboot_state.bulkLookupMinName = 30;
+	tftpboot_state.dialLabelMaxLen = parseInt(opts.dialLabelMaxLen, 10);
+	if (isNaN(tftpboot_state.dialLabelMaxLen) || tftpboot_state.dialLabelMaxLen < 1) {
+		tftpboot_state.dialLabelMaxLen = 25;
+	}
+	if (tftpboot_state.dialLabelMaxLen > 64) tftpboot_state.dialLabelMaxLen = 64;
+	tftpboot_state.dialLabelForbiddenExtra = opts.dialLabelForbiddenExtra != null
+		? String(opts.dialLabelForbiddenExtra) : '';
 	tftpboot_state.labels = opts.labels || {};
 	tftpboot_state.syncApiFetch = !!opts.syncApiFetch;
 	tftpboot_state.syncHasUndo = !!opts.syncHasUndo;
@@ -109,6 +117,21 @@ function tftpboot_init(opts) {
 		if (layVendor) layVendor.onchange = tftpboot_layout_vendor_change;
 		var layModel = document.getElementById('tftpboot-layout-model');
 		if (layModel) layModel.onchange = tftpboot_layout_model_change;
+	}
+	if (!window._tftpbootGridModalResizeBound) {
+		window._tftpbootGridModalResizeBound = true;
+		window.addEventListener('resize', function () {
+			var edModal = document.getElementById('tftpboot-editor');
+			if (edModal && edModal.style.display !== 'none') {
+				var ec = document.querySelector('.tftpboot-editor-content');
+				if (ec) tftpboot_schedule_grid_modal_expand(ec, 0.9);
+			}
+			var layModal = document.getElementById('tftpboot-layout-modal');
+			if (layModal && layModal.style.display !== 'none') {
+				var lc = document.querySelector('.tftpboot-layout-modal-content');
+				if (lc) tftpboot_schedule_grid_modal_expand(lc, 0.92);
+			}
+		});
 	}
 }
 
@@ -245,6 +268,8 @@ function tftpboot_layout_open_modal() {
 function tftpboot_layout_close_modal() {
 	var m = document.getElementById('tftpboot-layout-modal');
 	if (m) m.style.display = 'none';
+	var lc = document.querySelector('.tftpboot-layout-modal-content');
+	tftpboot_reset_grid_modal_width(lc);
 }
 
 function tftpboot_layout_init_panel() {
@@ -578,6 +603,8 @@ function tftpboot_layout_render_sections() {
 				panels.querySelectorAll('.tftpboot-layout-dsskey-panel').forEach(function (p) {
 					p.style.display = p.dataset.panel === btn.dataset.panel ? '' : 'none';
 				});
+				var lc = document.querySelector('.tftpboot-layout-modal-content');
+				if (lc) tftpboot_schedule_grid_modal_expand(lc, 0.92);
 			};
 			tabs.appendChild(btn);
 		});
@@ -596,6 +623,8 @@ function tftpboot_layout_render_sections() {
 		var spec = draft.sections && draft.sections[sec.id] ? draft.sections[sec.id] : { cols: 5, order: [] };
 		tftpboot_layout_render_section_block(box, sec, spec);
 	});
+	var layContent = document.querySelector('.tftpboot-layout-modal-content');
+	if (layContent) tftpboot_schedule_grid_modal_expand(layContent, 0.92);
 }
 
 function tftpboot_layout_size_change(sid, wrap) {
@@ -622,6 +651,8 @@ function tftpboot_layout_size_change(sid, wrap) {
 		var order = tftpboot_layout_grid_order(grid);
 		tftpboot_apply_keys_grid_layout(grid, { cols: cols, rows: rows, order: order });
 	}
+	var layContent = document.querySelector('.tftpboot-layout-modal-content');
+	if (layContent) tftpboot_schedule_grid_modal_expand(layContent, 0.92);
 }
 
 function tftpboot_layout_create_cell(slot, grid) {
@@ -778,10 +809,62 @@ function tftpboot_dial_err(key) {
 		if (key === 'starDialInvalid' && LL.TftpBootStarDialInvalid) return LL.TftpBootStarDialInvalid;
 		if (key === 'dialLabelRequired' && LL.TftpBootDialLabelRequired) return LL.TftpBootDialLabelRequired;
 		if (key === 'dialNumberRequired' && LL.TftpBootDialNumberRequired) return LL.TftpBootDialNumberRequired;
+		if (key === 'dialLabelInvalid' && LL.TftpBootDialLabelInvalid) {
+			return String(LL.TftpBootDialLabelInvalid).replace('%1', String(tftpboot_state.dialLabelMaxLen || 25));
+		}
 	}
 	if (key === 'starDialInvalid') return 'Only *8 or ** allowed';
 	if (key === 'dialLabelRequired') return 'Label required when number is set';
+	if (key === 'dialLabelInvalid') return tftpboot_dial_label_err();
 	return 'Number required when label is set';
+}
+
+function tftpboot_dial_label_err() {
+	var lbl = tftpboot_state.labels || {};
+	if (lbl.dialLabelInvalid) return lbl.dialLabelInvalid;
+	return tftpboot_dial_err('dialLabelInvalid');
+}
+
+function tftpboot_is_dial_label_char_ok(ch) {
+	if (!ch) return false;
+	var extra = tftpboot_state.dialLabelForbiddenExtra || '';
+	if (extra.indexOf(ch) >= 0) return false;
+	if (/^\p{L}$/u.test(ch)) return true;
+	if (/^\p{N}$/u.test(ch)) return true;
+	return './()- '.indexOf(ch) >= 0;
+}
+
+function tftpboot_sanitize_dial_label(raw) {
+	var max = tftpboot_state.dialLabelMaxLen || 25;
+	var out = '';
+	Array.from(String(raw || '')).forEach(function (ch) {
+		if (out.length >= max) return;
+		if (tftpboot_is_dial_label_char_ok(ch)) out += ch;
+	});
+	return out;
+}
+
+function tftpboot_validate_dial_label_detail(label) {
+	var lab = String(label || '').trim();
+	if (!lab) return null;
+	var max = tftpboot_state.dialLabelMaxLen || 25;
+	if (Array.from(lab).length > max) {
+		return { code: 'dialLabelInvalid', message: tftpboot_dial_label_err() };
+	}
+	var extra = tftpboot_state.dialLabelForbiddenExtra || '';
+	if (extra) {
+		var hit = false;
+		Array.from(extra).forEach(function (ch) {
+			if (lab.indexOf(ch) >= 0) hit = true;
+		});
+		if (hit) {
+			return { code: 'dialLabelInvalid', message: tftpboot_dial_label_err() };
+		}
+	}
+	if (!/^[\p{L}\p{N} ./()\- ]+$/u.test(lab)) {
+		return { code: 'dialLabelInvalid', message: tftpboot_dial_label_err() };
+	}
+	return null;
 }
 
 function tftpboot_validate_dial_pair_detail(label, number, spec) {
@@ -794,6 +877,8 @@ function tftpboot_validate_dial_pair_detail(label, number, spec) {
 	if (tftpboot_star_dial_prefix(num) && !tftpboot_is_valid_star_dial(num)) {
 		return { code: 'starDialInvalid', message: tftpboot_dial_err('starDialInvalid') };
 	}
+	var lerr = tftpboot_validate_dial_label_detail(lab);
+	if (lerr) return lerr;
 	return null;
 }
 
@@ -822,7 +907,7 @@ function tftpboot_mark_dial_field_error(el) {
 
 function tftpboot_dial_error_input(card, code, bulkIdx) {
 	var useBulk = bulkIdx != null && bulkIdx !== '';
-	if (code === 'dialLabelRequired') {
+	if (code === 'dialLabelRequired' || code === 'dialLabelInvalid') {
 		if (useBulk) return document.querySelector('.tftpboot-bulk-title[data-idx="' + bulkIdx + '"]');
 		return card ? card.querySelector('.tftpboot-key-title') : null;
 	}
@@ -851,6 +936,19 @@ function tftpboot_sanitize_dial_number(raw) {
 	var d = s.replace(/\D/g, '');
 	if (d.length > 11) d = d.slice(0, 11);
 	return d;
+}
+
+function tftpboot_bind_dial_label_input(el) {
+	if (!el || el.disabled || el.readOnly) return;
+	var max = tftpboot_state.dialLabelMaxLen || 25;
+	el.setAttribute('maxlength', String(max));
+	var run = function () {
+		var v = tftpboot_sanitize_dial_label(el.value);
+		if (el.value !== v) el.value = v;
+	};
+	el.addEventListener('input', run);
+	el.addEventListener('paste', function () { setTimeout(run, 0); });
+	el.addEventListener('input', function () { el.classList.remove('tftpboot-field-error'); });
 }
 
 function tftpboot_bind_dial_number_input(el) {
@@ -2039,6 +2137,7 @@ function tftpboot_create_key_card(k, grid) {
 		});
 	}
 	if (titInp) {
+		tftpboot_bind_dial_label_input(titInp);
 		tftpboot_phonebook_bind_lookup(titInp, 'name', function (row) {
 			tftpboot_editor_ac_apply(card, row);
 		});
@@ -2142,6 +2241,113 @@ function tftpboot_layout_grid_spec(fullLayout, sectionId) {
 	return null;
 }
 
+var g_tftpboot_grid_modal_expand = {};
+
+function tftpboot_grid_col_min_px() {
+	var n = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--tftpboot-col-min'));
+	if (!isNaN(n) && n > 0) return n;
+	return 140;
+}
+
+function tftpboot_grid_modal_content_for(node) {
+	var el = node;
+	while (el) {
+		if (el.classList && (el.classList.contains('tftpboot-editor-content')
+			|| el.classList.contains('tftpboot-layout-modal-content'))) {
+			return el;
+		}
+		el = el.parentElement;
+	}
+	return null;
+}
+
+function tftpboot_is_visible_for_measure(el) {
+	if (!el || !el.getBoundingClientRect) return false;
+	var r = el.getBoundingClientRect();
+	return r.width > 0 && r.height > 0;
+}
+
+function tftpboot_reset_grid_modal_width(contentEl) {
+	if (!contentEl) return;
+	contentEl.style.width = '';
+	contentEl.classList.remove('tftpboot-modal-grid-clipped');
+}
+
+function tftpboot_grid_layout_cols(grid) {
+	var cols = parseInt(grid && grid.dataset ? grid.dataset.tftpbootLayoutCols : '', 10);
+	if (!isNaN(cols) && cols > 0) return cols;
+	var tpl = grid && grid.style ? grid.style.gridTemplateColumns : '';
+	var m = tpl && tpl.match(/repeat\s*\(\s*(\d+)/i);
+	if (m) return parseInt(m[1], 10) || 1;
+	return 1;
+}
+
+function tftpboot_grid_min_width_px(grid) {
+	if (!grid) return 0;
+	var cols = tftpboot_grid_layout_cols(grid);
+	var gcs = window.getComputedStyle(grid);
+	var gap = parseFloat(gcs.columnGap);
+	if (isNaN(gap)) gap = parseFloat(gcs.gap) || 6;
+	var colMin = tftpboot_grid_col_min_px();
+	return cols * colMin + Math.max(0, cols - 1) * gap;
+}
+
+function tftpboot_grid_outer_pad_x(grid, contentEl) {
+	var pad = 0;
+	var el = grid.parentElement;
+	while (el && el !== contentEl) {
+		var st = window.getComputedStyle(el);
+		pad += (parseFloat(st.paddingLeft) || 0) + (parseFloat(st.paddingRight) || 0)
+			+ (parseFloat(st.borderLeftWidth) || 0) + (parseFloat(st.borderRightWidth) || 0);
+		el = el.parentElement;
+	}
+	return pad;
+}
+
+function tftpboot_maybe_expand_grid_modal(contentEl, maxVw) {
+	if (!contentEl) return;
+	var vw = typeof maxVw === 'number' && maxVw > 0 && maxVw <= 1 ? maxVw : 0.9;
+	var maxPx = Math.floor(window.innerWidth * vw);
+	if (maxPx < 1) maxPx = 1;
+	tftpboot_reset_grid_modal_width(contentEl);
+	var cs = window.getComputedStyle(contentEl);
+	var padX = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
+	var baseW = contentEl.offsetWidth;
+	var needInner = 0;
+	contentEl.querySelectorAll('.tftpboot-keys-grid--layout').forEach(function (grid) {
+		if (!tftpboot_is_visible_for_measure(grid)) return;
+		var block = tftpboot_grid_min_width_px(grid) + tftpboot_grid_outer_pad_x(grid, contentEl);
+		if (block > needInner) needInner = block;
+	});
+	var need = Math.ceil(needInner + padX);
+	var h = contentEl.querySelector('h3');
+	if (h) {
+		var titleW = h.scrollWidth + padX + 24;
+		if (titleW > need) need = titleW;
+	}
+	var target = Math.min(need, maxPx);
+	if (target > baseW + 1) {
+		contentEl.style.width = target + 'px';
+	}
+	if (need > maxPx + 1) {
+		contentEl.classList.add('tftpboot-modal-grid-clipped');
+	}
+}
+
+function tftpboot_schedule_grid_modal_expand(contentEl, maxVw) {
+	if (!contentEl) return;
+	var key = contentEl.id || 'tftpboot-grid-modal';
+	if (g_tftpboot_grid_modal_expand[key]) {
+		cancelAnimationFrame(g_tftpboot_grid_modal_expand[key]);
+	}
+	g_tftpboot_grid_modal_expand[key] = requestAnimationFrame(function () {
+		g_tftpboot_grid_modal_expand[key] = requestAnimationFrame(function () {
+			g_tftpboot_grid_modal_expand[key] = 0;
+			tftpboot_maybe_expand_grid_modal(contentEl, maxVw);
+		});
+	});
+}
+
 function tftpboot_apply_keys_grid_layout(grid, spec) {
 	if (!grid || !spec) return;
 	var cols = parseInt(spec.cols, 10) || 1;
@@ -2167,8 +2373,12 @@ function tftpboot_apply_keys_grid_layout(grid, spec) {
 	});
 	var gridRows = tftpboot_layout_effective_rows(slotList, cols, rows);
 	grid.classList.add('tftpboot-keys-grid--layout');
+	grid.dataset.tftpbootLayoutCols = String(cols);
 	grid.style.display = 'grid';
-	grid.style.gridTemplateColumns = 'repeat(' + cols + ', minmax(0, 1fr))';
+	grid.style.width = '100%';
+	grid.style.boxSizing = 'border-box';
+	var colMin = tftpboot_grid_col_min_px();
+	grid.style.gridTemplateColumns = 'repeat(' + cols + ', minmax(' + colMin + 'px, 1fr))';
 	if (gridRows >= 1 && gridRows <= 64) {
 		grid.style.gridTemplateRows = 'repeat(' + gridRows + ', auto)';
 	} else {
@@ -2183,6 +2393,11 @@ function tftpboot_apply_keys_grid_layout(grid, spec) {
 		slot = parseInt(slot, 10);
 		if (bySlot[slot]) grid.appendChild(bySlot[slot]);
 	});
+	var contentEl = tftpboot_grid_modal_content_for(grid);
+	if (contentEl) {
+		var maxVw = contentEl.classList.contains('tftpboot-layout-modal-content') ? 0.92 : 0.9;
+		tftpboot_schedule_grid_modal_expand(contentEl, maxVw);
+	}
 }
 
 function tftpboot_append_section_panel(root, group, opts) {
@@ -2238,6 +2453,8 @@ function tftpboot_append_dsskey_tabbed(root, dsskeyPages, collapsed) {
 			panels.querySelectorAll('.tftpboot-dsskey-panel').forEach(function (p) {
 				p.style.display = p.dataset.panel === btn.dataset.panel ? '' : 'none';
 			});
+			var ec = document.querySelector('.tftpboot-editor-content');
+			if (ec) tftpboot_schedule_grid_modal_expand(ec, 0.9);
 		};
 		tabs.appendChild(btn);
 	});
@@ -2305,6 +2522,8 @@ function tftpboot_show_editor(cfg) {
 	if (typeof pb_hint_init === 'function') {
 		pb_hint_init(root);
 	}
+	var ec = document.querySelector('.tftpboot-editor-content');
+	if (ec) tftpboot_schedule_grid_modal_expand(ec, 0.9);
 }
 
 function tftpboot_editor_clear_drop_hints(grid) {
@@ -2389,6 +2608,8 @@ function tftpboot_mark_clear_if_empty(card) {
 function tftpboot_close_editor() {
 	tftpboot_bulk_ac_close();
 	document.getElementById('tftpboot-editor').style.display = 'none';
+	var ec = document.querySelector('.tftpboot-editor-content');
+	tftpboot_reset_grid_modal_width(ec);
 }
 
 function tftpboot_save_editor() {
@@ -2888,7 +3109,7 @@ function tftpboot_editor_ac_apply(card, row) {
 		numEl.classList.remove('tftpboot-field-error');
 	}
 	if (titEl) {
-		titEl.value = row.name || '';
+		titEl.value = tftpboot_sanitize_dial_label(row.name || '');
 		titEl.classList.remove('tftpboot-field-error');
 	}
 	delete card.dataset.clear;
@@ -2905,7 +3126,7 @@ function tftpboot_bulk_ac_apply(idx, row) {
 		numEl.classList.remove('tftpboot-field-error');
 	}
 	if (titEl) {
-		titEl.value = row.name || '';
+		titEl.value = tftpboot_sanitize_dial_label(row.name || '');
 		titEl.classList.remove('tftpboot-field-error');
 	}
 	tftpboot_bulk_ac_close();
@@ -3088,7 +3309,7 @@ function tftpboot_bulk_render_table(rows) {
 		tftpboot_bulk_bind_lookup(inp, 'number');
 	});
 	document.querySelectorAll('.tftpboot-bulk-title').forEach(function (inp) {
-		inp.addEventListener('input', function () { inp.classList.remove('tftpboot-field-error'); });
+		tftpboot_bind_dial_label_input(inp);
 		tftpboot_bulk_bind_lookup(inp, 'name');
 	});
 	if (typeof pb_hint_init === 'function') {

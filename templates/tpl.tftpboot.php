@@ -217,6 +217,8 @@ $tftpboot_editor_save_label = $tftpboot_self_only ? LL('TftpBootSubmitModeration
 		bulkPageSize: <?php echo intval($tftpboot_bulk_page_size); ?>,
 		bulkLookupMinDigits: <?php echo intval($tftpboot_bulk_lookup_min_digits); ?>,
 		bulkLookupMinName: <?php echo intval($tftpboot_bulk_lookup_min_name); ?>,
+		dialLabelMaxLen: <?php echo intval(tftpboot_dial_label_max_len($core)); ?>,
+		dialLabelForbiddenExtra: <?php echo json_encode(tftpboot_dial_label_forbidden_extra($core), JSON_UNESCAPED_UNICODE); ?>,
 		syncApiFetch: <?php echo !empty($tftpboot_sync_api_fetch) ? '1' : '0'; ?>,
 		syncHasUndo: <?php echo !empty($tftpboot_sync_has_undo) ? '1' : '0'; ?>,
 		labels: {
@@ -258,6 +260,7 @@ $tftpboot_editor_save_label = $tftpboot_self_only ? LL('TftpBootSubmitModeration
 			starDialInvalid: <?php echo json_encode(LL('TftpBootStarDialInvalid'), JSON_UNESCAPED_UNICODE); ?>,
 			dialLabelRequired: <?php echo json_encode(LL('TftpBootDialLabelRequired'), JSON_UNESCAPED_UNICODE); ?>,
 			dialNumberRequired: <?php echo json_encode(LL('TftpBootDialNumberRequired'), JSON_UNESCAPED_UNICODE); ?>,
+			dialLabelInvalid: <?php echo json_encode(tftpboot_dial_label_invalid_message($core), JSON_UNESCAPED_UNICODE); ?>,
 			moderationReview: <?php echo json_encode(LL('TftpBootModerationReview'), JSON_UNESCAPED_UNICODE); ?>,
 			moderationLoading: <?php echo json_encode(LL('TftpBootModerationLoading'), JSON_UNESCAPED_UNICODE); ?>,
 			moderationNoDiff: <?php echo json_encode(LL('TftpBootModerationNoDiff'), JSON_UNESCAPED_UNICODE); ?>,

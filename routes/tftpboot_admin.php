@@ -25,6 +25,8 @@ function tftpboot_admin(&$core, $params, $post_data)
 		'bulk_page_size' => (string) $svc->get_bulk_page_size(),
 		'moderation_poll_interval' => (string) tftpboot_moderation_poll_interval_sec($core),
 		'moderation_max_per_hour' => (string) tftpboot_moderation_max_per_hour($core),
+		'moderation_label_max_len' => (string) tftpboot_dial_label_max_len($core),
+		'moderation_label_forbidden' => tftpboot_dial_label_forbidden_extra($core),
 		'bulk_lookup_min_digits' => (string) tftpboot_bulk_lookup_min_digits($core),
 		'bulk_lookup_min_name' => (string) tftpboot_bulk_lookup_min_name($core),
 		'pb_hint_delay_ms' => (string) pb_hint_delay_ms($core),

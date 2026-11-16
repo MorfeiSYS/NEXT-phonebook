@@ -408,6 +408,15 @@ function tftpboot_validate_dial_entry($label, $number)
 	{
 		return LL('TftpBootDialLabelRequired');
 	}
+	global $core;
+	if($label !== '' && is_object($core))
+	{
+		$err = tftpboot_validate_dial_label($label, $core);
+		if($err !== '')
+		{
+			return $err;
+		}
+	}
 
 	return '';
 }
@@ -803,6 +812,85 @@ function tftpboot_moderation_poll_interval_sec(&$core)
 	}
 
 	return $n;
+}
+
+function tftpboot_dial_label_max_len(&$core)
+{
+	$n = intval($core->Config->get_global('tftpboot_moderation_label_max_len', '25'));
+	if($n < 1)
+	{
+		$n = 1;
+	}
+	if($n > 64)
+	{
+		$n = 64;
+	}
+
+	return $n;
+}
+
+function tftpboot_normalize_dial_label_forbidden($raw)
+{
+	$s = trim((string)$raw);
+	if($s === '')
+	{
+		return '';
+	}
+	$s = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', '', $s);
+	$s = str_replace(array('<', '>', '&'), '', $s);
+	if(mb_strlen($s, 'UTF-8') > 100)
+	{
+		$s = mb_substr($s, 0, 100, 'UTF-8');
+	}
+
+	return $s;
+}
+
+function tftpboot_dial_label_forbidden_extra(&$core)
+{
+	return tftpboot_normalize_dial_label_forbidden(
+		$core->Config->get_global('tftpboot_moderation_label_forbidden', '')
+	);
+}
+
+function tftpboot_validate_dial_label($label, &$core)
+{
+	$label = trim((string)$label);
+	if($label === '')
+	{
+		return '';
+	}
+	$max = tftpboot_dial_label_max_len($core);
+	if(mb_strlen($label, 'UTF-8') > $max)
+	{
+		return tftpboot_dial_label_invalid_message($core);
+	}
+	$extra = tftpboot_dial_label_forbidden_extra($core);
+	if($extra !== '')
+	{
+		$chars = preg_split('//u', $extra, -1, PREG_SPLIT_NO_EMPTY);
+		foreach($chars as $ch)
+		{
+			if($ch !== '' && mb_strpos($label, $ch, 0, 'UTF-8') !== false)
+			{
+				return tftpboot_dial_label_invalid_message($core);
+			}
+		}
+	}
+	if(!preg_match('/^[\p{L}\p{N} ./()\- ]+$/u', $label))
+	{
+		return tftpboot_dial_label_invalid_message($core);
+	}
+
+	return '';
+}
+
+function tftpboot_dial_label_invalid_message(&$core)
+{
+	$msg = LL('TftpBootDialLabelInvalid');
+	$max = tftpboot_dial_label_max_len($core);
+
+	return str_replace('%1', (string)$max, $msg);
 }
 
 function tftpboot_bulk_lookup_min_digits(&$core)

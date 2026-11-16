@@ -19,6 +19,8 @@ if(!isset($tftpboot_settings))
 		'bulk_page_size' => '50',
 		'moderation_poll_interval' => '60',
 		'moderation_max_per_hour' => '1',
+		'moderation_label_max_len' => '25',
+		'moderation_label_forbidden' => '',
 		'bulk_lookup_min_digits' => '2',
 		'bulk_lookup_min_name' => '2',
 		'pb_hint_delay_ms' => '400',
@@ -64,6 +66,9 @@ if(!isset($tftpboot_admin_embedded)) { $tftpboot_admin_embedded = FALSE; }
 	<h4><?php L('TftpBootModerationSettings') ?></h4>
 	<label><?php L('TftpBootModerationPollInterval') ?> <input type="number" name="moderation_poll_interval" value="<?php eh($tftpboot_settings['moderation_poll_interval']); ?>" min="60" step="1" /></label><br />
 	<label><?php L('TftpBootModerationMaxPerHour') ?> <input type="number" name="moderation_max_per_hour" value="<?php eh($tftpboot_settings['moderation_max_per_hour']); ?>" min="1" step="1" /></label><br />
+	<label><?php L('TftpBootModerationLabelMaxLen') ?> <input type="number" name="moderation_label_max_len" value="<?php eh($tftpboot_settings['moderation_label_max_len']); ?>" min="1" max="64" step="1" /></label><br />
+	<label><?php L('TftpBootModerationLabelForbidden') ?> <input type="text" name="moderation_label_forbidden" size="40" value="<?php eh($tftpboot_settings['moderation_label_forbidden']); ?>" maxlength="100" autocomplete="off" /></label><br />
+	<p class="note"><?php L('TftpBootModerationLabelForbiddenHint') ?></p>
 	<label><?php L('TftpBootBulkLookupMinDigits') ?> <input type="number" name="bulk_lookup_min_digits" value="<?php eh($tftpboot_settings['bulk_lookup_min_digits']); ?>" min="1" max="11" step="1" /></label><br />
 	<label><?php L('TftpBootBulkLookupMinName') ?> <input type="number" name="bulk_lookup_min_name" value="<?php eh($tftpboot_settings['bulk_lookup_min_name']); ?>" min="1" max="30" step="1" /></label><br />
 	<label><?php L('TftpBootHintDelayMs') ?> <input type="number" name="pb_hint_delay_ms" value="<?php eh($tftpboot_settings['pb_hint_delay_ms']); ?>" min="0" max="5000" step="50" /></label><br />

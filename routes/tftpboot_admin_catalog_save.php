@@ -75,6 +75,27 @@ function tftpboot_admin_catalog_save(&$core, $params, $post_data)
 		$core->Config->set_global('tftpboot_moderation_max_per_hour', (string) $n);
 	}
 
+	if(isset($post_data['moderation_label_max_len']))
+	{
+		$n = intval($post_data['moderation_label_max_len']);
+		if($n < 1)
+		{
+			$n = 1;
+		}
+		if($n > 64)
+		{
+			$n = 64;
+		}
+
+		$core->Config->set_global('tftpboot_moderation_label_max_len', (string) $n);
+	}
+
+	if(isset($post_data['moderation_label_forbidden']))
+	{
+		$s = tftpboot_normalize_dial_label_forbidden($post_data['moderation_label_forbidden']);
+		$core->Config->set_global('tftpboot_moderation_label_forbidden', $s);
+	}
+
 	if(isset($post_data['bulk_lookup_min_digits']))
 	{
 		$n = intval($post_data['bulk_lookup_min_digits']);

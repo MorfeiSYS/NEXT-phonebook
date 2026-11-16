@@ -61,6 +61,7 @@
     --pb-popup-border: var(--color-border-2);
     --pb-popup-shadow: 0 10px 28px rgba(0, 0, 0, 0.14), 0 2px 8px rgba(0, 0, 0, 0.08);
     --pb-popup-radius: 10px;
+    --tftpboot-col-min: 140px;
 }
 
 :root[data-theme-color="dark"] {
@@ -1679,7 +1680,32 @@ ul.tree-menu:before {
 .tftpboot-keys-grid.tftpboot-keys-grid--layout {
 	display: grid;
 	gap: 6px;
-	align-items: start;
+	align-items: stretch;
+	width: 100%;
+	box-sizing: border-box;
+}
+.tftpboot-keys-grid--layout .tftpboot-key-card {
+	min-width: 0;
+	width: 100%;
+	max-width: none;
+	box-sizing: border-box;
+}
+.tftpboot-keys-grid--layout .tftpboot-key-title,
+.tftpboot-keys-grid--layout .tftpboot-key-number {
+	display: block;
+	width: 100%;
+	max-width: 100%;
+	box-sizing: border-box;
+}
+.tftpboot-keys-grid--layout .tftpboot-key-slot-label {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.tftpboot-editor-modal .modal-content.tftpboot-modal-grid-clipped,
+#tftpboot-layout-modal .tftpboot-layout-modal-content.tftpboot-modal-grid-clipped {
+	overflow-x: auto;
 }
 .tftpboot-layout-grid.tftpboot-keys-grid--layout {
 	justify-items: center;
