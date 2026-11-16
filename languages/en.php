@@ -311,6 +311,7 @@
 		'TftpBootModerationDiffKey'		=> 'Key',
 		'TftpBootModerationDiffWas'		=> 'Was',
 		'TftpBootModerationDiffNow'		=> 'Now',
+		'TftpBootModerationDiffSuffix'	=> 'Dial suffix (@1/bc)',
 		'TftpBootModerationSelfPending'	=> 'Awaiting operator approval',
 		'TftpBootModerationSelfRejected'=> 'Last request was rejected',
 		'TftpBootDialNumberHint'		=> 'Digits, *8 or **',

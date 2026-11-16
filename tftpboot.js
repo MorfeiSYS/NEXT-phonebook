@@ -1251,13 +1251,16 @@ function tftpboot_moderation_render_diff(diff) {
 		box.innerHTML = '<p>' + escapeHtml(lbl.moderationNoDiff || 'No button changes') + '</p>';
 		return;
 	}
+	var sfxH = lbl.moderationDiffSuffix || '@1/bc';
 	var html = '<table class="tftpboot-table"><thead><tr><th>' + escapeHtml(keyH) +
-		'</th><th>' + escapeHtml(lbl.keyTitle || 'Label') + '</th><th>' + escapeHtml(lbl.keyNumber || 'Number') + '</th></tr></thead><tbody>';
+		'</th><th>' + escapeHtml(lbl.keyTitle || 'Label') + '</th><th>' + escapeHtml(lbl.keyNumber || 'Number') +
+		'</th><th>' + escapeHtml(sfxH) + '</th></tr></thead><tbody>';
 	diff.forEach(function (d) {
 		var key = d.key_id || '—';
 		var lab = escapeHtml(d.label_was || '—') + ' → ' + escapeHtml(d.label_now || '—');
 		var num = escapeHtml(d.number_was || '—') + ' → ' + escapeHtml(d.number_now || '—');
-		html += '<tr><td>' + escapeHtml(key) + '</td><td>' + lab + '</td><td>' + num + '</td></tr>';
+		var sfx = escapeHtml(d.suffix_was || '—') + ' → ' + escapeHtml(d.suffix_now || '—');
+		html += '<tr><td>' + escapeHtml(key) + '</td><td>' + lab + '</td><td>' + num + '</td><td>' + sfx + '</td></tr>';
 	});
 	html += '</tbody></table>';
 	box.innerHTML = html;

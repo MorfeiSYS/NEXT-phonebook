@@ -3220,8 +3220,10 @@ class TftpBoot
 			$label_now = $now ? trim((string)(isset($now['label']) ? $now['label'] : '')) : '';
 			$num_was = $was ? trim((string)(isset($was['number']) ? $was['number'] : '')) : '';
 			$num_now = $now ? trim((string)(isset($now['number']) ? $now['number'] : '')) : '';
+			$suffix_was = $was ? tftpboot_sanitize_dial_suffix(isset($was['dial_suffix']) ? $was['dial_suffix'] : '') : '';
+			$suffix_now = $now ? tftpboot_sanitize_dial_suffix(isset($now['dial_suffix']) ? $now['dial_suffix'] : '') : '';
 
-			if($label_was === $label_now && $num_was === $num_now)
+			if($label_was === $label_now && $num_was === $num_now && $suffix_was === $suffix_now)
 			{
 				continue;
 			}
@@ -3242,6 +3244,8 @@ class TftpBoot
 				'label_now' => $label_now,
 				'number_was' => $num_was,
 				'number_now' => $num_now,
+				'suffix_was' => $suffix_was,
+				'suffix_now' => $suffix_now,
 			);
 		}
 
@@ -3277,6 +3281,8 @@ class TftpBoot
 							'label_now' => '',
 							'number_was' => isset($k['number']) ? $k['number'] : '',
 							'number_now' => '',
+							'suffix_was' => tftpboot_sanitize_dial_suffix(isset($k['dial_suffix']) ? $k['dial_suffix'] : ''),
+							'suffix_now' => '',
 						);
 						break;
 					}

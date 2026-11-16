@@ -311,6 +311,7 @@
 		'TftpBootModerationDiffKey'		=> 'Кнопка',
 		'TftpBootModerationDiffWas'		=> 'Было',
 		'TftpBootModerationDiffNow'		=> 'Станет',
+		'TftpBootModerationDiffSuffix'	=> 'Набор @1/bc',
 		'TftpBootModerationSelfPending'	=> 'Заявка ожидает подтверждения оператором',
 		'TftpBootModerationSelfRejected'=> 'Последняя заявка отклонена',
 		'TftpBootDialNumberHint'		=> 'Цифры, *8 или **',

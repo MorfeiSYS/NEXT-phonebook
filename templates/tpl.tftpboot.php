@@ -253,6 +253,7 @@ $tftpboot_editor_save_label = $tftpboot_self_only ? LL('TftpBootSubmitModeration
 			moderationDiffKey: <?php echo json_encode(LL('TftpBootModerationDiffKey'), JSON_UNESCAPED_UNICODE); ?>,
 			moderationDiffWas: <?php echo json_encode(LL('TftpBootModerationDiffWas'), JSON_UNESCAPED_UNICODE); ?>,
 			moderationDiffNow: <?php echo json_encode(LL('TftpBootModerationDiffNow'), JSON_UNESCAPED_UNICODE); ?>,
+			moderationDiffSuffix: <?php echo json_encode(LL('TftpBootModerationDiffSuffix'), JSON_UNESCAPED_UNICODE); ?>,
 			selfStatusPending: <?php echo json_encode(LL('TftpBootModerationSelfPending'), JSON_UNESCAPED_UNICODE); ?>,
 			selfStatusRejected: <?php echo json_encode(LL('TftpBootModerationSelfRejected'), JSON_UNESCAPED_UNICODE); ?>,
 			selfModerationPendingBlock: <?php echo json_encode(LL('TftpBootModerationPendingBlock'), JSON_UNESCAPED_UNICODE); ?>,
