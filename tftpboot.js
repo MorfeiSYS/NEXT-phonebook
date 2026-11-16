@@ -342,27 +342,41 @@ function tftpboot_layout_append_collapsible(root, title, contentEl, collapsed) {
 	tftpboot_append_collapsible(root, title, contentEl, !!collapsed, 'tftpboot-layout-collapsible');
 }
 
+function tftpboot_layout_bind_digits_inp(inp, maxVal) {
+	inp.type = 'text';
+	inp.inputMode = 'numeric';
+	inp.autocomplete = 'off';
+	inp.maxLength = 3;
+	inp.className += ' tftpboot-layout-size-inp';
+	inp.addEventListener('input', function () {
+		var v = String(inp.value || '').replace(/\D/g, '').slice(0, 3);
+		if (inp.value !== v) inp.value = v;
+	});
+	inp.addEventListener('change', function () {
+		var n = parseInt(inp.value, 10);
+		if (isNaN(n) || n < 1) n = 1;
+		if (n > maxVal) n = maxVal;
+		inp.value = String(n);
+	});
+}
+
 function tftpboot_layout_append_size_inputs(wrap, sec, spec) {
 	var colsLbl = tftpboot_layout_label('layoutCols', 'Columns');
 	var colsInp = document.createElement('input');
-	colsInp.type = 'number';
-	colsInp.min = '1';
-	colsInp.max = '12';
 	colsInp.className = 'tftpboot-layout-cols form-field';
 	colsInp.value = String(spec.cols || 5);
 	colsInp.dataset.sectionId = sec.id;
+	tftpboot_layout_bind_digits_inp(colsInp, 12);
 	colsInp.onchange = function () { tftpboot_layout_size_change(sec.id, wrap); };
 	var rowsLbl = tftpboot_layout_label('layoutRows', 'Rows per column');
 	var rowsInp = document.createElement('input');
-	rowsInp.type = 'number';
-	rowsInp.min = '1';
-	rowsInp.max = '64';
 	rowsInp.className = 'tftpboot-layout-rows form-field';
 	var slotsN = (sec.slots || []).length || 16;
 	var rowsVal = spec.rows ? parseInt(spec.rows, 10) : tftpboot_layout_default_rows(sec.slots || [], spec.cols);
 	if (!rowsVal || rowsVal < 1) rowsVal = tftpboot_layout_default_rows(sec.slots || [], spec.cols);
 	rowsInp.value = String(rowsVal);
 	rowsInp.dataset.sectionId = sec.id;
+	tftpboot_layout_bind_digits_inp(rowsInp, 64);
 	rowsInp.onchange = function () { tftpboot_layout_size_change(sec.id, wrap); };
 	wrap.appendChild(document.createTextNode(colsLbl + ' '));
 	wrap.appendChild(colsInp);
@@ -1884,16 +1898,18 @@ function tftpboot_append_dsskey_tabbed(root, dsskeyPages, collapsed) {
 	tabs.className = 'tftpboot-dsskey-tabs';
 	dsskeyPages.forEach(function (group, idx) {
 		var panel = document.createElement('div');
-		panel.className = 'tftpboot-keys-grid tftpboot-dsskey-panel';
+		panel.className = 'tftpboot-dsskey-panel';
 		panel.dataset.panel = String(idx);
 		if (idx > 0) panel.style.display = 'none';
-		var grid = panel;
-		group.keys.forEach(function (k) {
-			panel.appendChild(tftpboot_create_key_card(k, grid));
-		});
+		var grid = document.createElement('div');
+		grid.className = 'tftpboot-keys-grid';
 		if (group.section) grid.dataset.tftpbootSection = group.section;
+		group.keys.forEach(function (k) {
+			grid.appendChild(tftpboot_create_key_card(k, grid));
+		});
 		var lay = tftpboot_layout_grid_spec(tftpboot_state.editorLayout, group.section || '');
 		if (lay) tftpboot_apply_keys_grid_layout(grid, lay);
+		panel.appendChild(grid);
 		panels.appendChild(panel);
 		var btn = document.createElement('button');
 		btn.type = 'button';
