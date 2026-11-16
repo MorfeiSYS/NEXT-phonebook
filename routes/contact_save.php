@@ -2,7 +2,9 @@
 
 function contact_save(&$core, $params, $post_data)
 {
-	$v_id 				= intval(@$post_data['id']);
+	global $g_icons;
+
+	$v_id = intval(@$post_data['id']);
 
 	if($v_id)
 	{
@@ -10,7 +12,13 @@ function contact_save(&$core, $params, $post_data)
 	}
 	else
 	{
-		assert_permission_ajax(0, PB_ACCESS_OPERATOR);
+		contact_assert_can_add($core);
+	}
+
+	$type_max = is_array($g_icons) ? (count($g_icons) - 1) : 0;
+	if($type_max < 0)
+	{
+		$type_max = 0;
 	}
 
 	$result_json = array(
@@ -19,59 +27,53 @@ function contact_save(&$core, $params, $post_data)
 		'errors' => array()
 	);
 
-	$v_last_name 		= trim(@$post_data['last_name']);
-	$v_first_name 		= trim(@$post_data['first_name']);
-	$v_middle_name 		= trim(@$post_data['middle_name']);
-	$v_department 		= trim(@$post_data['department']);
-	$v_organization 	= trim(@$post_data['organization']);
-	$v_position 		= trim(@$post_data['position']);
-	$v_phone_internal 	= trim(@$post_data['phone_internal']);
-	$v_phone_external	= trim(@$post_data['phone_external']);
-	$v_phone_mobile 	= trim(@$post_data['phone_mobile']);
-	$v_mail 			= trim(@$post_data['mail']);
-	$v_birthday 		= trim(@$post_data['birthday']);
-	$v_type 			= trim(@$post_data['type']);
-	$v_reserved1 		= ''; // trim(@$post_data['reserved1']);
-	$v_reserved2 		= ''; // trim(@$post_data['reserved2']);
-	$v_reserved3 		= ''; // trim(@$post_data['reserved3']);
-	$v_reserved4 		= ''; // trim(@$post_data['reserved4']);
-	$v_reserved5 		= ''; // trim(@$post_data['reserved5']);
-
-//***// Отключение обязательного поля Имя.
-
-/*	if(empty($v_last_name))
+	$normalized = array();
+	if(!contact_validate_save_data($post_data, $type_max, $normalized, $result_json['errors']))
 	{
 		$result_json['code'] = 1;
-		$result_json['errors'][] = array('name' => 'last_name', 'msg' => LL('ThisFieldRequired'));
+		$result_json['message'] = LL('NotAllFilled');
+		echo json_encode($result_json, JSON_UNESCAPED_UNICODE);
+		return;
 	}
-*/
-//***//
-	
-	if(!empty($v_birthday))
+
+	$v_last_name = $normalized['last_name'];
+	$v_first_name = $normalized['first_name'];
+	$v_middle_name = $normalized['middle_name'];
+	$v_department = $normalized['department'];
+	$v_organization = $normalized['organization'];
+	$v_position = $normalized['position'];
+	$v_phone_internal = $normalized['phone_internal'];
+	$v_phone_external = $normalized['phone_external'];
+	$v_phone_mobile = $normalized['phone_mobile'];
+	$v_mail = $normalized['mail'];
+	$v_birthday = $normalized['birthday'];
+	$v_type = $normalized['type'];
+	$v_reserved1 = '';
+	$v_reserved2 = '';
+	$v_reserved3 = '';
+	$v_reserved4 = '';
+	$v_reserved5 = '';
+
+	if($v_birthday !== '')
 	{
 		$d = explode('.', $v_birthday, 3);
 		$nd = intval(@$d[0]);
 		$nm = intval(@$d[1]);
 		$ny = intval(@$d[2]);
 		$v_birthday = sprintf('\'%04d-%02d-%02d\'', $ny, $nm, $nd);
-		$v_bday_human = sprintf('%02d.%02d.%04d', $nd, $nm, $ny);
 
 		if(!datecheck($nd, $nm, $ny))
 		{
 			$result_json['code'] = 1;
 			$result_json['errors'][] = array('name' => 'birthday', 'msg' => LL('IncorrectDate').' DD.MM.YYYY');
+			$result_json['message'] = LL('NotAllFilled');
+			echo json_encode($result_json, JSON_UNESCAPED_UNICODE);
+			return;
 		}
 	}
 	else
 	{
 		$v_birthday = 'NULL';
-	}
-
-	if($result_json['code'])
-	{
-		$result_json['message'] = LL('NotAllFilled');
-		echo json_encode($result_json);
-		exit;
 	}
 
 	if(!$v_id)
@@ -124,11 +126,12 @@ function contact_save(&$core, $params, $post_data)
 
 		log_db('Added contact', '{id='.$v_id.',name="'.substr($v_first_name, 0, 200).'"}', 0);
 
-		echo '{"code": 0, "id": '.$v_id.', "message": "Added (ID '.$v_id.')"}';
+		echo json_encode(array('code' => 0, 'id' => $v_id, 'message' => 'Added (ID '.$v_id.')'), JSON_UNESCAPED_UNICODE);
 	}
 	else
 	{
-		$core->db->put(rpv('
+		$affected = 0;
+		if(!$core->db->put(rpv('
 				UPDATE `@contacts` SET
 					`samaccountname` = \'\',
 					`last_name` = {s0},
@@ -171,11 +174,14 @@ function contact_save(&$core, $params, $post_data)
 			$v_reserved5,
 			$v_type,
 			$v_id
-		));
+		), $affected) || $affected < 1)
+		{
+			echo json_encode(array('code' => 1, 'message' => LL('Error')), JSON_UNESCAPED_UNICODE);
+			return;
+		}
 
 		log_db('Updated contact', '{id='.$v_id.',name="'.substr($v_first_name, 0, 200).'"}', 0);
 
-		echo '{"code": 0, "id": '.$v_id.',"message": "Updated (ID '.$v_id.')"}';
+		echo json_encode(array('code' => 0, 'id' => $v_id, 'message' => 'Updated (ID '.$v_id.')'), JSON_UNESCAPED_UNICODE);
 	}
 }
-

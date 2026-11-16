@@ -1,5 +1,7 @@
 <?php
 
+require_once dirname(__DIR__).DIRECTORY_SEPARATOR.'inc.contacts.php';
+
 function tools(&$core, $params, $post_data)
 {
 	assert_admin_page($core);
@@ -43,6 +45,11 @@ function tools(&$core, $params, $post_data)
 			'sync_cron_key' => $core->Config->get_global('tftpboot_sync_cron_key', ''),
 		);
 	}
+
+	$contacts_add_groups = contacts_add_groups_settings($core);
+	$contacts_add_allowed_groups = $contacts_add_groups['contacts_add_allowed_groups'];
+	$contacts_access_group_dns = $contacts_add_groups['contacts_access_group_dns'];
+	$contacts_add_groups_extra = $contacts_add_groups['contacts_add_groups_extra'];
 
 	include(TEMPLATES_DIR.'tpl.tools.php');
 }

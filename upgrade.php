@@ -99,7 +99,7 @@ require_once(ROOT_DIR.'inc.config.php');
 
 	if(!defined('DB_VERSION'))
 	{
-		define('DB_VERSION', 16);
+		define('DB_VERSION', 17);
 	}
 
 	$core = new Core(TRUE);
@@ -856,6 +856,24 @@ require_once(ROOT_DIR.'inc.config.php');
 		}
 
 		case 16:
+		{
+			echo "Add contacts_add_allowed_groups_json config...\n";
+			if(!$core->db->select(rpv("SELECT `name` FROM `@config` WHERE `uid` = 0 AND `name` = 'contacts_add_allowed_groups_json' LIMIT 1")))
+			{
+				if(!$core->db->put(rpv("INSERT INTO `@config` (`uid`, `name`, `value`, `description`) VALUES (0, 'contacts_add_allowed_groups_json', '[]', 'AD group DNs allowed to add local contacts; empty = all operators')")))
+				{
+					echo 'ERROR['.__LINE__.']: '.$core->db->get_last_error().PHP_EOL;
+				}
+			}
+			echo "Set db_version = '17'...\n";
+			if(!$core->db->put(rpv("UPDATE @config SET `value` = 17 WHERE `uid` = 0 AND `name` = 'db_version' LIMIT 1")))
+			{
+				echo 'ERROR['.__LINE__.']: '.$core->db->get_last_error().PHP_EOL;
+			}
+			echo "\n\nUpgrade to version 17 complete!\n";
+		}
+
+		case 17:
 		{
 			echo "\nDatabase schema is up to date (version ".DB_VERSION.").\n";
 		}

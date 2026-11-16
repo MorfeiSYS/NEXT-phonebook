@@ -117,6 +117,8 @@ if(!isset($tftpboot_admin_embedded)) { $tftpboot_admin_embedded = FALSE; }
 		<button type="button" class="button-other" onclick="tftpboot_policy_save()"><?php L('Save') ?></button>
 	</div>
 
+	<?php include(TEMPLATES_DIR.'inc.contacts-add-groups-settings.php'); ?>
+
 	<input type="hidden" name="catalog" id="tftpboot-catalog-json" value="<?php eh(json_encode($tftpboot_catalog, JSON_UNESCAPED_UNICODE)); ?>" />
 	<p><button type="submit" class="button-accept"><?php L('Save') ?></button>
 	<button type="button" class="button-other" onclick="return tftpboot_rescan_admin()"><?php L('TftpBootRescan') ?></button></p>

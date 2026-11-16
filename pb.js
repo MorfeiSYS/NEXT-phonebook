@@ -397,27 +397,138 @@ function f_append_fields(el, fields, form_id, spoiler_id)
 		else
 		{
 			var placeholder = '';
+			var maxlength = '';
+			var inputmode = '';
+			var fieldClass = 'form-field';
 			if(fields[i].placeholder)
 			{
 				placeholder = '" placeholder="' + fields[i].placeholder;
 			}
+			if(fields[i].maxlength)
+			{
+				maxlength = '" maxlength="' + parseInt(fields[i].maxlength, 10);
+			}
+			if(fields[i].digits)
+			{
+				fieldClass += ' form-field-phone-digits';
+				inputmode = '" inputmode="numeric" pattern="[0-9]*" autocomplete="tel';
+			}
 
 			html = '<div class="form-title"><label for="'+ escapeHtml(form_id + fields[i].name) + '">' + escapeHtml(fields[i].title) + ':</label></div>'
-				+ '<input class="form-field" id="' + escapeHtml(form_id + fields[i].name) + '" name="'+ escapeHtml(fields[i].name) + '" type="edit" value="'+ escapeHtml(fields[i].value) + placeholder + '"/>'
+				+ '<input class="' + fieldClass + '" id="' + escapeHtml(form_id + fields[i].name) + '" name="'+ escapeHtml(fields[i].name) + '" type="edit" value="'+ escapeHtml(fields[i].value) + placeholder + maxlength + inputmode + '"/>'
 				+ '<div id="'+ escapeHtml(form_id + fields[i].name) + '-error" class="form-error"></div>';
 
 			var wrapper = document.createElement('div');
 			wrapper.innerHTML = html;
 			el.appendChild(wrapper);
+
+			var fieldInput = gi(form_id + fields[i].name);
+			if(fields[i].digits && fieldInput)
+			{
+				f_bind_phone_digits_input(fieldInput, fields[i].minlength, fields[i].maxlength);
+			}
 			
 			if(fields[i].autocomplete)
 			{
-				autocomplete_create(gi(form_id + fields[i].name), fields[i].autocomplete);
+				autocomplete_create(fieldInput, fields[i].autocomplete);
 			}
 		}
 	}
 
 	return spoiler_id;
+}
+
+function f_phone_length_msg(min, max)
+{
+	var template = LL.ContactPhoneLength || 'Enter %1 to %2 digits';
+	return template.replace('%1', String(min)).replace('%2', String(max));
+}
+
+function f_bind_phone_digits_input(inp, minLen, maxLen)
+{
+	if(!inp)
+	{
+		return;
+	}
+	var max = parseInt(maxLen, 10);
+	if(!isNaN(max) && max > 0)
+	{
+		inp.setAttribute('data-phone-max', String(max));
+	}
+	var min = parseInt(minLen, 10);
+	if(!isNaN(min) && min > 0)
+	{
+		inp.setAttribute('data-phone-min', String(min));
+	}
+
+	var filter = function()
+	{
+		var v = inp.value.replace(/\D/g, '');
+		if(!isNaN(max) && max > 0 && v.length > max)
+		{
+			v = v.slice(0, max);
+		}
+		if(inp.value !== v)
+		{
+			inp.value = v;
+		}
+	};
+	inp.addEventListener('input', filter);
+	inp.addEventListener('paste', function()
+	{
+		setTimeout(filter, 0);
+	});
+}
+
+function f_validate_contact_phones(form_id)
+{
+	var names = ['phone_internal', 'phone_external', 'phone_mobile'];
+	var ok = true;
+	var digitsMsg = LL.ContactPhoneDigitsOnly || 'Only digits are allowed';
+	var n;
+
+	for(n = 0; n < names.length; n++)
+	{
+		var inp = gi(form_id + names[n]);
+		if(!inp || inp.className.indexOf('form-field-phone-digits') < 0)
+		{
+			continue;
+		}
+		var err = gi(form_id + names[n] + '-error');
+		if(err)
+		{
+			err.style.display = 'none';
+			err.textContent = '';
+		}
+		var v = inp.value;
+		if(v === '')
+		{
+			continue;
+		}
+		if(/\D/.test(v))
+		{
+			if(err)
+			{
+				err.textContent = digitsMsg;
+				err.style.display = 'block';
+			}
+			ok = false;
+			continue;
+		}
+		var min = parseInt(inp.getAttribute('data-phone-min'), 10);
+		var max = parseInt(inp.getAttribute('data-phone-max'), 10);
+		if(!isNaN(min) && !isNaN(max) && (v.length < min || v.length > max))
+		{
+			if(err)
+			{
+				err.textContent = f_phone_length_msg(min, max);
+				err.style.display = 'block';
+			}
+			ok = false;
+		}
+	}
+
+	return ok;
 }
 
 function on_received_form(data, form_id)
@@ -516,6 +627,11 @@ function f_send_form(action)
 
 	//alert(json2url(form_data));
 	//return;
+
+	if(action === 'contact_save' && !f_validate_contact_phones(form_id))
+	{
+		return false;
+	}
 
 	gi('loading').style.display = 'block';
 	f_http(
@@ -882,10 +998,19 @@ function f_get_acs_location(ev)
 	);
 };
 
+function f_delete_contact_confirm(ev)
+{
+	if(window.confirm(LL.ConfirmDelete))
+	{
+		f_delete(ev);
+	}
+}
+
 function f_delete(ev)
 {
 	var el_src = ev.target || ev.srcElement;
-	var id = el_src.parentNode.parentNode.parentNode.getAttribute('data-id');
+	var row = f_row_from_element(el_src);
+	var id = row ? row.getAttribute('data-id') : el_src.parentNode.parentNode.parentNode.getAttribute('data-id');
 	f_http(
 		g_link_prefix + 'contact_delete',
 		function(data, id)
@@ -1924,6 +2049,34 @@ function f_reset_contacts_columns()
 	return false;
 }
 
+function f_collect_contacts_add_groups(form)
+{
+	var boxes = form.querySelectorAll('input[name="contacts_add_group"]:checked');
+	var list = [];
+	var i;
+	var extra;
+	for(i = 0; i < boxes.length; i++)
+	{
+		if(boxes[i].value)
+		{
+			list.push(boxes[i].value);
+		}
+	}
+	extra = form.contacts_add_groups_extra;
+	if(extra && extra.value)
+	{
+		extra.value.replace(/\r\n/g, '\n').split('\n').forEach(function(line)
+		{
+			line = line.replace(/^\s+|\s+$/g, '');
+			if(line)
+			{
+				list.push(line);
+			}
+		});
+	}
+	return list;
+}
+
 function f_save_directory_defaults(form)
 {
 	var cols = f_collect_columns(form);
@@ -1970,6 +2123,24 @@ function f_save_directory_defaults(form)
 	);
 
 	return false;
+}
+
+function f_save_contacts_add_groups(form, onDone)
+{
+	var addGroups = f_collect_contacts_add_groups(form);
+	f_http(
+		g_link_prefix + 'setting_save',
+		function(data)
+		{
+			if(typeof onDone === 'function')
+			{
+				onDone(data);
+			}
+		},
+		null,
+		'application/x-www-form-urlencoded',
+		json2url({uid: 0, key: 'contacts_add_allowed_groups_json', value: JSON.stringify(addGroups)})
+	);
 }
 
 function f_update_row(id)

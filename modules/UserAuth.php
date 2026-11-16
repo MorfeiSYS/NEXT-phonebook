@@ -244,7 +244,7 @@ class UserAuth
 
 				if(($flags & UA_DISABLED) != 0)
 				{
-					$this->core->error_ex(function_exists('LL') ? LL('InvalidUserPasswd') : 'Account disabled', $this->rise_exception);
+					$this->core->error_ex(function_exists('LL') ? LL('AccountBlocked') : 'Account blocked', $this->rise_exception);
 					$this->ldap->restore_service_credentials();
 					return FALSE;
 				}
@@ -289,11 +289,21 @@ class UserAuth
 						@users AS m
 					WHERE
 						m.`login` = !
-						AND (m.`flags` & ({%UA_DISABLED} | {%UA_LDAP} | {%UA_DELETED})) = 0x0000
+						AND (m.`flags` & ({%UA_LDAP} | {%UA_DELETED})) = 0
 					LIMIT 1
 				", $login
 			)))
 			{
+				return FALSE;
+			}
+
+			$flags = intval($user_data[0][2]);
+			if(($flags & UA_DISABLED) != 0)
+			{
+				if($this->verify_password($passwd, $user_data[0][4]))
+				{
+					$this->core->error_ex(function_exists('LL') ? LL('AccountBlocked') : 'Account blocked', $this->rise_exception);
+				}
 				return FALSE;
 			}
 
@@ -304,7 +314,7 @@ class UserAuth
 
 			$_SESSION[DB_PREFIX.'uid'] = $user_data[0][0];
 			$this->login = $user_data[0][1];
-			$this->flags = intval($user_data[0][2]);
+			$this->flags = $flags;
 			$this->token = $user_data[0][3];
 
 			$stored = $user_data[0][4];

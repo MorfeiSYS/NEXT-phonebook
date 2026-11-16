@@ -3804,8 +3804,24 @@ function tftpboot_admin_save(form) {
 		}
 	});
 	if (!data.sync_auto) data.sync_auto = '0';
+	var hasContactsAddGroups = form.querySelector('.settings-contacts-add-groups');
 	tftpboot_http('tftpboot_admin_catalog_save', data, function (res) {
-		f_notify(res && res.message ? res.message : 'OK', res && res.code ? 'error' : 'success');
+		if (res && res.code) {
+			f_notify(res.message || 'Error', 'error');
+			return;
+		}
+		if (hasContactsAddGroups && typeof f_save_contacts_add_groups === 'function') {
+			f_save_contacts_add_groups(form, function (res2) {
+				if (res2 && res2.code) {
+					f_notify(res2.message || 'Error', 'error');
+					return;
+				}
+				f_notify(res2 && res2.message ? res2.message : 'OK', 'success');
+				window.location.reload();
+			});
+			return;
+		}
+		f_notify(res && res.message ? res.message : 'OK', 'success');
 	});
 	return false;
 }

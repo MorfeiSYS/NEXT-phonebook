@@ -25,6 +25,9 @@ const LL = {
 	ContactStatusTooltipListHidden: 'Скрыт массовой операцией администратора',
 	ContactStatusTooltipNotVisible: 'Скрыт из справочника вручную администратором',
 
+	ContactPhoneDigitsOnly: 'В поле телефона допускаются только цифры',
+	ContactPhoneLength: 'Введите от %1 до %2 цифр',
+
 	Save:						'Сохранить',
 	TftpBootBulkEmpty:			'Нет данных. Нажмите «Пересканировать каталог» в настройках телефонов.',
 	TftpBootBulkPageInfo:		'Записи %1–%2 из %3',

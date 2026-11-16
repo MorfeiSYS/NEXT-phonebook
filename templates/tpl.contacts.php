@@ -17,7 +17,7 @@ include(TEMPLATES_DIR.'tpl.header.php');
 ?>
 		<h2 class="page-heading"><?php L('Phonebook') ?></h2>
 		<div>
-			<?php if(user_is_operator()) { ?>
+			<?php if(contacts_can_add($core)) { ?>
 				<span class="command f-right" onclick="f_show_form('<?php ln('contact_edit/0') ?>');"><?php L('AddСontact') ?></span>
 			<?php } ?>
 
@@ -82,6 +82,9 @@ include(TEMPLATES_DIR.'tpl.header.php');
 				<?php if(user_is_admin()) { ?>
 					<td>
 						<span class="command" onclick="f_menu(event);"><?php L('Menu') ?></span>
+						<?php if(empty($row['adid'])) { ?>
+						<span class="command contact-delete-cmd" onclick="f_delete_contact_confirm(event);"><?php L('ContactDelete') ?></span>
+						<?php } ?>
 					</td>
 				<?php } ?>
 			</tr>

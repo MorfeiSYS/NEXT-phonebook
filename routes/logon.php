@@ -5,7 +5,11 @@ function logon(&$core, $params, $post_data)
 	if(!$core->UserAuth->logon(@$post_data['login'], @$post_data['passwd']))
 	{
 		$return_url = @$post_data['return'];
-		$error_msg = LL('InvalidUserPasswd');
+		$error_msg = trim((string) $core->get_last_error());
+		if($error_msg === '')
+		{
+			$error_msg = LL('InvalidUserPasswd');
+		}
 		$login_field = trim((string) @$post_data['login']);
 		if($login_field !== '' && strpbrk($login_field, '\\@') === FALSE && defined('USE_LDAP') && USE_LDAP)
 		{

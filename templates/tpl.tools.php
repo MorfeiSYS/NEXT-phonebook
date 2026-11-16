@@ -91,7 +91,13 @@
 </div>
 
 <?php if($core->UserAuth->check_permission(0, PB_ACCESS_ADMIN)) { ?>
-<?php $default_columns = contacts_columns_global($core); $theme_default = theme_default_value($core); ?>
+<?php
+	$default_columns = contacts_columns_global($core);
+	$theme_default = theme_default_value($core);
+	if(!isset($contacts_add_allowed_groups)) { $contacts_add_allowed_groups = array(); }
+	if(!isset($contacts_access_group_dns)) { $contacts_access_group_dns = array(); }
+	if(!isset($contacts_add_groups_extra)) { $contacts_add_groups_extra = array(); }
+?>
 <div id="settings-defaults-modal" class="modal-container settings-modal" style="display: none" onclick="f_settings_modal_backdrop_close(event, 'settings-defaults-modal')">
 	<span class="close white" onclick="f_settings_modal_close('settings-defaults-modal')">&times;</span>
 	<div class="modal-content settings-modal-content" onclick="event.stopPropagation()">

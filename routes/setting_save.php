@@ -39,6 +39,34 @@ function setting_save(&$core, $params, $post_data)
 		echo json_encode($result_json, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
 		return;
 	}
+	else if($setting_key === 'contacts_add_allowed_groups_json')
+	{
+		$list = json_decode($setting_value, TRUE);
+		if(!is_array($list))
+		{
+			$result_json['code'] = 1;
+			$result_json['message'] = 'Failed parse JSON value';
+			echo json_encode($result_json, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+			return;
+		}
+		$clean = array();
+		foreach($list as $dn)
+		{
+			$dn = trim((string) $dn);
+			if($dn !== '' && contact_mb_len($dn) <= 1024)
+			{
+				$clean[$dn] = $dn;
+			}
+		}
+		if(count($clean) > 64)
+		{
+			$result_json['code'] = 1;
+			$result_json['message'] = LL('ContactsAddGroupsTooMany');
+			echo json_encode($result_json, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+			return;
+		}
+		$setting_value = json_encode(array_values($clean), JSON_UNESCAPED_UNICODE);
+	}
 
 	if(!empty($setting_value) && preg_match('/_json$/i', $setting_key))
 	{

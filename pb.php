@@ -17,7 +17,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-define('DB_VERSION', 16);
+define('DB_VERSION', 17);
 
 if(!defined('ROOT_DIR'))
 {
@@ -67,6 +67,7 @@ require_once(ROOT_DIR.'inc.config.php');
 	require_once(ROOT_DIR.'modules'.DIRECTORY_SEPARATOR.'Core.php');
 	// require_once(ROOT_DIR.'languages'.DIRECTORY_SEPARATOR.APP_LANGUAGE.'.php');
 	require_once(ROOT_DIR.'inc.utils.php');
+	require_once(ROOT_DIR.'inc.contacts.php');
 	require_once(ROOT_DIR.'inc.tftpboot.php');
 
 	session_set_cookie_params(pb_session_cookie_params(0));

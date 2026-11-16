@@ -2302,6 +2302,36 @@ ul.tree-menu:before {
 .settings-tools-links a {
 	display: block;
 }
+.settings-contacts-add-groups {
+	margin: 1em 0;
+	padding-top: 0.75em;
+	border-top: 1px solid var(--color-border-2);
+}
+.settings-contacts-group-list {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	max-height: 200px;
+	overflow: auto;
+	margin: 8px 0;
+}
+.settings-contacts-group-item {
+	display: block;
+	font-size: 0.95em;
+}
+.settings-contacts-extra-dns {
+	width: 100%;
+	max-width: 100%;
+	box-sizing: border-box;
+	font-family: inherit;
+	font-size: 0.9em;
+	margin-top: 4px;
+}
+.settings-contacts-extra-label {
+	display: block;
+	margin-top: 8px;
+	font-weight: 600;
+}
 .settings-tools-pre {
 	overflow-x: auto;
 	font-size: 0.85em;

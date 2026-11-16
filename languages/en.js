@@ -25,6 +25,9 @@ const LL = {
 	ContactStatusTooltipListHidden: 'Bulk-hidden by administrator',
 	ContactStatusTooltipNotVisible: 'Manually hidden from the phonebook',
 
+	ContactPhoneDigitsOnly: 'Only digits are allowed in the phone field',
+	ContactPhoneLength: 'Enter %1 to %2 digits',
+
 	Save:						'Save',
 	TftpBootBulkEmpty:			'No data. Use Rescan in phone settings.',
 	TftpBootBulkPageInfo:		'Records %1–%2 of %3',

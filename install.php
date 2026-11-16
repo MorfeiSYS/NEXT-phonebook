@@ -143,6 +143,7 @@ EOT
 ,
 <<<'EOT'
 INSERT INTO `#DB_NAME#`.`pb_config` (`uid`, `name`, `value`, `description`) VALUES(0, 'contacts_columns_json', '["name","phone","phone_city","mobile","mail","position","department","organization"]', 'Default visible columns in the phonebook');
+INSERT INTO `#DB_NAME#`.`pb_config` (`uid`, `name`, `value`, `description`) VALUES(0, 'contacts_add_allowed_groups_json', '[]', 'AD group DNs allowed to add local contacts; empty = all operators');
 EOT
 ,
 <<<'EOT'

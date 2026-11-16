@@ -19,10 +19,11 @@ function contact_edit(&$core, $params, $post_data)
 	}
 	else
 	{
-		assert_permission_ajax(0, PB_ACCESS_OPERATOR);
+		contact_assert_can_add($core);
 	}
 
 	$compname = array('', '', '');
+	$contact = array();
 
 	if($contact_id)
 	{
@@ -55,9 +56,10 @@ function contact_edit(&$core, $params, $post_data)
 		)))
 		{
 			echo '{"code": 1, "message": "Contact not found"}';
+			return;
 		}
-		
-		$contact = &$contact[0];
+
+		$contact = $contact[0];
 	}
 	else
 	{
@@ -103,7 +105,8 @@ function contact_edit(&$core, $params, $post_data)
 				'type' => 'string',
 				'name' => 'first_name',
 				'title' => LL('FirstName').'*',
-				'value' => $contact['first_name']
+				'value' => $contact['first_name'],
+				'maxlength' => CONTACT_NAME_MAX
 			),/*
 			array(
 				'type' => 'string',
@@ -115,43 +118,56 @@ function contact_edit(&$core, $params, $post_data)
 				'type' => 'string',
 				'name' => 'department',
 				'title' => LL('Department'),
-				'value' => $contact['department']
+				'value' => $contact['department'],
+				'maxlength' => CONTACT_TEXT_DB_MAX
 			),
 			array(
 				'type' => 'string',
 				'name' => 'organization',
 				'title' => LL('Organization'),
-				'value' => $contact['organization']
+				'value' => $contact['organization'],
+				'maxlength' => CONTACT_TEXT_DB_MAX
 			),
 			array(
 				'type' => 'string',
 				'name' => 'position',
 				'title' => LL('Position'),
-				'value' => $contact['position']
+				'value' => $contact['position'],
+				'maxlength' => CONTACT_TEXT_DB_MAX
 			),
 			array(
 				'type' => 'string',
 				'name' => 'phone_internal',
 				'title' => LL('PhoneInternal'),
-				'value' => $contact['phone_internal']
+				'value' => $contact['phone_internal'],
+				'digits' => TRUE,
+				'minlength' => CONTACT_PHONE_INTERNAL_MIN,
+				'maxlength' => CONTACT_PHONE_INTERNAL_MAX
 			),
 			array(
 				'type' => 'string',
 				'name' => 'phone_external',
 				'title' => LL('PhoneExternal'),
-				'value' => $contact['phone_external']
+				'value' => $contact['phone_external'],
+				'digits' => TRUE,
+				'minlength' => CONTACT_PHONE_EXTERNAL_MIN,
+				'maxlength' => CONTACT_PHONE_EXTERNAL_MAX
 			),
 			array(
 				'type' => 'string',
 				'name' => 'phone_mobile',
 				'title' => LL('PhoneCell'),
-				'value' => $contact['phone_mobile']
+				'value' => $contact['phone_mobile'],
+				'digits' => TRUE,
+				'minlength' => CONTACT_PHONE_MOBILE_MIN,
+				'maxlength' => CONTACT_PHONE_MOBILE_MAX
 			),
 			array(
 				'type' => 'string',
 				'name' => 'mail',
 				'title' => LL('Mail'),
-				'value' => $contact['mail']
+				'value' => $contact['mail'],
+				'maxlength' => CONTACT_TEXT_DB_MAX
 			),
 			array(
 				'type' => 'list',
