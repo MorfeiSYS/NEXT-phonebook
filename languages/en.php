@@ -211,7 +211,7 @@
 		'TftpBootTabLayout'			=> 'Layout templates',
 		'TftpBootLayoutHint'			=> 'Editor cell layout only (Fkey numbers in config are unchanged). Drag whole cells.',
 		'TftpBootLayoutCols'			=> 'Columns',
-		'TftpBootLayoutRows'			=> 'Rows per column',
+		'TftpBootLayoutResetNumber'		=> 'Reset numbering',
 		'TftpBootLayoutDefault'		=> 'Default grid',
 		'TftpBootLayoutSectionId'		=> 'Section ID',
 		'TftpBootLayoutSectionAdd'		=> 'Add section',

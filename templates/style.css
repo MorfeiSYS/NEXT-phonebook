@@ -1557,6 +1557,7 @@ ul.tree-menu:before {
 .tftpboot-keys-grid { display: flex; flex-wrap: wrap; gap: 8px; margin: 0.5em 0; }
 .tftpboot-keys-grid.tftpboot-keys-grid--layout { display: grid; gap: 8px; }
 .tftpboot-layout-cell { cursor: grab; min-height: 3.5em; }
+.tftpboot-layout-reset-btn { margin-left: 0.35em; vertical-align: middle; }
 .tftpboot-layout-size-inp {
 	width: 3.2em;
 	min-width: 3.2em;

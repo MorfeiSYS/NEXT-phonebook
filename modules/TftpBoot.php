@@ -384,20 +384,22 @@ class TftpBoot
 			$cols = 12;
 		}
 		$rows = intval($rows);
+		$cap_rows = intval(ceil($n / $cols));
 		if($rows < 1)
 		{
-			$rows = intval(ceil($n / $cols));
+			$rows = $cap_rows;
 		}
 		if($rows > 64)
 		{
 			$rows = 64;
 		}
+		$order_rows = min($rows, $cap_rows);
 		$order = array();
-		for($r = 0; $r < $rows; $r++)
+		for($r = 0; $r < $order_rows; $r++)
 		{
 			for($c = 0; $c < $cols; $c++)
 			{
-				$idx = $c * $rows + $r;
+				$idx = $c * $order_rows + $r;
 				if($idx < $n)
 				{
 					$order[] = intval($slots[$idx]);

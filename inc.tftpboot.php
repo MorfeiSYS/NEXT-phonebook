@@ -447,6 +447,14 @@ function tftpboot_sanitize_dial_suffix($suffix)
 	{
 		return strtolower($suffix);
 	}
+	if(preg_match('/^@1$/i', $suffix))
+	{
+		return '@1';
+	}
+	if(preg_match('/^\/bc$/i', $suffix))
+	{
+		return '/bc';
+	}
 
 	return '';
 }

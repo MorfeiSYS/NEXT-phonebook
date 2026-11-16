@@ -156,6 +156,18 @@ function tftpboot_layout_default_rows(slots, cols) {
 	return Math.ceil(n / cols);
 }
 
+function tftpboot_layout_effective_rows(slots, cols, rows) {
+	var n = (slots || []).length;
+	if (n < 1) return 1;
+	cols = parseInt(cols, 10) || 1;
+	if (cols < 1) cols = 1;
+	var cap = Math.ceil(n / cols);
+	rows = parseInt(rows, 10);
+	if (!rows || rows < 1) rows = cap;
+	if (rows > 64) rows = 64;
+	return Math.min(rows, cap);
+}
+
 function tftpboot_layout_default_order_from_slots(slots, cols, rows) {
 	slots = (slots || []).slice().sort(function (a, b) { return a - b; });
 	var n = slots.length;
@@ -163,13 +175,11 @@ function tftpboot_layout_default_order_from_slots(slots, cols, rows) {
 	cols = parseInt(cols, 10) || Math.min(5, n);
 	if (cols < 1) cols = 1;
 	if (cols > 12) cols = 12;
-	rows = parseInt(rows, 10);
-	if (!rows || rows < 1) rows = Math.ceil(n / cols);
-	if (rows > 64) rows = 64;
+	var orderRows = tftpboot_layout_effective_rows(slots, cols, rows);
 	var order = [];
-	for (var r = 0; r < rows; r++) {
+	for (var r = 0; r < orderRows; r++) {
 		for (var c = 0; c < cols; c++) {
-			var idx = c * rows + r;
+			var idx = c * orderRows + r;
 			if (idx < n) order.push(slots[idx]);
 		}
 	}
@@ -314,7 +324,7 @@ function tftpboot_layout_build_draft(saved, blueprint) {
 		var cols = Math.min(5, slots.length || 16);
 		var prev = saved.default || (saved.sections && saved.sections.default) || {};
 		if (prev.cols) cols = parseInt(prev.cols, 10) || cols;
-		var rows = prev.rows ? parseInt(prev.rows, 10) : tftpboot_layout_default_rows(slots, cols);
+		var rows = tftpboot_layout_default_rows(slots, cols);
 		draft.default = {
 			cols: cols,
 			rows: rows,
@@ -328,7 +338,7 @@ function tftpboot_layout_build_draft(saved, blueprint) {
 		var cols = Math.min(5, slots.length || 16);
 		var prev = saved.sections && saved.sections[sec.id] ? saved.sections[sec.id] : {};
 		if (prev.cols) cols = parseInt(prev.cols, 10) || cols;
-		var rows = prev.rows ? parseInt(prev.rows, 10) : tftpboot_layout_default_rows(slots, cols);
+		var rows = tftpboot_layout_default_rows(slots, cols);
 		draft.sections[sec.id] = {
 			cols: cols,
 			rows: rows,
@@ -342,21 +352,31 @@ function tftpboot_layout_append_collapsible(root, title, contentEl, collapsed) {
 	tftpboot_append_collapsible(root, title, contentEl, !!collapsed, 'tftpboot-layout-collapsible');
 }
 
-function tftpboot_layout_bind_digits_inp(inp, maxVal) {
+function tftpboot_layout_bind_digits_inp(inp, maxVal, onLive) {
 	inp.type = 'text';
 	inp.inputMode = 'numeric';
 	inp.autocomplete = 'off';
 	inp.maxLength = 3;
 	inp.className += ' tftpboot-layout-size-inp';
-	inp.addEventListener('input', function () {
+	var apply = function () {
 		var v = String(inp.value || '').replace(/\D/g, '').slice(0, 3);
 		if (inp.value !== v) inp.value = v;
-	});
+		if (v === '') return;
+		var n = parseInt(v, 10);
+		if (isNaN(n) || n < 1) return;
+		if (n > maxVal) {
+			n = maxVal;
+			inp.value = String(n);
+		}
+		if (typeof onLive === 'function') onLive();
+	};
+	inp.addEventListener('input', apply);
 	inp.addEventListener('change', function () {
 		var n = parseInt(inp.value, 10);
 		if (isNaN(n) || n < 1) n = 1;
 		if (n > maxVal) n = maxVal;
 		inp.value = String(n);
+		if (typeof onLive === 'function') onLive();
 	});
 }
 
@@ -366,23 +386,74 @@ function tftpboot_layout_append_size_inputs(wrap, sec, spec) {
 	colsInp.className = 'tftpboot-layout-cols form-field';
 	colsInp.value = String(spec.cols || 5);
 	colsInp.dataset.sectionId = sec.id;
-	tftpboot_layout_bind_digits_inp(colsInp, 12);
-	colsInp.onchange = function () { tftpboot_layout_size_change(sec.id, wrap); };
-	var rowsLbl = tftpboot_layout_label('layoutRows', 'Rows per column');
-	var rowsInp = document.createElement('input');
-	rowsInp.className = 'tftpboot-layout-rows form-field';
-	var slotsN = (sec.slots || []).length || 16;
-	var rowsVal = spec.rows ? parseInt(spec.rows, 10) : tftpboot_layout_default_rows(sec.slots || [], spec.cols);
-	if (!rowsVal || rowsVal < 1) rowsVal = tftpboot_layout_default_rows(sec.slots || [], spec.cols);
-	rowsInp.value = String(rowsVal);
-	rowsInp.dataset.sectionId = sec.id;
-	tftpboot_layout_bind_digits_inp(rowsInp, 64);
-	rowsInp.onchange = function () { tftpboot_layout_size_change(sec.id, wrap); };
+	var liveSize = function () { tftpboot_layout_size_change(sec.id, wrap); };
+	tftpboot_layout_bind_digits_inp(colsInp, 12, liveSize);
+	var resetBtn = document.createElement('button');
+	resetBtn.type = 'button';
+	resetBtn.className = 'button-other tftpboot-layout-reset-btn';
+	resetBtn.textContent = tftpboot_layout_label('layoutResetNumber', 'Reset numbering');
+	resetBtn.title = resetBtn.textContent;
+	resetBtn.onclick = function (e) {
+		e.preventDefault();
+		tftpboot_layout_reset_numbering(sec.id, wrap);
+	};
 	wrap.appendChild(document.createTextNode(colsLbl + ' '));
 	wrap.appendChild(colsInp);
-	wrap.appendChild(document.createTextNode(' ' + rowsLbl + ' '));
-	wrap.appendChild(rowsInp);
-	return { colsInp: colsInp, rowsInp: rowsInp };
+	wrap.appendChild(document.createTextNode(' '));
+	wrap.appendChild(resetBtn);
+	if (sec.slots && sec.slots.length) {
+		wrap.dataset.layoutSlots = sec.slots.join(',');
+	}
+	return { colsInp: colsInp, resetBtn: resetBtn };
+}
+
+function tftpboot_layout_slots_from_wrap(wrap) {
+	var slots = [];
+	if (wrap && wrap.dataset.layoutSlots) {
+		wrap.dataset.layoutSlots.split(',').forEach(function (s) {
+			s = parseInt(s, 10);
+			if (!isNaN(s) && s > 0) slots.push(s);
+		});
+	}
+	if (!slots.length && wrap) {
+		var grid = wrap.querySelector('.tftpboot-layout-grid');
+		if (grid) {
+			Array.prototype.forEach.call(grid.children, function (card) {
+				var s = parseInt(card.dataset.slot, 10);
+				if (!isNaN(s)) slots.push(s);
+			});
+		}
+	}
+	slots.sort(function (a, b) { return a - b; });
+	return slots;
+}
+
+function tftpboot_layout_reset_numbering(sid, wrap) {
+	if (!wrap) return;
+	var colsInp = wrap.querySelector('.tftpboot-layout-cols');
+	var cols = colsInp ? parseInt(colsInp.value, 10) || 0 : 0;
+	if (cols < 1) cols = 1;
+	if (cols > 12) cols = 12;
+	if (colsInp) colsInp.value = String(cols);
+	var grid = wrap.querySelector('.tftpboot-layout-grid');
+	if (!grid) return;
+	var slots = tftpboot_layout_slots_from_wrap(wrap);
+	if (!slots.length) return;
+	var rows = tftpboot_layout_default_rows(slots, cols);
+	var order = tftpboot_layout_default_order_from_slots(slots, cols, rows);
+	tftpboot_apply_keys_grid_layout(grid, { cols: cols, rows: rows, order: order });
+	if (sid === 'default') {
+		if (!tftpboot_state.layoutDraft.default) tftpboot_state.layoutDraft.default = {};
+		tftpboot_state.layoutDraft.default.cols = cols;
+		tftpboot_state.layoutDraft.default.rows = rows;
+		tftpboot_state.layoutDraft.default.order = order;
+	} else {
+		if (!tftpboot_state.layoutDraft.sections) tftpboot_state.layoutDraft.sections = {};
+		if (!tftpboot_state.layoutDraft.sections[sid]) tftpboot_state.layoutDraft.sections[sid] = {};
+		tftpboot_state.layoutDraft.sections[sid].cols = cols;
+		tftpboot_state.layoutDraft.sections[sid].rows = rows;
+		tftpboot_state.layoutDraft.sections[sid].order = order;
+	}
 }
 
 function tftpboot_layout_section_tab_title(sec, dssList) {
@@ -411,16 +482,14 @@ function tftpboot_layout_render_section_block(parent, sec, spec, showTitle) {
 	var grid = document.createElement('div');
 	grid.className = 'tftpboot-keys-grid tftpboot-layout-grid tftpboot-keys-grid--layout';
 	grid.dataset.sectionId = sec.id;
+	var cols = parseInt(spec.cols, 10) || 5;
+	var rows = tftpboot_layout_default_rows(sec.slots || [], cols);
 	var order = spec.order && spec.order.length ? spec.order.slice()
-		: tftpboot_layout_default_order_from_slots(sec.slots || [], spec.cols, spec.rows);
+		: tftpboot_layout_default_order_from_slots(sec.slots || [], cols, rows);
 	order.forEach(function (slot) {
 		grid.appendChild(tftpboot_layout_create_cell(slot, grid));
 	});
-	tftpboot_apply_keys_grid_layout(grid, {
-		cols: parseInt(spec.cols, 10) || 5,
-		rows: parseInt(spec.rows, 10) || tftpboot_layout_default_rows(sec.slots || [], spec.cols),
-		order: order
-	});
+	tftpboot_apply_keys_grid_layout(grid, { cols: cols, rows: rows, order: order });
 	wrap.appendChild(grid);
 	parent.appendChild(wrap);
 	return wrap;
@@ -513,19 +582,19 @@ function tftpboot_layout_render_sections() {
 function tftpboot_layout_size_change(sid, wrap) {
 	if (!wrap) return;
 	var colsInp = wrap.querySelector('.tftpboot-layout-cols');
-	var rowsInp = wrap.querySelector('.tftpboot-layout-rows');
 	var cols = colsInp ? parseInt(colsInp.value, 10) || 1 : 1;
-	var rows = rowsInp ? parseInt(rowsInp.value, 10) || 1 : 1;
 	if (cols < 1) cols = 1;
 	if (cols > 12) cols = 12;
-	if (rows < 1) rows = 1;
-	if (rows > 64) rows = 64;
 	if (colsInp) colsInp.value = String(cols);
-	if (rowsInp) rowsInp.value = String(rows);
-	if (sid === 'default' && tftpboot_state.layoutDraft.default) {
+	var slots = tftpboot_layout_slots_from_wrap(wrap);
+	var rows = tftpboot_layout_default_rows(slots, cols);
+	if (sid === 'default') {
+		if (!tftpboot_state.layoutDraft.default) tftpboot_state.layoutDraft.default = {};
 		tftpboot_state.layoutDraft.default.cols = cols;
 		tftpboot_state.layoutDraft.default.rows = rows;
-	} else if (tftpboot_state.layoutDraft.sections && tftpboot_state.layoutDraft.sections[sid]) {
+	} else {
+		if (!tftpboot_state.layoutDraft.sections) tftpboot_state.layoutDraft.sections = {};
+		if (!tftpboot_state.layoutDraft.sections[sid]) tftpboot_state.layoutDraft.sections[sid] = {};
 		tftpboot_state.layoutDraft.sections[sid].cols = cols;
 		tftpboot_state.layoutDraft.sections[sid].rows = rows;
 	}
@@ -586,9 +655,9 @@ function tftpboot_layout_sync_grid_order(grid) {
 	var order = tftpboot_layout_grid_order(grid);
 	var block = grid.closest('.tftpboot-layout-section-block');
 	var colsInp = block ? block.querySelector('.tftpboot-layout-cols') : null;
-	var rowsInp = block ? block.querySelector('.tftpboot-layout-rows') : null;
 	var cols = colsInp ? parseInt(colsInp.value, 10) || 5 : 5;
-	var rows = rowsInp ? parseInt(rowsInp.value, 10) || 1 : 1;
+	var slots = block ? tftpboot_layout_slots_from_wrap(block) : [];
+	var rows = tftpboot_layout_default_rows(slots, cols);
 	if (sid === 'default') {
 		if (!tftpboot_state.layoutDraft.default) tftpboot_state.layoutDraft.default = {};
 		tftpboot_state.layoutDraft.default.order = order;
@@ -1503,7 +1572,20 @@ function tftpboot_section_kind(sectionTitle) {
 }
 
 function tftpboot_dial_has_bc(suffix) {
-	return /@1\/bc/i.test(suffix || '');
+	return /\/bc/i.test(suffix || '');
+}
+
+function tftpboot_remove_dial_bc(suffix) {
+	return String(suffix || '').replace(/\/bc/gi, '');
+}
+
+function tftpboot_append_dial_bc(suffix) {
+	suffix = String(suffix || '');
+	if (/\/bc/i.test(suffix)) return suffix;
+	if (suffix === '') return '/bc';
+	if (/@1\/[a-z]+$/i.test(suffix)) return suffix.replace(/\/[a-z]+$/i, '/bc');
+	if (/@1$/i.test(suffix)) return suffix + '/bc';
+	return suffix + '/bc';
 }
 
 function tftpboot_type2_line_value(raw) {
@@ -1727,9 +1809,9 @@ function tftpboot_create_key_card(k, grid) {
 			if (tftpboot_card_is_auto(card) || tftpboot_card_star_transfer(card) || phoneBtn.disabled) return;
 			var sfx = card.dataset.dialSuffix || '';
 			if (tftpboot_dial_has_bc(sfx)) {
-				card.dataset.dialSuffix = sfx.replace(/\/bc/gi, '');
+				card.dataset.dialSuffix = tftpboot_remove_dial_bc(sfx);
 			} else {
-				card.dataset.dialSuffix = '@1/bc';
+				card.dataset.dialSuffix = tftpboot_append_dial_bc(sfx);
 			}
 			tftpboot_update_phone_icon(card);
 			delete card.dataset.clear;
@@ -1850,11 +1932,17 @@ function tftpboot_apply_keys_grid_layout(grid, spec) {
 		order = tftpboot_layout_default_order_from_slots(slots, cols, rowsHint);
 	}
 	var rows = parseInt(spec.rows, 10);
+	var slotList = [];
+	Array.prototype.forEach.call(grid.children, function (card) {
+		var s = parseInt(card.dataset.slot, 10);
+		if (!isNaN(s)) slotList.push(s);
+	});
+	var gridRows = tftpboot_layout_effective_rows(slotList, cols, rows);
 	grid.classList.add('tftpboot-keys-grid--layout');
 	grid.style.display = 'grid';
 	grid.style.gridTemplateColumns = 'repeat(' + cols + ', minmax(0, 1fr))';
-	if (rows >= 1 && rows <= 64) {
-		grid.style.gridTemplateRows = 'repeat(' + rows + ', auto)';
+	if (gridRows >= 1 && gridRows <= 64) {
+		grid.style.gridTemplateRows = 'repeat(' + gridRows + ', auto)';
 	} else {
 		grid.style.gridTemplateRows = '';
 	}
