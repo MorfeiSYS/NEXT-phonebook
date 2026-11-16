@@ -1634,6 +1634,16 @@ ul.tree-menu:before {
 .tftpboot-key-clear { color: #c33; }
 .tftpboot-key-clear:hover { color: #a00; }
 .tftpboot-editor-modal .modal-content { max-width: 90vw; max-height: 90vh; overflow: auto; }
+#tftpboot-layout-modal .tftpboot-layout-modal-content {
+	max-width: 92vw;
+	max-height: 90vh;
+	overflow: auto;
+}
+#tftpboot-layout-modal .tftpboot-layout-sections-scroll {
+	max-height: 55vh;
+	overflow: auto;
+	margin: 0.75em 0;
+}
 #tftpboot-directory-modal .tftpboot-directory-modal-content {
 	max-width: 640px;
 	max-height: 90vh;

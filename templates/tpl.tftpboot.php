@@ -87,16 +87,21 @@ $tftpboot_editor_save_label = $tftpboot_self_only ? LL('TftpBootSubmitModeration
 </div>
 
 <?php if($tftpboot_is_admin) { ?>
-<div id="tftpboot-panel-layout" class="tftpboot-panel" style="display:none">
-	<p class="tftpboot-layout-hint"><?php L('TftpBootLayoutHint') ?></p>
-	<label><?php L('TftpBootVendor') ?>
-		<select id="tftpboot-layout-vendor"></select>
-	</label>
-	<label><?php L('TftpBootModel') ?>
-		<select id="tftpboot-layout-model"></select>
-	</label>
-	<div id="tftpboot-layout-sections"></div>
-	<button type="button" class="button-accept" id="tftpboot-layout-save"><?php L('Save') ?></button>
+<div id="tftpboot-layout-modal" class="modal-container tftpboot-layout-modal" style="display:none">
+	<span class="close white" onclick="tftpboot_layout_close_modal()">&times;</span>
+	<div class="modal-content tftpboot-layout-modal-content">
+		<span class="close" onclick="tftpboot_layout_close_modal()">&times;</span>
+		<h3><?php L('TftpBootTabLayout') ?></h3>
+		<p class="tftpboot-layout-hint"><?php L('TftpBootLayoutHint') ?></p>
+		<label><?php L('TftpBootVendor') ?>
+			<select id="tftpboot-layout-vendor"></select>
+		</label>
+		<label><?php L('TftpBootModel') ?>
+			<select id="tftpboot-layout-model"></select>
+		</label>
+		<div id="tftpboot-layout-sections" class="tftpboot-layout-sections-scroll"></div>
+		<button type="button" class="button-accept" id="tftpboot-layout-save"><?php L('Save') ?></button>
+	</div>
 </div>
 <?php } ?>
 

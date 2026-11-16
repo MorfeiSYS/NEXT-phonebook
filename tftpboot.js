@@ -110,13 +110,16 @@ function tftpboot_bind_tabs() {
 				tftpboot_bulk_open_modal();
 				return;
 			}
+			if (tab === 'layout') {
+				tftpboot_layout_open_modal();
+				return;
+			}
 			document.querySelectorAll('.tftpboot-tab').forEach(function (b) { b.classList.remove('active'); });
 			btn.classList.add('active');
 			document.querySelectorAll('.tftpboot-panel').forEach(function (p) { p.style.display = 'none'; });
 			var panel = document.getElementById('tftpboot-panel-' + tab);
 			if (panel) panel.style.display = 'block';
 			if (tab === 'sync') tftpboot_sync_warm();
-			if (tab === 'layout') tftpboot_layout_init_panel();
 			if (tab === 'moderation') {
 				var modBtn = document.getElementById('tftpboot-moderation-open');
 				if (modBtn) modBtn.focus();
@@ -173,21 +176,47 @@ function tftpboot_layout_default_order_from_slots(slots, cols, rows) {
 	return order;
 }
 
+function tftpboot_layout_order_is_ascending(slots, order) {
+	var sorted = (slots || []).slice().sort(function (a, b) { return a - b; });
+	if (!order || order.length !== sorted.length) return false;
+	for (var i = 0; i < sorted.length; i++) {
+		if (parseInt(order[i], 10) !== sorted[i]) return false;
+	}
+	return true;
+}
+
 function tftpboot_layout_order_from_slots(slots, savedOrder, cols, rows) {
-	slots = (slots || []).slice();
+	slots = (slots || []).slice().sort(function (a, b) { return a - b; });
 	if (!slots.length) return [];
+	if (!savedOrder || !savedOrder.length) {
+		return tftpboot_layout_default_order_from_slots(slots, cols, rows);
+	}
 	var allowed = {};
 	slots.forEach(function (s) { allowed[s] = true; });
 	var order = [];
-	(savedOrder || []).forEach(function (s) {
+	savedOrder.forEach(function (s) {
 		s = parseInt(s, 10);
 		if (allowed[s] && order.indexOf(s) < 0) order.push(s);
 	});
 	slots.forEach(function (s) {
 		if (order.indexOf(s) < 0) order.push(s);
 	});
-	if (!order.length) order = tftpboot_layout_default_order_from_slots(slots, cols, rows);
+	if (!order.length || tftpboot_layout_order_is_ascending(slots, order)) {
+		return tftpboot_layout_default_order_from_slots(slots, cols, rows);
+	}
 	return order;
+}
+
+function tftpboot_layout_open_modal() {
+	var m = document.getElementById('tftpboot-layout-modal');
+	if (!m) return;
+	m.style.display = 'block';
+	tftpboot_layout_init_panel();
+}
+
+function tftpboot_layout_close_modal() {
+	var m = document.getElementById('tftpboot-layout-modal');
+	if (m) m.style.display = 'none';
 }
 
 function tftpboot_layout_init_panel() {
@@ -410,8 +439,7 @@ function tftpboot_layout_render_sections() {
 		var spec = draft.sections && draft.sections[sec.id] ? draft.sections[sec.id] : { cols: 5, order: [] };
 		var inner = document.createElement('div');
 		tftpboot_layout_render_section_block(inner, sec, spec, false);
-		var lbl = (sec.title || tftpboot_editor_label('sidekey'));
-		tftpboot_layout_append_collapsible(box, lbl, inner, true);
+		tftpboot_layout_append_collapsible(box, tftpboot_editor_label('sidekey'), inner, true);
 	});
 	if (dss.length) {
 		var dssWrap = document.createElement('div');
@@ -460,8 +488,7 @@ function tftpboot_layout_render_sections() {
 		var spec = draft.sections && draft.sections[sec.id] ? draft.sections[sec.id] : { cols: 5, order: [] };
 		var inner = document.createElement('div');
 		tftpboot_layout_render_section_block(inner, sec, spec, false);
-		var lbl = (sec.title || tftpboot_editor_label('softdss'));
-		tftpboot_layout_append_collapsible(box, lbl, inner, true);
+		tftpboot_layout_append_collapsible(box, tftpboot_editor_label('softdss'), inner, true);
 	});
 	other.forEach(function (sec) {
 		var spec = draft.sections && draft.sections[sec.id] ? draft.sections[sec.id] : { cols: 5, order: [] };
@@ -1779,8 +1806,13 @@ function tftpboot_append_collapsible(root, title, contentEl, collapsed, extraCla
 
 function tftpboot_layout_grid_spec(fullLayout, sectionId) {
 	if (!fullLayout || typeof fullLayout !== 'object') return null;
-	if (fullLayout.sections && fullLayout.sections[sectionId]) {
-		return fullLayout.sections[sectionId];
+	if (fullLayout.sections && sectionId) {
+		if (fullLayout.sections[sectionId]) return fullLayout.sections[sectionId];
+		var sid = String(sectionId).toLowerCase();
+		var keys = Object.keys(fullLayout.sections);
+		for (var i = 0; i < keys.length; i++) {
+			if (keys[i].toLowerCase() === sid) return fullLayout.sections[keys[i]];
+		}
 	}
 	if (fullLayout.default) return fullLayout.default;
 	return null;

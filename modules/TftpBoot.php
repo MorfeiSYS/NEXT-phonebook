@@ -169,7 +169,7 @@ class TftpBoot
 			}
 			foreach($v['models'] as $m)
 			{
-				if(isset($m['id']) && $m['id'] === $model_id)
+				if(isset($m['id']) && strcasecmp($m['id'], $model_id) === 0)
 				{
 					return $m;
 				}
@@ -190,6 +190,32 @@ class TftpBoot
 		}
 
 		return $m['layout'];
+	}
+
+	private function layout_saved_grid_for_section($saved, $section_id)
+	{
+		if(!is_array($saved) || $section_id === '')
+		{
+			return array();
+		}
+		if(!isset($saved['sections']) || !is_array($saved['sections']))
+		{
+			return array();
+		}
+		if(isset($saved['sections'][$section_id]) && is_array($saved['sections'][$section_id]))
+		{
+			return $saved['sections'][$section_id];
+		}
+		$sid_lc = strtolower($section_id);
+		foreach($saved['sections'] as $key => $grid)
+		{
+			if(strtolower((string)$key) === $sid_lc && is_array($grid))
+			{
+				return $grid;
+			}
+		}
+
+		return array();
 	}
 
 	public function resolve_editor_layout($vendor_id, $model_id, $speed_dial_keys)
@@ -267,8 +293,7 @@ class TftpBoot
 				}
 				$sid = $sec['id'];
 				$slots = isset($sec['slots']) && is_array($sec['slots']) ? $sec['slots'] : array();
-				$prev = isset($saved['sections'][$sid]) && is_array($saved['sections'][$sid])
-					? $saved['sections'][$sid] : array();
+				$prev = $this->layout_saved_grid_for_section($saved, $sid);
 				$grid = $this->resolve_layout_grid_for_slots($slots, $prev);
 				if($grid)
 				{
@@ -284,8 +309,7 @@ class TftpBoot
 			}
 			$slots = array_keys($slot_map);
 			sort($slots, SORT_NUMERIC);
-			$prev = isset($saved['sections'][$sid]) && is_array($saved['sections'][$sid])
-				? $saved['sections'][$sid] : array();
+			$prev = $this->layout_saved_grid_for_section($saved, $sid);
 			$grid = $this->resolve_layout_grid_for_slots($slots, $prev);
 			if($grid)
 			{
@@ -384,12 +408,36 @@ class TftpBoot
 		return $order;
 	}
 
+	private function layout_order_is_ascending($slots, $order)
+	{
+		$slots = array_values(array_map('intval', is_array($slots) ? $slots : array()));
+		sort($slots, SORT_NUMERIC);
+		if(!is_array($order) || count($order) !== count($slots))
+		{
+			return FALSE;
+		}
+		foreach($slots as $i => $s)
+		{
+			if(intval($order[$i]) !== $s)
+			{
+				return FALSE;
+			}
+		}
+
+		return TRUE;
+	}
+
 	private function layout_order_from_slots($slots, $saved_order, $cols, $rows = 0)
 	{
 		$slots = array_map('intval', is_array($slots) ? $slots : array());
+		sort($slots, SORT_NUMERIC);
 		if(!count($slots))
 		{
 			return array();
+		}
+		if(!is_array($saved_order) || !count($saved_order))
+		{
+			return $this->layout_default_order_from_slots($slots, $cols, $rows);
 		}
 		$allowed = array();
 		foreach($slots as $s)
@@ -397,15 +445,12 @@ class TftpBoot
 			$allowed[$s] = TRUE;
 		}
 		$order = array();
-		if(is_array($saved_order))
+		foreach($saved_order as $s)
 		{
-			foreach($saved_order as $s)
+			$s = intval($s);
+			if(isset($allowed[$s]) && !in_array($s, $order, TRUE))
 			{
-				$s = intval($s);
-				if(isset($allowed[$s]) && !in_array($s, $order, TRUE))
-				{
-					$order[] = $s;
-				}
+				$order[] = $s;
 			}
 		}
 		foreach($slots as $s)
@@ -415,7 +460,7 @@ class TftpBoot
 				$order[] = $s;
 			}
 		}
-		if(!count($order))
+		if(!count($order) || $this->layout_order_is_ascending($slots, $order))
 		{
 			return $this->layout_default_order_from_slots($slots, $cols, $rows);
 		}
@@ -1749,6 +1794,23 @@ class TftpBoot
 
 		$parsed = $this->parse_content($vendor, $content);
 		$mac = $this->mac_from_filename(basename($filename));
+
+		if($model === '')
+		{
+			$hint = isset($parsed['phone']) ? (string)$parsed['phone'] : '';
+			if($hint === '' && isset($parsed['model']))
+			{
+				$hint = (string)$parsed['model'];
+			}
+			if($hint !== '')
+			{
+				$matched = $this->match_model($vendor, $hint, $this->get_catalog());
+				if($matched !== '' && $matched !== 'unknown' && $matched !== 'other')
+				{
+					$model = $matched;
+				}
+			}
+		}
 
 		$editor_keys = isset($parsed['speedDialKeys']) ? $parsed['speedDialKeys'] : array();
 		if($vendor === 'fanvil')
