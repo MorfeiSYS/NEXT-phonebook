@@ -877,7 +877,7 @@ function tftpboot_validate_dial_label($label, &$core)
 			}
 		}
 	}
-	if(!preg_match('/^[\p{L}\p{N} ./()\- ]+$/u', $label))
+	if(!preg_match('#^[\p{L}\p{N} ./()\- ]+$#u', $label))
 	{
 		return tftpboot_dial_label_invalid_message($core);
 	}

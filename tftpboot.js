@@ -2221,6 +2221,11 @@ function tftpboot_append_collapsible(root, title, contentEl, collapsed, extraCla
 		var isCollapsed = sec.classList.contains('tftpboot-editor-collapsed');
 		sec.classList.toggle('tftpboot-editor-collapsed', !isCollapsed);
 		head.setAttribute('aria-expanded', isCollapsed ? 'true' : 'false');
+		var contentEl = tftpboot_grid_modal_content_for(sec);
+		if (contentEl) {
+			var maxVw = contentEl.classList.contains('tftpboot-layout-modal-content') ? 0.92 : 0.9;
+			tftpboot_schedule_grid_modal_expand(contentEl, maxVw);
+		}
 	};
 	sec.appendChild(head);
 	sec.appendChild(body);
@@ -2315,7 +2320,6 @@ function tftpboot_maybe_expand_grid_modal(contentEl, maxVw) {
 	var baseW = contentEl.offsetWidth;
 	var needInner = 0;
 	contentEl.querySelectorAll('.tftpboot-keys-grid--layout').forEach(function (grid) {
-		if (!tftpboot_is_visible_for_measure(grid)) return;
 		var block = tftpboot_grid_min_width_px(grid) + tftpboot_grid_outer_pad_x(grid, contentEl);
 		if (block > needInner) needInner = block;
 	});
