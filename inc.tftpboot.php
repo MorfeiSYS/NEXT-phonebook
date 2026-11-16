@@ -763,6 +763,16 @@ function user_can_tftpboot_moderate(&$core)
 	return user_is_operator() && user_has_tftpboot_access($core);
 }
 
+function user_can_tftpboot_bulk_unfix(&$core)
+{
+	if(!$core->UserAuth->get_id())
+	{
+		return FALSE;
+	}
+
+	return user_is_admin() || user_is_operator();
+}
+
 function tftpboot_moderation_pending_count(&$core)
 {
 	if(!user_can_tftpboot_moderate($core))
@@ -790,6 +800,36 @@ function tftpboot_moderation_poll_interval_sec(&$core)
 	if($n < 60)
 	{
 		$n = 60;
+	}
+
+	return $n;
+}
+
+function tftpboot_bulk_lookup_min_digits(&$core)
+{
+	$n = intval($core->Config->get_global('tftpboot_bulk_lookup_min_digits', '2'));
+	if($n < 1)
+	{
+		$n = 1;
+	}
+	if($n > 11)
+	{
+		$n = 11;
+	}
+
+	return $n;
+}
+
+function tftpboot_bulk_lookup_min_name(&$core)
+{
+	$n = intval($core->Config->get_global('tftpboot_bulk_lookup_min_name', '2'));
+	if($n < 1)
+	{
+		$n = 1;
+	}
+	if($n > 30)
+	{
+		$n = 30;
 	}
 
 	return $n;

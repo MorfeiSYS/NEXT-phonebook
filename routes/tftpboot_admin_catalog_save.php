@@ -75,6 +75,36 @@ function tftpboot_admin_catalog_save(&$core, $params, $post_data)
 		$core->Config->set_global('tftpboot_moderation_max_per_hour', (string) $n);
 	}
 
+	if(isset($post_data['bulk_lookup_min_digits']))
+	{
+		$n = intval($post_data['bulk_lookup_min_digits']);
+		if($n < 1)
+		{
+			$n = 1;
+		}
+		if($n > 11)
+		{
+			$n = 11;
+		}
+
+		$core->Config->set_global('tftpboot_bulk_lookup_min_digits', (string) $n);
+	}
+
+	if(isset($post_data['bulk_lookup_min_name']))
+	{
+		$n = intval($post_data['bulk_lookup_min_name']);
+		if($n < 1)
+		{
+			$n = 1;
+		}
+		if($n > 30)
+		{
+			$n = 30;
+		}
+
+		$core->Config->set_global('tftpboot_bulk_lookup_min_name', (string) $n);
+	}
+
 	log_db('tftpboot admin catalog save', '', 0);
 	tftpboot_json_send(array('code' => 0, 'message' => LL('Save')));
 }

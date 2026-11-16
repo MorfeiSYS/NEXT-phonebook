@@ -1,6 +1,8 @@
 var tftpboot_state = {
 	tree: [], policy: {}, syncDiff: [], bulkRows: [], bulkAllRows: [],
 	bulkFilteredRows: [], bulkPage: 0, bulkPageSize: 50,
+	phonebookRows: null, bulkLookupMinDigits: 2, bulkLookupMinName: 2,
+	bulkLookupMatchLimit: 20,
 	directoryAllRows: [], directoryFilteredRows: [], directoryPage: 0,
 	pickIndex: [], pickFilteredRows: [], pickMatchLimit: 50,
 	moderationActionInFlight: false, moderationDetailSeq: 0,
@@ -13,12 +15,23 @@ function tftpboot_init(opts) {
 	tftpboot_state.isAdmin = !!opts.isAdmin;
 	tftpboot_state.selfOnly = !!opts.selfOnly;
 	tftpboot_state.canModerate = !!opts.canModerate;
+	tftpboot_state.canUnfixBulk = !!opts.canUnfixBulk;
 	tftpboot_state.moderationRequestId = 0;
 	tftpboot_state.selfFiles = [];
 	tftpboot_state.bulkVendors = opts.bulkVendors || [];
 	tftpboot_state.bulkPageSize = parseInt(opts.bulkPageSize, 10) || 50;
 	if (tftpboot_state.bulkPageSize < 5) tftpboot_state.bulkPageSize = 5;
 	if (tftpboot_state.bulkPageSize > 500) tftpboot_state.bulkPageSize = 500;
+	tftpboot_state.bulkLookupMinDigits = parseInt(opts.bulkLookupMinDigits, 10);
+	if (isNaN(tftpboot_state.bulkLookupMinDigits) || tftpboot_state.bulkLookupMinDigits < 1) {
+		tftpboot_state.bulkLookupMinDigits = 2;
+	}
+	if (tftpboot_state.bulkLookupMinDigits > 11) tftpboot_state.bulkLookupMinDigits = 11;
+	tftpboot_state.bulkLookupMinName = parseInt(opts.bulkLookupMinName, 10);
+	if (isNaN(tftpboot_state.bulkLookupMinName) || tftpboot_state.bulkLookupMinName < 1) {
+		tftpboot_state.bulkLookupMinName = 2;
+	}
+	if (tftpboot_state.bulkLookupMinName > 30) tftpboot_state.bulkLookupMinName = 30;
 	tftpboot_state.labels = opts.labels || {};
 	tftpboot_state.syncApiFetch = !!opts.syncApiFetch;
 	tftpboot_state.syncHasUndo = !!opts.syncHasUndo;
@@ -133,12 +146,14 @@ function tftpboot_bulk_open_modal() {
 	if (!m) return;
 	tftpboot_render_bulk_vendors();
 	tftpboot_bulk_fetch();
+	tftpboot_bulk_ensure_phonebook_cache();
 	m.style.display = 'block';
 	var q = document.getElementById('tftpboot-bulk-q');
 	if (q) q.focus();
 }
 
 function tftpboot_bulk_close() {
+	tftpboot_bulk_ac_close();
 	var m = document.getElementById('tftpboot-bulk-modal');
 	if (m) m.style.display = 'none';
 }
@@ -2321,6 +2336,236 @@ function tftpboot_bulk_save_label() {
 	return 'Save';
 }
 
+function tftpboot_bulk_fix_label() {
+	if (tftpboot_state.labels && tftpboot_state.labels.bulkFix) {
+		return tftpboot_state.labels.bulkFix;
+	}
+	if (typeof LL === 'object' && LL && LL.TftpBootBulkFix) {
+		return LL.TftpBootBulkFix;
+	}
+
+	return 'Fix';
+}
+
+function tftpboot_bulk_fix_hint(fixed) {
+	var L = tftpboot_state.labels || {};
+	if (fixed) {
+		if (tftpboot_state.canUnfixBulk && L.bulkFixHintOff) return L.bulkFixHintOff;
+		if (L.bulkFixHintLocked) return L.bulkFixHintLocked;
+		return '';
+	}
+	return L.bulkFixHintOn || '';
+}
+
+function tftpboot_bulk_row_fixed(r) {
+	return !!(r && r.fixed);
+}
+
+function tftpboot_bulk_set_row_locked_ui(tr, locked) {
+	if (!tr) return;
+	tr.classList.toggle('tftpboot-bulk-row-fixed', locked);
+	var numEl = tr.querySelector('.tftpboot-bulk-num');
+	var titEl = tr.querySelector('.tftpboot-bulk-title');
+	var saveBtn = tr.querySelector('.tftpboot-bulk-one');
+	var delBtn = tr.querySelector('.tftpboot-bulk-del');
+	var fixBtn = tr.querySelector('.tftpboot-bulk-fix');
+	if (numEl) numEl.readOnly = !!locked;
+	if (titEl) titEl.readOnly = !!locked;
+	if (saveBtn) saveBtn.disabled = !!locked;
+	if (delBtn) delBtn.disabled = !!locked;
+	if (fixBtn) {
+		fixBtn.classList.toggle('tftpboot-bulk-fix-active', !!locked);
+		fixBtn.title = tftpboot_bulk_fix_hint(!!locked);
+		fixBtn.disabled = !!(locked && !tftpboot_state.canUnfixBulk);
+	}
+}
+
+function tftpboot_bulk_btn_anim(btn, cls) {
+	if (!btn) return;
+	btn.classList.remove(cls);
+	void btn.offsetWidth;
+	btn.classList.add(cls);
+	btn.addEventListener('animationend', function onEnd() {
+		btn.classList.remove(cls);
+		btn.removeEventListener('animationend', onEnd);
+	});
+}
+
+function tftpboot_bulk_fix_toggle(idx) {
+	var r = tftpboot_state.bulkRows[idx];
+	if (!r) return;
+	var locked = tftpboot_bulk_row_fixed(r);
+	if (locked && !tftpboot_state.canUnfixBulk) return;
+	var fixBtn = document.querySelector('.tftpboot-bulk-fix[data-idx="' + idx + '"]');
+	tftpboot_bulk_btn_anim(fixBtn, 'tftpboot-bulk-fix-pulse');
+	var payload = {
+		number: r.old_number || r.number,
+		title: r.old_title !== undefined ? r.old_title : r.title,
+		fixed: locked ? 0 : 1
+	};
+	tftpboot_http('tftpboot_keys_bulk_fix', payload, function (res) {
+		f_notify(res && res.message ? res.message : 'OK', res && res.code ? 'error' : 'success');
+		if (res && !res.code) tftpboot_bulk_fetch();
+	});
+}
+
+var g_tftpboot_bulk_ac = { box: null, anchor: null, scrollEl: null, onScroll: null };
+
+function tftpboot_bulk_ac_close() {
+	if (g_tftpboot_bulk_ac.box) {
+		g_tftpboot_bulk_ac.box.remove();
+		g_tftpboot_bulk_ac.box = null;
+	}
+	g_tftpboot_bulk_ac.anchor = null;
+	if (g_tftpboot_bulk_ac.scrollEl && g_tftpboot_bulk_ac.onScroll) {
+		g_tftpboot_bulk_ac.scrollEl.removeEventListener('scroll', g_tftpboot_bulk_ac.onScroll);
+	}
+	g_tftpboot_bulk_ac.scrollEl = null;
+	g_tftpboot_bulk_ac.onScroll = null;
+	document.removeEventListener('click', tftpboot_bulk_ac_outside_click, true);
+}
+
+function tftpboot_bulk_ac_position(inp, box) {
+	var r = inp.getBoundingClientRect();
+	box.style.position = 'fixed';
+	box.style.left = r.left + 'px';
+	box.style.top = r.bottom + 'px';
+	box.style.minWidth = Math.max(r.width, 220) + 'px';
+	box.style.maxWidth = Math.min(420, Math.max(220, window.innerWidth * 0.96)) + 'px';
+}
+
+function tftpboot_bulk_ac_outside_click(e) {
+	var box = g_tftpboot_bulk_ac.box;
+	if (!box) return;
+	if (box.contains(e.target)) return;
+	if (g_tftpboot_bulk_ac.anchor && (e.target === g_tftpboot_bulk_ac.anchor || g_tftpboot_bulk_ac.anchor.contains(e.target))) {
+		return;
+	}
+	tftpboot_bulk_ac_close();
+}
+
+function tftpboot_bulk_phonebook_filter(mode, query) {
+	var rows = tftpboot_state.phonebookRows;
+	if (!rows || !rows.length) return [];
+	var limit = tftpboot_state.bulkLookupMatchLimit || 20;
+	var out = [];
+	var i;
+	if (mode === 'number') {
+		var numQ = tftpboot_sanitize_dial_number(query);
+		if (!numQ || tftpboot_special_line_value(numQ) || tftpboot_star_dial_prefix(numQ)) return [];
+		if (numQ.length < tftpboot_state.bulkLookupMinDigits) return [];
+		for (i = 0; i < rows.length && out.length < limit; i++) {
+			if (String(rows[i].number || '').indexOf(numQ) === 0) out.push(rows[i]);
+		}
+	} else {
+		var nameQ = String(query || '').trim().toLowerCase();
+		if (nameQ.length < tftpboot_state.bulkLookupMinName) return [];
+		for (i = 0; i < rows.length && out.length < limit; i++) {
+			var nm = String(rows[i].name || '').toLowerCase();
+			if (nm.indexOf(nameQ) === 0) out.push(rows[i]);
+		}
+	}
+	return out;
+}
+
+function tftpboot_bulk_ensure_phonebook_cache(cb) {
+	if (tftpboot_state.phonebookRows) {
+		if (cb) cb();
+		return;
+	}
+	if (tftpboot_state.phonebookLoading) {
+		tftpboot_state.phonebookLoadQueue = tftpboot_state.phonebookLoadQueue || [];
+		if (cb) tftpboot_state.phonebookLoadQueue.push(cb);
+		return;
+	}
+	tftpboot_state.phonebookLoading = true;
+	tftpboot_http('tftpboot_directory', { refresh: 1 }, function (res) {
+		tftpboot_state.phonebookLoading = false;
+		if (res && !res.code) tftpboot_state.phonebookRows = res.rows || [];
+		var queue = tftpboot_state.phonebookLoadQueue || [];
+		tftpboot_state.phonebookLoadQueue = [];
+		if (cb) cb();
+		queue.forEach(function (fn) { fn(); });
+	});
+}
+
+function tftpboot_bulk_ac_apply(idx, row) {
+	var numEl = document.querySelector('.tftpboot-bulk-num[data-idx="' + idx + '"]');
+	var titEl = document.querySelector('.tftpboot-bulk-title[data-idx="' + idx + '"]');
+	if (numEl) {
+		numEl.value = row.number || '';
+		numEl.classList.remove('tftpboot-field-error');
+	}
+	if (titEl) {
+		titEl.value = row.name || '';
+		titEl.classList.remove('tftpboot-field-error');
+	}
+	tftpboot_bulk_ac_close();
+}
+
+function tftpboot_bulk_ac_show(inp, matches) {
+	if (!matches.length) {
+		if (g_tftpboot_bulk_ac.anchor === inp) tftpboot_bulk_ac_close();
+		return;
+	}
+	tftpboot_bulk_ac_close();
+	var box = document.createElement('div');
+	box.id = 'tftpboot-bulk-ac';
+	box.className = 'autocomplete-items tftpboot-bulk-ac-items';
+	document.body.appendChild(box);
+	g_tftpboot_bulk_ac.box = box;
+	g_tftpboot_bulk_ac.anchor = inp;
+	var idx = inp.getAttribute('data-idx');
+	matches.forEach(function (row) {
+		var item = document.createElement('div');
+		item.className = 'tftpboot-bulk-ac-item';
+		item.textContent = (row.number || '') + ' — ' + (row.name || '');
+		item.addEventListener('mousedown', function (e) {
+			e.preventDefault();
+			tftpboot_bulk_ac_apply(idx, row);
+		});
+		box.appendChild(item);
+	});
+	tftpboot_bulk_ac_position(inp, box);
+	var scrollEl = document.querySelector('#tftpboot-bulk-modal .tftpboot-bulk-scroll');
+	if (scrollEl) {
+		g_tftpboot_bulk_ac.scrollEl = scrollEl;
+		g_tftpboot_bulk_ac.onScroll = tftpboot_bulk_ac_close;
+		scrollEl.addEventListener('scroll', g_tftpboot_bulk_ac.onScroll, { passive: true });
+	}
+	setTimeout(function () {
+		document.addEventListener('click', tftpboot_bulk_ac_outside_click, true);
+	}, 0);
+}
+
+function tftpboot_bulk_bind_lookup(inp, mode) {
+	if (!inp || inp.disabled) return;
+	inp.setAttribute('autocomplete', 'off');
+	var timer = null;
+	var schedule = function () {
+		clearTimeout(timer);
+		timer = setTimeout(function () {
+			tftpboot_bulk_ensure_phonebook_cache(function () {
+				var matches = tftpboot_bulk_phonebook_filter(mode, inp.value);
+				tftpboot_bulk_ac_show(inp, matches);
+			});
+		}, 200);
+	};
+	inp.addEventListener('input', function () {
+		if (mode === 'number') {
+			var v = tftpboot_sanitize_dial_number(inp.value);
+			if (tftpboot_special_line_value(v) || tftpboot_star_dial_prefix(v)) {
+				if (g_tftpboot_bulk_ac.anchor === inp) tftpboot_bulk_ac_close();
+				return;
+			}
+		}
+		schedule();
+	});
+	inp.addEventListener('keydown', function (e) {
+		if (e.key === 'Escape') tftpboot_bulk_ac_close();
+	});
+}
+
 function tftpboot_bulk_empty_label() {
 	if (tftpboot_state.labels && tftpboot_state.labels.bulkEmpty) {
 		return tftpboot_state.labels.bulkEmpty;
@@ -2346,6 +2591,7 @@ function tftpboot_bulk_location_title(locations) {
 }
 
 function tftpboot_bulk_render_table(rows) {
+	tftpboot_bulk_ac_close();
 	tftpboot_state.bulkRows = rows;
 	var tb = document.querySelector('#tftpboot-bulk-table tbody');
 	if (!tb) return;
@@ -2358,9 +2604,14 @@ function tftpboot_bulk_render_table(rows) {
 		tb.appendChild(tr);
 		return;
 	}
+	var fixLbl = escapeHtml(tftpboot_bulk_fix_label());
 	tftpboot_state.bulkRows.forEach(function (r, idx) {
 		var tr = document.createElement('tr');
-		if (r.in_phonebook === false) tr.className = 'tftpboot-bulk-missing-pb';
+		var rowCls = [];
+		if (r.in_phonebook === false) rowCls.push('tftpboot-bulk-missing-pb');
+		if (tftpboot_bulk_row_fixed(r)) rowCls.push('tftpboot-bulk-row-fixed');
+		if (rowCls.length) tr.className = rowCls.join(' ');
+		var isFixed = tftpboot_bulk_row_fixed(r);
 		var noTitle = !String(r.title || '').trim();
 		var tipText = (noTitle && r.locations && r.locations.length)
 			? tftpboot_bulk_location_title(r.locations)
@@ -2378,9 +2629,14 @@ function tftpboot_bulk_render_table(rows) {
 			'<td><input type="text" class="tftpboot-bulk-title" data-idx="' + idx + '" value="' + escapeHtml(r.title || '') + '" /></td>' +
 			'<td class="tftpboot-bulk-count">' + (r.count || 0) + '</td>' +
 			'<td class="tftpboot-bulk-actions">' +
+			'<button type="button" class="button-other tftpboot-bulk-fix' + (isFixed ? ' tftpboot-bulk-fix-active' : '') + '" data-idx="' + idx + '" title="' + escapeHtml(tftpboot_bulk_fix_hint(isFixed)) + '">' + fixLbl + '</button> ' +
 			'<button type="button" class="button-other tftpboot-bulk-one" data-idx="' + idx + '">' + saveLbl + '</button> ' +
 			'<button type="button" class="button-decline tftpboot-bulk-del" data-idx="' + idx + '">' + delLbl + '</button></td>';
 		tb.appendChild(tr);
+		tftpboot_bulk_set_row_locked_ui(tr, isFixed);
+	});
+	document.querySelectorAll('.tftpboot-bulk-fix').forEach(function (btn) {
+		btn.onclick = function () { tftpboot_bulk_fix_toggle(parseInt(btn.getAttribute('data-idx'), 10)); };
 	});
 	document.querySelectorAll('.tftpboot-bulk-one').forEach(function (btn) {
 		btn.onclick = function () { tftpboot_bulk_save_one(parseInt(btn.getAttribute('data-idx'), 10)); };
@@ -2390,15 +2646,24 @@ function tftpboot_bulk_render_table(rows) {
 	});
 	document.querySelectorAll('.tftpboot-bulk-num').forEach(function (inp) {
 		tftpboot_bind_dial_number_input(inp);
+		tftpboot_bulk_bind_lookup(inp, 'number');
 	});
 	document.querySelectorAll('.tftpboot-bulk-title').forEach(function (inp) {
 		inp.addEventListener('input', function () { inp.classList.remove('tftpboot-field-error'); });
+		tftpboot_bulk_bind_lookup(inp, 'name');
 	});
 }
 
 function tftpboot_bulk_delete_one(idx) {
 	var r = tftpboot_state.bulkRows[idx];
 	if (!r) return;
+	if (tftpboot_bulk_row_fixed(r)) {
+		var blockDel = (tftpboot_state.labels && tftpboot_state.labels.bulkFixedBlockDelete)
+			? tftpboot_state.labels.bulkFixedBlockDelete
+			: 'Locked';
+		f_notify(blockDel, 'error');
+		return;
+	}
 	var num = String(r.old_number !== undefined ? r.old_number : (r.number || '')).trim();
 	var tpl = (tftpboot_state.labels && tftpboot_state.labels.bulkDeleteConfirm)
 		? tftpboot_state.labels.bulkDeleteConfirm
@@ -2463,6 +2728,15 @@ function tftpboot_bulk_render_pager(total, pageCount) {
 function tftpboot_bulk_save_one(idx) {
 	var r = tftpboot_state.bulkRows[idx];
 	if (!r) return;
+	if (tftpboot_bulk_row_fixed(r)) {
+		var blockSave = (tftpboot_state.labels && tftpboot_state.labels.bulkFixedBlockSave)
+			? tftpboot_state.labels.bulkFixedBlockSave
+			: 'Locked';
+		f_notify(blockSave, 'error');
+		return;
+	}
+	var saveBtn = document.querySelector('.tftpboot-bulk-one[data-idx="' + idx + '"]');
+	tftpboot_bulk_btn_anim(saveBtn, 'tftpboot-bulk-save-anim');
 	var numEl = document.querySelector('.tftpboot-bulk-num[data-idx="' + idx + '"]');
 	var titEl = document.querySelector('.tftpboot-bulk-title[data-idx="' + idx + '"]');
 	var number = tftpboot_sanitize_dial_number(numEl ? numEl.value : r.number);

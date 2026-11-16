@@ -19,6 +19,8 @@ if(!isset($tftpboot_settings))
 		'bulk_page_size' => '50',
 		'moderation_poll_interval' => '60',
 		'moderation_max_per_hour' => '1',
+		'bulk_lookup_min_digits' => '2',
+		'bulk_lookup_min_name' => '2',
 		'sync_cron_key' => '',
 	);
 }
@@ -61,6 +63,8 @@ if(!isset($tftpboot_admin_embedded)) { $tftpboot_admin_embedded = FALSE; }
 	<h4><?php L('TftpBootModerationSettings') ?></h4>
 	<label><?php L('TftpBootModerationPollInterval') ?> <input type="number" name="moderation_poll_interval" value="<?php eh($tftpboot_settings['moderation_poll_interval']); ?>" min="60" step="1" /></label><br />
 	<label><?php L('TftpBootModerationMaxPerHour') ?> <input type="number" name="moderation_max_per_hour" value="<?php eh($tftpboot_settings['moderation_max_per_hour']); ?>" min="1" step="1" /></label><br />
+	<label><?php L('TftpBootBulkLookupMinDigits') ?> <input type="number" name="bulk_lookup_min_digits" value="<?php eh($tftpboot_settings['bulk_lookup_min_digits']); ?>" min="1" max="11" step="1" /></label><br />
+	<label><?php L('TftpBootBulkLookupMinName') ?> <input type="number" name="bulk_lookup_min_name" value="<?php eh($tftpboot_settings['bulk_lookup_min_name']); ?>" min="1" max="30" step="1" /></label><br />
 
 	<h4><?php L('TftpBootUnknownFiles') ?></h4>
 	<table class="tftpboot-table">

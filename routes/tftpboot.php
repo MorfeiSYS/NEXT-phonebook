@@ -18,8 +18,11 @@ function tftpboot(&$core, $params, $post_data)
 		? array('mode' => 'buttons_only', 'sections' => array('dss'))
 		: tftpboot_user_policy($core);
 	$tftpboot_is_admin = user_is_admin();
+	$tftpboot_can_unfix_bulk = user_can_tftpboot_bulk_unfix($core);
 	$tftpboot_enabled_bulk = $tftpboot_self_only ? array() : tftpboot_bulk_vendor_choices($svc);
 	$tftpboot_bulk_page_size = $svc->get_bulk_page_size();
+	$tftpboot_bulk_lookup_min_digits = tftpboot_bulk_lookup_min_digits($core);
+	$tftpboot_bulk_lookup_min_name = tftpboot_bulk_lookup_min_name($core);
 	$tftpboot_sync_api_fetch = $tftpboot_self_only ? FALSE : tftpboot_sync_api_configured($core);
 	$tftpboot_sync_has_undo = $tftpboot_self_only ? FALSE : (tftpboot_sync_undo_load($core) !== NULL);
 

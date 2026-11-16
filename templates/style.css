@@ -607,6 +607,42 @@ body {
 .tftpboot-bulk-actions .button-other,
 .tftpboot-bulk-actions .button-decline {
     margin: 2px 0;
+    width: auto;
+    min-width: 5.5em;
+    padding: 4px 8px;
+}
+.tftpboot-bulk-fix {
+    transition: background-color 0.25s ease, border-color 0.25s ease, transform 0.15s ease;
+}
+.tftpboot-bulk-fix-active {
+    background-color: #ffd54f !important;
+    border-color: #f9a825 !important;
+}
+#tftpboot-bulk-table tr.tftpboot-bulk-row-fixed {
+    background-color: rgba(255, 213, 79, 0.2);
+}
+#tftpboot-bulk-table tr.tftpboot-bulk-row-fixed .tftpboot-bulk-num,
+#tftpboot-bulk-table tr.tftpboot-bulk-row-fixed .tftpboot-bulk-title {
+    background-color: rgba(255, 249, 196, 0.55);
+}
+#tftpboot-bulk-table thead th {
+    background-color: var(--color-bg-2);
+}
+@keyframes tftpboot-bulk-save-flash {
+    0% { background-color: var(--color-button-other); transform: scale(1); }
+    35% { background-color: var(--color-button-accept); transform: scale(1.04); }
+    100% { background-color: var(--color-button-other); transform: scale(1); }
+}
+@keyframes tftpboot-bulk-fix-pulse {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.06); }
+    100% { transform: scale(1); }
+}
+.tftpboot-bulk-one.tftpboot-bulk-save-anim {
+    animation: tftpboot-bulk-save-flash 0.45s ease;
+}
+.tftpboot-bulk-fix.tftpboot-bulk-fix-pulse {
+    animation: tftpboot-bulk-fix-pulse 0.35s ease;
 }
 .command {
     display: inline-block;
@@ -1188,6 +1224,15 @@ ul.tree-menu:before {
     background-color: DodgerBlue !important;
     color: #ffffff !important;
 }
+.tftpboot-bulk-ac-items {
+    z-index: 1010;
+    max-height: 200px;
+}
+.tftpboot-bulk-ac-item {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
 
 .tftpboot-tabs { margin: 1em 0; }
 .tftpboot-tab, .tftpboot-tab-link {
@@ -1634,6 +1679,16 @@ ul.tree-menu:before {
 	min-height: 0;
 	max-height: calc(90vh - 12em);
 	overflow: auto;
+}
+#tftpboot-bulk-modal .tftpboot-bulk-scroll #tftpboot-bulk-table {
+	margin-top: 0;
+}
+#tftpboot-bulk-table thead th {
+	position: sticky;
+	top: 0;
+	z-index: 3;
+	background-color: var(--color-bg-2);
+	box-shadow: 0 1px 0 var(--color-border-2);
 }
 #tftpboot-bulk-modal .tftpboot-bulk-pages {
 	flex-shrink: 0;

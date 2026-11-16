@@ -35,6 +35,8 @@ function tools(&$core, $params, $post_data)
 			'bulk_page_size' => (string) $svc->get_bulk_page_size(),
 			'moderation_poll_interval' => (string) tftpboot_moderation_poll_interval_sec($core),
 			'moderation_max_per_hour' => (string) tftpboot_moderation_max_per_hour($core),
+			'bulk_lookup_min_digits' => (string) tftpboot_bulk_lookup_min_digits($core),
+			'bulk_lookup_min_name' => (string) tftpboot_bulk_lookup_min_name($core),
 			'sync_cron_key' => $core->Config->get_global('tftpboot_sync_cron_key', ''),
 		);
 	}

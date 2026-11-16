@@ -16,6 +16,14 @@ if(!isset($tftpboot_bulk_page_size))
 {
 	$tftpboot_bulk_page_size = 50;
 }
+if(!isset($tftpboot_bulk_lookup_min_digits))
+{
+	$tftpboot_bulk_lookup_min_digits = 2;
+}
+if(!isset($tftpboot_bulk_lookup_min_name))
+{
+	$tftpboot_bulk_lookup_min_name = 2;
+}
 if(!isset($tftpboot_self_only))
 {
 	$tftpboot_self_only = FALSE;
@@ -23,6 +31,10 @@ if(!isset($tftpboot_self_only))
 if(!isset($tftpboot_can_moderate))
 {
 	$tftpboot_can_moderate = FALSE;
+}
+if(!isset($tftpboot_can_unfix_bulk))
+{
+	$tftpboot_can_unfix_bulk = FALSE;
 }
 if(!isset($tftpboot_pending_count))
 {
@@ -185,9 +197,12 @@ $tftpboot_editor_save_label = $tftpboot_self_only ? LL('TftpBootSubmitModeration
 		isAdmin: <?php echo $tftpboot_is_admin ? '1' : '0'; ?>,
 		selfOnly: <?php echo $tftpboot_self_only ? '1' : '0'; ?>,
 		canModerate: <?php echo $tftpboot_can_moderate ? '1' : '0'; ?>,
+		canUnfixBulk: <?php echo !empty($tftpboot_can_unfix_bulk) ? '1' : '0'; ?>,
 		moderationPendingCount: <?php echo intval($tftpboot_pending_count); ?>,
 		bulkVendors: <?php echo json_encode($tftpboot_enabled_bulk, JSON_UNESCAPED_UNICODE); ?>,
 		bulkPageSize: <?php echo intval($tftpboot_bulk_page_size); ?>,
+		bulkLookupMinDigits: <?php echo intval($tftpboot_bulk_lookup_min_digits); ?>,
+		bulkLookupMinName: <?php echo intval($tftpboot_bulk_lookup_min_name); ?>,
 		syncApiFetch: <?php echo !empty($tftpboot_sync_api_fetch) ? '1' : '0'; ?>,
 		syncHasUndo: <?php echo !empty($tftpboot_sync_has_undo) ? '1' : '0'; ?>,
 		labels: {
@@ -237,6 +252,12 @@ $tftpboot_editor_save_label = $tftpboot_self_only ? LL('TftpBootSubmitModeration
 			pickSearchEmpty: <?php echo json_encode(LL('TftpBootPickSearchEmpty'), JSON_UNESCAPED_UNICODE); ?>,
 			pickSearchLimit: <?php echo json_encode(LL('TftpBootPickSearchLimit'), JSON_UNESCAPED_UNICODE); ?>,
 			bulkNotInPhonebook: <?php echo json_encode(LL('TftpBootBulkNotInPhonebook'), JSON_UNESCAPED_UNICODE); ?>,
+			bulkFix: <?php echo json_encode(LL('TftpBootBulkFix'), JSON_UNESCAPED_UNICODE); ?>,
+			bulkFixHintOn: <?php echo json_encode(LL('TftpBootBulkFixHintOn'), JSON_UNESCAPED_UNICODE); ?>,
+			bulkFixHintOff: <?php echo json_encode(LL('TftpBootBulkFixHintOff'), JSON_UNESCAPED_UNICODE); ?>,
+			bulkFixHintLocked: <?php echo json_encode(LL('TftpBootBulkFixHintLocked'), JSON_UNESCAPED_UNICODE); ?>,
+			bulkFixedBlockSave: <?php echo json_encode(LL('TftpBootBulkFixedBlockSave'), JSON_UNESCAPED_UNICODE); ?>,
+			bulkFixedBlockDelete: <?php echo json_encode(LL('TftpBootBulkFixedBlockDelete'), JSON_UNESCAPED_UNICODE); ?>,
 			layoutCols: <?php echo json_encode(LL('TftpBootLayoutCols'), JSON_UNESCAPED_UNICODE); ?>,
 			layoutResetNumber: <?php echo json_encode(LL('TftpBootLayoutResetNumber'), JSON_UNESCAPED_UNICODE); ?>,
 			layoutDefault: <?php echo json_encode(LL('TftpBootLayoutDefault'), JSON_UNESCAPED_UNICODE); ?>

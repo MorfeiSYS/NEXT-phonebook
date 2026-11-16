@@ -640,6 +640,7 @@ function exception_handler_ajax($exception)
 			$core->Router->add_route('tftpboot_keys_search', 'tftpboot_keys_search', TRUE);
 			$core->Router->add_route('tftpboot_keys_bulk_save', 'tftpboot_keys_bulk_save', TRUE);
 			$core->Router->add_route('tftpboot_keys_bulk_delete', 'tftpboot_keys_bulk_delete', TRUE);
+			$core->Router->add_route('tftpboot_keys_bulk_fix', 'tftpboot_keys_bulk_fix', TRUE);
 			$core->Router->add_route('tftpboot_directory', 'tftpboot_directory', TRUE);
 			$core->Router->add_route('tftpboot_sync_warm', 'tftpboot_sync_warm', TRUE);
 			$core->Router->add_route('tftpboot_sync_preview', 'tftpboot_sync_preview', TRUE);

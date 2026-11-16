@@ -1882,6 +1882,7 @@ class TftpBoot
 		$content = file_get_contents($path);
 		$vendor = $this->detect_vendor(basename($filename), $content);
 		$parsed = $this->parse_content($vendor, $content);
+		$this->protect_fixed_speed_dial_post($post, $parsed);
 
 		$this->backup_file($path);
 
@@ -1993,6 +1994,161 @@ class TftpBoot
 		return $this->normalize_dial_title($label) === $this->normalize_dial_title($old_title);
 	}
 
+	public function bulk_fixed_identity($number, $title)
+	{
+		return $this->normalize_dial_number($number)."\0".$this->normalize_dial_title($title);
+	}
+
+	public function bulk_fixed_list()
+	{
+		$raw = $this->core->Config->get_global('tftpboot_bulk_fixed_json', '');
+		$data = json_decode($raw, TRUE);
+
+		return is_array($data) ? $data : array();
+	}
+
+	private function bulk_fixed_save_list($list)
+	{
+		$this->core->Config->set_global(
+			'tftpboot_bulk_fixed_json',
+			json_encode(array_values($list), JSON_UNESCAPED_UNICODE)
+		);
+	}
+
+	public function bulk_is_fixed($number, $title)
+	{
+		$id = $this->bulk_fixed_identity($number, $title);
+		foreach($this->bulk_fixed_list() as $row)
+		{
+			if(!is_array($row))
+			{
+				continue;
+			}
+			$n = isset($row['number']) ? $row['number'] : '';
+			$t = isset($row['title']) ? $row['title'] : '';
+			if($this->bulk_fixed_identity($n, $t) === $id)
+			{
+				return TRUE;
+			}
+		}
+
+		return FALSE;
+	}
+
+	public function bulk_set_fixed($number, $title, $fixed)
+	{
+		$number = trim((string)$number);
+		$title = trim((string)$title);
+		if($this->normalize_dial_number($number) === '')
+		{
+			return FALSE;
+		}
+
+		$id = $this->bulk_fixed_identity($number, $title);
+		$list = $this->bulk_fixed_list();
+		$next = array();
+		$found = FALSE;
+
+		foreach($list as $row)
+		{
+			if(!is_array($row))
+			{
+				continue;
+			}
+			$n = isset($row['number']) ? $row['number'] : '';
+			$t = isset($row['title']) ? $row['title'] : '';
+			if($this->bulk_fixed_identity($n, $t) === $id)
+			{
+				$found = TRUE;
+				continue;
+			}
+			$next[] = array('number' => $n, 'title' => $t);
+		}
+
+		if($fixed)
+		{
+			if(!$found)
+			{
+				$next[] = array('number' => $number, 'title' => $title);
+			}
+		}
+
+		$this->bulk_fixed_save_list($next);
+
+		return TRUE;
+	}
+
+	public function protect_fixed_speed_dial_post(&$post, $parsed)
+	{
+		if(!isset($post['speedDialKeys']) || !is_array($post['speedDialKeys']))
+		{
+			return;
+		}
+
+		$parsed_keys = array();
+		if(isset($parsed['speedDialKeys']) && is_array($parsed['speedDialKeys']))
+		{
+			$parsed_keys = $parsed['speedDialKeys'];
+		}
+		elseif(isset($parsed['editor_speedDialKeys']) && is_array($parsed['editor_speedDialKeys']))
+		{
+			$parsed_keys = $parsed['editor_speedDialKeys'];
+		}
+
+		if(!count($parsed_keys))
+		{
+			return;
+		}
+
+		foreach($post['speedDialKeys'] as &$k)
+		{
+			if(!is_array($k))
+			{
+				continue;
+			}
+			foreach($parsed_keys as $pk)
+			{
+				if(!is_array($pk))
+				{
+					continue;
+				}
+				$match = FALSE;
+				if(isset($k['id'], $pk['id']) && (string)$k['id'] === (string)$pk['id'])
+				{
+					$match = TRUE;
+				}
+				elseif(isset($k['slot'], $pk['slot']) && (string)$k['slot'] === (string)$pk['slot'])
+				{
+					$match = TRUE;
+				}
+				if(!$match)
+				{
+					continue;
+				}
+
+				$num = isset($pk['number']) ? $pk['number'] : '';
+				$lab = isset($pk['label']) ? $pk['label'] : (isset($pk['title']) ? $pk['title'] : '');
+				if($this->bulk_is_fixed($num, $lab))
+				{
+					if(isset($pk['number']))
+					{
+						$k['number'] = $pk['number'];
+					}
+					if(isset($pk['label']))
+					{
+						$k['label'] = $pk['label'];
+					}
+					if(isset($pk['title']))
+					{
+						$k['title'] = $pk['title'];
+					}
+				}
+				break;
+			}
+		}
+		unset($k);
+	}
+
 	public function list_unique_dial_keys($vendors, $query = '')
 	{
 		@set_time_limit(180);
@@ -2053,6 +2209,14 @@ class TftpBoot
 			if($in_pb !== NULL)
 			{
 				$row['in_phonebook'] = $in_pb;
+			}
+
+			if($this->bulk_is_fixed(
+				isset($row['old_number']) ? $row['old_number'] : (isset($row['number']) ? $row['number'] : ''),
+				isset($row['old_title']) ? $row['old_title'] : (isset($row['title']) ? $row['title'] : '')
+			))
+			{
+				$row['fixed'] = TRUE;
 			}
 
 			$result[] = $row;
@@ -2134,6 +2298,10 @@ class TftpBoot
 			{
 				$old_number = isset($item['old_number']) ? $item['old_number'] : (isset($item['number']) ? $item['number'] : '');
 				$old_title = isset($item['old_title']) ? $item['old_title'] : (isset($item['title']) ? $item['title'] : '');
+				if($this->bulk_is_fixed($old_number, $old_title))
+				{
+					continue;
+				}
 				$new_number = isset($item['number']) ? trim($item['number']) : '';
 				$new_title = isset($item['title']) ? trim($item['title']) : '';
 
@@ -2261,6 +2429,11 @@ class TftpBoot
 				$old_title = isset($item['old_title']) ? $item['old_title'] : '';
 
 				if($this->normalize_dial_number($old_number) === '')
+				{
+					continue;
+				}
+
+				if($this->bulk_is_fixed($old_number, $old_title))
 				{
 					continue;
 				}
@@ -2682,6 +2855,11 @@ class TftpBoot
 				continue;
 			}
 
+			if(!empty($row['fixed']))
+			{
+				continue;
+			}
+
 			$resolved = $this->resolve_sync_title_for_dial($num, $row['title'], $name_map, $index);
 			if($resolved['title'] !== '')
 			{
@@ -2734,6 +2912,11 @@ class TftpBoot
 			$exp_norm = $this->normalize_dial_title($expected);
 			foreach($rows as $row)
 			{
+				if(!empty($row['fixed']))
+				{
+					continue;
+				}
+
 				if($this->normalize_dial_title($row['title']) === $exp_norm)
 				{
 					continue;
