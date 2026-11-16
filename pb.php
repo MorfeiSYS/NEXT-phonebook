@@ -17,7 +17,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-define('DB_VERSION', 15);
+define('DB_VERSION', 16);
 
 if(!defined('ROOT_DIR'))
 {
@@ -125,6 +125,26 @@ function role_label($role)
 	}
 
 	return LL('RoleUser');
+}
+
+function user_status_label($flags)
+{
+	if(intval($flags) & UA_DISABLED)
+	{
+		return LL('UserStatusBlocked');
+	}
+
+	return LL('UserStatusActive');
+}
+
+function users_row_search_blob($row)
+{
+	$id = intval(@$row['id']);
+	$login = strtolower((string) @$row['login']);
+	$mail = strtolower((string) @$row['mail']);
+	$role = strtolower(role_label(@$row['role']));
+
+	return $id.' '.$login.' '.$mail.' '.$role;
 }
 
 function contacts_columns_catalog()
@@ -715,6 +735,8 @@ function exception_handler_ajax($exception)
 			$core->Router->add_route('user_activate', 'user_activate', TRUE);
 			$core->Router->add_route('user_password_form', 'user_password_form', TRUE);
 			$core->Router->add_route('user_password', 'user_password', TRUE);
+			$core->Router->add_route('user_ldap_get', 'user_ldap_get', TRUE);
+			$core->Router->add_route('user_ldap_save', 'user_ldap_save', TRUE);
 
 			$core->Router->add_route('register_approve_form', 'register_approve_form');
 			$core->Router->add_route('register_approve', 'register_approve');

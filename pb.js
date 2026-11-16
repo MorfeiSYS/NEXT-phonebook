@@ -606,9 +606,27 @@ function on_saved(action, data)
 		//f_get_perms(data.pid);
 		window.location = window.location;
 	}
-	else if(action == 'user_save')
+	else if(action == 'user_save' || action == 'user_ldap_save')
 	{
-		window.location = window.location;
+		var row;
+
+		if(data && data.user)
+		{
+			if(data.user.is_new)
+			{
+				try
+				{
+					sessionStorage.setItem('users_reopen_modal', 'users-local-modal');
+				}
+				catch(e)
+				{
+				}
+				window.location = window.location;
+				return;
+			}
+			row = f_users_row_apply_data(data.user);
+			f_users_panel_refresh_row(row);
+		}
 	}
 	else if(action == 'contact_save')
 	{
@@ -908,28 +926,181 @@ function f_delete_photo(ev)
 	);
 };
 
-function on_action_success(el, action, data)
+function f_users_find_row(id)
 {
-	if(action == 'user_deactivate')
+	return document.querySelector('.users-data-row[data-id="' + String(id) + '"]');
+}
+
+function f_users_row_blocked(row, blocked)
+{
+	var badge;
+	var ops;
+	var toggle;
+
+	if(!row)
 	{
-		window.location = window.location;
+		return;
 	}
-	else if(action == 'user_activate')
+	blocked = !!blocked;
+	row.classList.toggle('users-row-disabled', blocked);
+	row.setAttribute('data-sort-status', blocked ? '1' : '0');
+	badge = row.querySelector('.users-status-badge');
+	if(badge)
 	{
-		window.location = window.location;
+		badge.textContent = blocked ? (LL.UserStatusBlocked || '') : (LL.UserStatusActive || '');
+		badge.className = 'users-status-badge users-status-' + (blocked ? 'blocked' : 'active');
+	}
+	ops = row.querySelector('.users-ops-group');
+	if(!ops)
+	{
+		return;
+	}
+	toggle = ops.querySelector('.users-toggle-state');
+	if(!toggle)
+	{
+		return;
+	}
+	if(blocked)
+	{
+		toggle.textContent = LL.Activate || 'Activate';
+		toggle.className = 'command users-toggle-state';
+		toggle.setAttribute('onclick', 'f_activate_user(event);');
 	}
 	else
 	{
-		var row = el.parentNode.parentNode;
+		toggle.textContent = LL.Deactivate || 'Deactivate';
+		toggle.className = 'command users-toggle-state users-ops-warn';
+		toggle.setAttribute('onclick', 'f_deactivate_user(event);');
+	}
+	row.setAttribute('data-search', (row.getAttribute('data-sort-id') || '') + ' '
+		+ (row.getAttribute('data-sort-login') || '') + ' '
+		+ (row.getAttribute('data-sort-mail') || '') + ' '
+		+ (row.querySelector('td:nth-child(4)') ? row.querySelector('td:nth-child(4)').textContent.toLowerCase() : ''));
+}
+
+function f_users_row_apply_data(data)
+{
+	var row = f_users_find_row(data.id);
+
+	if(!row || !data)
+	{
+		return null;
+	}
+	if(data.login != null)
+	{
+		row.setAttribute('data-sort-login', String(data.login).toLowerCase());
+		var loginCell = row.querySelector('.users-cell-login');
+		if(loginCell)
+		{
+			loginCell.textContent = data.login;
+		}
+	}
+	if(data.mail != null)
+	{
+		row.setAttribute('data-sort-mail', String(data.mail).toLowerCase());
+		var mailCell = row.querySelector('.users-cell-mail');
+		if(mailCell)
+		{
+			mailCell.textContent = data.mail;
+		}
+	}
+	if(data.role != null)
+	{
+		row.setAttribute('data-sort-role', String(data.role));
+		var roleCell = row.querySelector('td:nth-child(4)');
+		if(roleCell && data.role_label)
+		{
+			roleCell.textContent = data.role_label;
+		}
+	}
+	if(data.blocked != null)
+	{
+		f_users_row_blocked(row, !!data.blocked);
+	}
+	return row;
+}
+
+function f_users_panel_refresh_row(row)
+{
+	var panel;
+
+	if(!row)
+	{
+		return;
+	}
+	panel = row.closest('.users-list-panel');
+	if(panel && panel._usersListTable)
+	{
+		panel._usersListTable.refresh();
+	}
+}
+
+function f_users_reopen_modal_after_reload()
+{
+	var modalId;
+
+	try
+	{
+		modalId = sessionStorage.getItem('users_reopen_modal');
+		if(modalId)
+		{
+			sessionStorage.removeItem('users_reopen_modal');
+			f_users_modal_open(modalId);
+		}
+	}
+	catch(e)
+	{
+	}
+}
+
+function on_action_success(el, action, data)
+{
+	var row;
+
+	if(action == 'user_deactivate' || action == 'user_activate')
+	{
+		row = f_row_from_element(el);
+		if(!row && data && data.id)
+		{
+			row = f_users_find_row(data.id);
+		}
+		if(row)
+		{
+			f_users_row_blocked(row, action == 'user_deactivate' || !!data.blocked);
+			f_users_panel_refresh_row(row);
+		}
+		return;
+	}
+
+	row = f_row_from_element(el);
+	if(row && row.parentNode)
+	{
 		row.parentNode.removeChild(row);
 	}
+}
+
+function f_row_from_element(el)
+{
+	var node = el;
+
+	while(node && node !== document && node !== document.body)
+	{
+		if(node.getAttribute && node.getAttribute('data-id'))
+		{
+			return node;
+		}
+		node = node.parentNode;
+	}
+
+	return null;
 }
 
 function f_call_action(ev, action)
 {
 	gi('loading').style.display = 'block';
 	var el_src = ev.target || ev.srcElement;
-	var id = el_src.parentNode.parentNode.getAttribute('data-id');
+	var row = f_row_from_element(el_src);
+	var id = row ? row.getAttribute('data-id') : '';
 	f_http(
 		g_link_prefix + action,
 		function(data, params)
@@ -1353,6 +1524,328 @@ function f_settings_modal_backdrop_close(ev, id)
 	{
 		f_settings_modal_close(id);
 	}
+}
+
+var g_users_list_page_size = 25;
+
+function f_users_list_format(template, a, b, c)
+{
+	if(!template)
+	{
+		return '';
+	}
+	return template.replace('%1', a).replace('%2', b).replace('%3', c);
+}
+
+function UsersListTable(panel)
+{
+	this.panel = panel;
+	this.tbody = panel.querySelector('tbody');
+	this.rows = this.tbody ? Array.prototype.slice.call(this.tbody.querySelectorAll('.users-data-row')) : [];
+	this.searchInput = panel.querySelector('.users-list-search');
+	this.metaEl = panel.querySelector('.users-list-meta');
+	this.pagerLabel = panel.querySelector('.users-pager-label');
+	this.prevBtn = panel.querySelector('.users-pager-prev');
+	this.nextBtn = panel.querySelector('.users-pager-next');
+	this.sortCol = 'id';
+	this.sortDir = 1;
+	this.page = 0;
+	this._bound = false;
+}
+
+UsersListTable.prototype._filtered = function()
+{
+	var q = (this.searchInput.value || '').trim().toLowerCase();
+	var i;
+	var out = [];
+
+	for(i = 0; i < this.rows.length; i++)
+	{
+		if(!q || (this.rows[i].getAttribute('data-search') || '').indexOf(q) >= 0)
+		{
+			out.push(this.rows[i]);
+		}
+	}
+
+	return out;
+};
+
+UsersListTable.prototype._compare = function(a, b)
+{
+	var va = a.getAttribute('data-sort-' + this.sortCol) || '';
+	var vb = b.getAttribute('data-sort-' + this.sortCol) || '';
+	var dir = this.sortDir;
+
+	if(this.sortCol === 'id' || this.sortCol === 'role' || this.sortCol === 'status')
+	{
+		va = parseInt(va, 10) || 0;
+		vb = parseInt(vb, 10) || 0;
+		return dir * (va - vb);
+	}
+
+	va = va.toLowerCase();
+	vb = vb.toLowerCase();
+	if(va < vb)
+	{
+		return -dir;
+	}
+	if(va > vb)
+	{
+		return dir;
+	}
+	return 0;
+};
+
+UsersListTable.prototype._update_sort_headers = function()
+{
+	var headers = this.panel.querySelectorAll('.users-sort-th');
+	var i;
+	var th;
+
+	for(i = 0; i < headers.length; i++)
+	{
+		th = headers[i];
+		if(th.getAttribute('data-sort') === this.sortCol)
+		{
+			th.classList.add('users-sort-th-active');
+			th.setAttribute('aria-sort', this.sortDir > 0 ? 'ascending' : 'descending');
+			th.setAttribute('data-sort-dir', this.sortDir > 0 ? 'asc' : 'desc');
+		}
+		else
+		{
+			th.classList.remove('users-sort-th-active');
+			th.setAttribute('aria-sort', 'none');
+			th.removeAttribute('data-sort-dir');
+		}
+	}
+};
+
+UsersListTable.prototype.refresh = function()
+{
+	var filtered = this._filtered();
+	var sorted = filtered.slice();
+	var i;
+	var start;
+	var end;
+	var pages;
+	var total = sorted.length;
+	var pageSet = {};
+	var tr;
+
+	sorted.sort(this._compare.bind(this));
+
+	for(i = 0; i < sorted.length; i++)
+	{
+		this.tbody.appendChild(sorted[i]);
+	}
+
+	pages = Math.max(1, Math.ceil(total / g_users_list_page_size));
+	if(this.page >= pages)
+	{
+		this.page = pages - 1;
+	}
+	if(this.page < 0)
+	{
+		this.page = 0;
+	}
+
+	start = this.page * g_users_list_page_size;
+	end = Math.min(start + g_users_list_page_size, total);
+
+	for(i = start; i < end; i++)
+	{
+		pageSet[sorted[i].getAttribute('data-id')] = true;
+	}
+
+	for(i = 0; i < this.rows.length; i++)
+	{
+		tr = this.rows[i];
+		if(filtered.indexOf(tr) < 0)
+		{
+			tr.style.display = 'none';
+		}
+		else
+		{
+			tr.style.display = pageSet[tr.getAttribute('data-id')] ? '' : 'none';
+		}
+	}
+
+	if(this.metaEl)
+	{
+		if(total === 0)
+		{
+			this.metaEl.textContent = LL.UsersNoMatch || '';
+		}
+		else
+		{
+			this.metaEl.textContent = f_users_list_format(LL.UsersListRange, String(start + 1), String(end), String(total));
+		}
+	}
+
+	if(this.pagerLabel)
+	{
+		this.pagerLabel.textContent = f_users_list_format(LL.UsersListPage, String(this.page + 1), String(pages), '');
+	}
+
+	if(this.prevBtn)
+	{
+		this.prevBtn.disabled = (this.page <= 0);
+	}
+	if(this.nextBtn)
+	{
+		this.nextBtn.disabled = (this.page >= pages - 1);
+	}
+
+	this._update_sort_headers();
+};
+
+UsersListTable.prototype.bind = function()
+{
+	var self = this;
+	var headers;
+	var i;
+	var th;
+
+	if(this._bound || !this.tbody)
+	{
+		return;
+	}
+	this._bound = true;
+
+	if(this.searchInput)
+	{
+		this.searchInput.addEventListener('input', function()
+		{
+			self.page = 0;
+			self.refresh();
+		});
+	}
+
+	headers = this.panel.querySelectorAll('.users-sort-th');
+	for(i = 0; i < headers.length; i++)
+	{
+		th = headers[i];
+		th.addEventListener('click', function(ev)
+		{
+			var col = ev.currentTarget.getAttribute('data-sort');
+			if(col === self.sortCol)
+			{
+				self.sortDir = -self.sortDir;
+			}
+			else
+			{
+				self.sortCol = col;
+				self.sortDir = (col === 'id' || col === 'role') ? 1 : 1;
+			}
+			self.page = 0;
+			self.refresh();
+		});
+		th.addEventListener('keydown', function(ev)
+		{
+			if(ev.key === 'Enter' || ev.key === ' ')
+			{
+				ev.preventDefault();
+				th.click();
+			}
+		});
+	}
+
+	if(this.prevBtn)
+	{
+		this.prevBtn.addEventListener('click', function()
+		{
+			if(self.page > 0)
+			{
+				self.page--;
+				self.refresh();
+			}
+		});
+	}
+	if(this.nextBtn)
+	{
+		this.nextBtn.addEventListener('click', function()
+		{
+			self.page++;
+			self.refresh();
+		});
+	}
+};
+
+function f_users_list_init_all()
+{
+	var panels = document.querySelectorAll('.users-list-panel');
+	var i;
+
+	for(i = 0; i < panels.length; i++)
+	{
+		if(!panels[i]._usersListTable)
+		{
+			panels[i]._usersListTable = new UsersListTable(panels[i]);
+			panels[i]._usersListTable.bind();
+		}
+		panels[i]._usersListTable.refresh();
+	}
+}
+
+function f_users_modal_fit(modalId)
+{
+	var modal = gi(modalId);
+	var content;
+	var panel;
+	var wrap;
+	var room;
+
+	if(!modal)
+	{
+		return;
+	}
+	content = modal.querySelector('.users-modal-content');
+	if(!content)
+	{
+		return;
+	}
+	content.style.maxHeight = 'min(90vh, calc(100dvh - 32px))';
+	panel = modal.querySelector('.users-list-panel');
+	wrap = panel ? panel.querySelector('.users-list-table-wrap') : null;
+	if(!wrap)
+	{
+		return;
+	}
+	room = Math.max(200, Math.floor(window.innerHeight * 0.9) - 220);
+	wrap.style.maxHeight = room + 'px';
+}
+
+function f_users_modal_open(id)
+{
+	var el;
+	var r = f_settings_modal_open(id, false);
+	f_users_list_init_all();
+	f_users_modal_fit(id);
+	el = gi(id);
+	if(el)
+	{
+		var search = el.querySelector('.users-list-search');
+		if(search)
+		{
+			try { search.focus(); } catch(e) {}
+		}
+	}
+	return r;
+}
+
+function f_users_bootstrap()
+{
+	f_users_list_init_all();
+	f_users_reopen_modal_after_reload();
+}
+
+if(document.readyState === 'loading')
+{
+	document.addEventListener('DOMContentLoaded', f_users_bootstrap);
+}
+else
+{
+	f_users_bootstrap();
 }
 
 (function()

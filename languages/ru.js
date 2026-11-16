@@ -11,6 +11,14 @@ const LL = {
 	ConfirmRevealAdminHiddenContacts:	'Сделать видимыми все записи, которые ранее были скрыты администратором (вручную или массовой операцией), для контактов в норме в AD?',
 	OutputParameters:		'Исходящие параметры',
 
+	UsersListRange:		'Записи %1–%2 из %3',
+	UsersListPage:		'Стр. %1 из %2',
+	UsersNoMatch:		'Нет совпадений',
+	Activate:			'Активировать',
+	Deactivate:			'Деактивировать',
+	UserStatusActive:	'Активен',
+	UserStatusBlocked:	'Заблокирован',
+
 	ContactStatusTooltipOk: 'В норме: нет признаков удаления/отключения/массового скрытия для индикатора.',
 	ContactStatusTooltipAdDeleted: 'Не найден при последней синхронизации с AD (помечен удалённым)',
 	ContactStatusTooltipAdDisabled: 'Учётная запись отключена в AD',

@@ -31,7 +31,7 @@
 	Where 1, 2, 3, 4 are the ordinal numbers of the bits.
 */
 
-define('UA_DISABLED',	0x0001);  /// Ignored for LDAP user
+define('UA_DISABLED',	0x0001);  /// User blocked in phonebook (local and domain)
 define('UA_LDAP',		0x0002);  /// Is a LDAP user (otherwise is internal user)
 define('UA_DELETED',	0x0004);  /// User is deleted
 define('UA_ADMIN',		0x0008);  /// User is admin
@@ -106,6 +106,10 @@ class UserAuth
 		else
 		{
 			$this->uid = intval($_SESSION[DB_PREFIX.'uid']);
+			if($this->uid && !$this->session_user_is_active())
+			{
+				$this->logoff();
+			}
 
 			/*
 			// preload user info
@@ -230,7 +234,7 @@ class UserAuth
 						`@users` AS m
 					WHERE
 						m.`login` = !
-						AND (m.`flags` & ({%UA_DELETED})) = 0
+						AND (m.`flags` & ({%UA_LDAP} | {%UA_DELETED})) = {%UA_LDAP}
 					LIMIT 1
 				", $sam_account_name
 			)))
@@ -238,17 +242,14 @@ class UserAuth
 				$uid = intval($user_data[0][0]);
 				$flags = intval($user_data[0][2]);
 
-				if(($flags & UA_LDAP) == 0)
+				if(($flags & UA_DISABLED) != 0)
 				{
-					if(!$this->core->db->put(rpv('UPDATE `@users` SET `flags` = (`flags` | {%UA_LDAP}), `passwd` = \'\' WHERE `id` = # LIMIT 1', $uid)))
-					{
-						$this->core->error_ex($this->core->get_last_error(), $this->rise_exception);
-						$this->ldap->restore_service_credentials();
-						return FALSE;
-					}
-					$flags |= UA_LDAP;
+					$this->core->error_ex(function_exists('LL') ? LL('InvalidUserPasswd') : 'Account disabled', $this->rise_exception);
+					$this->ldap->restore_service_credentials();
+					return FALSE;
 				}
-				else if(!empty($user_data[0][4]))
+
+				if(!empty($user_data[0][4]))
 				{
 					$this->core->db->put(rpv('UPDATE `@users` SET `passwd` = \'\' WHERE `id` = # LIMIT 1', $uid));
 				}
@@ -324,6 +325,7 @@ class UserAuth
 
 		pb_set_cookie('zh', $this->token, time() + 2592000);
 		pb_set_cookie('zl', $this->login, time() + 2592000);
+		pb_set_cookie('zt', ($this->flags & UA_LDAP) ? '1' : '0', time() + 2592000);
 
 		//$this->core->db->put(rpv('UPDATE @users SET `sid` = ! WHERE `id` = # LIMIT 1', $this->token, $this->uid));
 
@@ -335,7 +337,7 @@ class UserAuth
 	public function logon_by_token($login, $token)
 	{
 		$user_data = array();
-		if($this->core->db->select_ex($user_data, rpv("
+		$auth_sql = "
 			SELECT
 				m.`id`,
 				m.`flags`,
@@ -344,12 +346,13 @@ class UserAuth
 			FROM
 				@users AS m
 			WHERE
-				m.`login` = !
-				AND m.`sid` IS NOT NULL
+				m.`sid` IS NOT NULL
 				AND m.`sid` = !
 				AND (m.`flags` & ({%UA_DISABLED} | {%UA_DELETED})) = 0
 			LIMIT 1
-		", $login, $token)))
+		";
+
+		if($this->core->db->select_ex($user_data, rpv($auth_sql, $token)))
 		{
 			$this->loaded = TRUE;
 			$_SESSION[DB_PREFIX.'uid'] = $user_data[0][0];
@@ -358,9 +361,9 @@ class UserAuth
 			$this->login = $user_data[0][2];
 			$this->token = $user_data[0][3];
 
-			// Extend cookie life time
 			pb_set_cookie('zh', $this->token, time() + 2592000);
 			pb_set_cookie('zl', $this->login, time() + 2592000);
+			pb_set_cookie('zt', ($this->flags & UA_LDAP) ? '1' : '0', time() + 2592000);
 
 			return TRUE;
 		}
@@ -378,6 +381,7 @@ class UserAuth
 		$_SESSION[DB_PREFIX.'uid'] = 0;
 		pb_set_cookie('zh', '', time() - 60);
 		pb_set_cookie('zl', '', time() - 60);
+		pb_set_cookie('zt', '', time() - 60);
 
 		$this->loaded = FALSE;
 		$this->uid = 0;
@@ -497,6 +501,37 @@ class UserAuth
 	 *  \return true - if activated successfully
 	 */
 
+	public function set_user_ldap_info_ex($uid, $mail, $role = PB_ROLE_USER)
+	{
+		$affected = 0;
+		$uid = intval($uid);
+		$role = intval($role);
+		if($role < PB_ROLE_USER) $role = PB_ROLE_USER;
+		if($role > PB_ROLE_OPERATOR) $role = PB_ROLE_OPERATOR;
+
+		if(!$uid)
+		{
+			return FALSE;
+		}
+
+		if($this->core->db->put(rpv('
+			UPDATE `@users` SET
+				`mail` = !,
+				`role` = #,
+				`flags` = (`flags` & ~{%UA_ADMIN})
+			WHERE
+				`id` = #
+				AND (`flags` & {%UA_LDAP}) = {%UA_LDAP}
+				AND (`flags` & {%UA_DELETED}) = 0
+			LIMIT 1', $mail, $role, $uid), $affected) && $affected > 0)
+		{
+			$this->invalidate_rights_cache($uid);
+			return TRUE;
+		}
+
+		return FALSE;
+	}
+
 	public function set_user_info_ex($uid, $login, $mail, $role = PB_ROLE_USER)
 	{
 		$affected = 0;
@@ -554,7 +589,7 @@ class UserAuth
 
 		if($uid)
 		{
-			if($this->core->db->put(rpv('UPDATE `@users` SET `flags` = (`flags` | {%UA_DISABLED}) WHERE `id` = # AND (`flags` & {%UA_LDAP}) = 0 LIMIT 1', $uid), $affected))
+			if($this->core->db->put(rpv('UPDATE `@users` SET `flags` = (`flags` | {%UA_DISABLED}), `sid` = NULL, `reset_token` = NULL WHERE `id` = # AND (`flags` & {%UA_DELETED}) = 0 LIMIT 1', $uid), $affected))
 			{
 				//return ($affected > 0);
 				return TRUE;
@@ -570,7 +605,7 @@ class UserAuth
 
 		if($uid)
 		{
-			if($this->core->db->put(rpv('UPDATE `@users` SET `flags` = (`flags` & ~{%UA_DISABLED}) WHERE `id` = # AND (`flags` & {%UA_LDAP}) = 0 LIMIT 1', $uid), $affected))
+			if($this->core->db->put(rpv('UPDATE `@users` SET `flags` = (`flags` & ~{%UA_DISABLED}) WHERE `id` = # AND (`flags` & {%UA_DELETED}) = 0 LIMIT 1', $uid), $affected))
 			{
 				//return ($affected > 0);
 				return TRUE;
@@ -630,6 +665,19 @@ class UserAuth
 		}
 
 		return 0;
+	}
+
+	private function session_user_is_active()
+	{
+		$result = array();
+
+		if(!$this->uid
+			|| !$this->core->db->select_ex($result, rpv('SELECT u.`flags` FROM @users AS u WHERE u.`id` = # AND (u.`flags` & {%UA_DELETED}) = 0 LIMIT 1', $this->uid)))
+		{
+			return FALSE;
+		}
+
+		return ((intval($result[0][0]) & UA_DISABLED) == 0);
 	}
 
 	private function load_user_info()
@@ -870,13 +918,9 @@ class UserAuth
 
 		if($this->is_ldap_user())
 		{
-			if($this->has_access_bit(0, PB_ACCESS_ADMIN))
+			if($role > PB_ROLE_OPERATOR)
 			{
-				return max($role, PB_ROLE_ADMIN);
-			}
-			if($this->has_access_bit(0, PB_ACCESS_OPERATOR))
-			{
-				return max($role, PB_ROLE_OPERATOR);
+				$role = PB_ROLE_OPERATOR;
 			}
 
 			return $role;

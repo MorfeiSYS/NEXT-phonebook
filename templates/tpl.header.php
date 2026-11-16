@@ -64,7 +64,6 @@
 				<?php if(user_is_admin()) { ?>
 				<li><a href="<?php ln('handshakes') ?>"><?php L('Handshakes') ?></a></li>
 				<li><a href="<?php ln('tools') ?>"><?php L('Settings') ?></a></li>
-				<li><a href="<?php ln('permissions') ?>"><?php L('Permissions') ?></a></li>
 				<li><a href="<?php ln('users') ?>"><?php L('Users') ?></a></li>
 				<?php } ?>
 			<?php } ?>

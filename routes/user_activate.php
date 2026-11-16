@@ -19,5 +19,10 @@ function user_activate(&$core, $params, $post_data)
 	}
 
 	log_db('Activated user', '{id='.$user_id.'}', 0);
-	echo '{"code": 0, "id": '.$user_id.', "message": "'.LL('UserActivated').'"}';
+	echo json_encode(array(
+		'code' => 0,
+		'id' => $user_id,
+		'blocked' => 0,
+		'message' => LL('UserActivated')
+	), JSON_UNESCAPED_UNICODE);
 }

@@ -38,8 +38,26 @@ function user_save(&$core, $params, $post_data)
 	}
 	elseif($core->UserAuth->set_user_info_ex($user_id, $login, $mail, $role))
 	{
+		if(!$user_id)
+		{
+			$user_id = intval($core->db->last_id());
+		}
+		$info = $core->UserAuth->get_user_info_ex($user_id);
 		log_db('Updated user', '{id='.$user_id.',login="'.$login.'",role='.$role.'}', 0);
 		$result_json['message'] = LL('SuccessfulUpdated');
+		$result_json['id'] = $user_id;
+		if($info)
+		{
+			$result_json['user'] = array(
+				'id' => intval($info['id']),
+				'login' => $info['login'],
+				'mail' => $info['mail'],
+				'role' => intval($info['role']),
+				'role_label' => role_label($info['role']),
+				'blocked' => (intval($info['flags']) & UA_DISABLED) ? 1 : 0,
+				'is_new' => empty($post_data['id']) ? 1 : 0
+			);
+		}
 	}
 	else
 	{

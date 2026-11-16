@@ -2,9 +2,6 @@
 
 function permissions(&$core, $params, $post_data)
 {
-	//$id = @$params[1];
-	$id = 0;
-
 	if(!$core->UserAuth->check_permission(0, PB_ACCESS_ADMIN))
 	{
 		$error_msg = LL('AccessDeniedToSection').' 0 '.LL('forUser').' '.$core->UserAuth->get_login().'!';
@@ -12,19 +9,7 @@ function permissions(&$core, $params, $post_data)
 		exit;
 	}
 
-	if(empty($id) || intval($id) == 0)
-	{
-		$current_folder = array(
-			'name' => LL('RootLevel'),
-			'id' => 0,
-			'pid' => '00000000-0000-0000-0000-000000000000',
-			'guid' => '00000000-0000-0000-0000-000000000000',
-			'flags' => 0,
-			'childs' => NULL
-		);
-	}
-
-	$core->db->select_assoc_ex($permissions, rpv('SELECT a.`id`, a.`oid`, a.`dn`, a.`allow_bits` FROM `@access` AS a WHERE a.`oid` = # ORDER BY a.`dn`', $current_folder['id']));
-
-	include(TEMPLATES_DIR.'tpl.permissions.php');
+	$q = (strpos(WEB_LINK_PREFIX, '?path=') !== FALSE) ? '&' : '?';
+	header('Location: '.WEB_LINK_PREFIX.'users'.$q.'open=permissions');
+	exit;
 }

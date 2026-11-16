@@ -19,5 +19,10 @@ function user_deactivate(&$core, $params, $post_data)
 	}
 
 	log_db('Deactivated user', '{id='.$user_id.'}', 0);
-	echo '{"code": 0, "id": '.$user_id.', "message": "'.LL('UserDeactivated').'"}';
+	echo json_encode(array(
+		'code' => 0,
+		'id' => $user_id,
+		'blocked' => 1,
+		'message' => LL('UserDeactivated')
+	), JSON_UNESCAPED_UNICODE);
 }

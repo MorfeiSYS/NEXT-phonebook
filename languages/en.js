@@ -11,6 +11,14 @@ const LL = {
 	ConfirmRevealAdminHiddenContacts:	'Make visible all records previously hidden by an administrator (manually or in bulk) for contacts that are OK in AD?',
 	OutputParameters:		'Output parameters',
 
+	UsersListRange:		'Rows %1–%2 of %3',
+	UsersListPage:		'Page %1 of %2',
+	UsersNoMatch:		'No matches',
+	Activate:			'Activate',
+	Deactivate:			'Deactivate',
+	UserStatusActive:	'Active',
+	UserStatusBlocked:	'Blocked',
+
 	ContactStatusTooltipOk: 'OK: no deleted/disabled/hidden flags for this indicator.',
 	ContactStatusTooltipAdDeleted: 'Not found in last AD sync (marked deleted)',
 	ContactStatusTooltipAdDisabled: 'Account disabled in AD',

@@ -99,7 +99,7 @@ require_once(ROOT_DIR.'inc.config.php');
 
 	if(!defined('DB_VERSION'))
 	{
-		define('DB_VERSION', 15);
+		define('DB_VERSION', 16);
 	}
 
 	$core = new Core(TRUE);
@@ -827,6 +827,35 @@ require_once(ROOT_DIR.'inc.config.php');
 		}
 
 		case 15:
+		{
+			echo "Add auth_kind and unique (login, auth_kind) on users...\n";
+			$cols = array();
+			if(!$core->db->select_ex($cols, rpv("SHOW COLUMNS FROM `@users` LIKE 'auth_kind'"))
+				|| count($cols) === 0)
+			{
+				if(!$core->db->put(rpv('ALTER TABLE `@users` ADD COLUMN `auth_kind` TINYINT UNSIGNED AS ((`flags` & 2) >> 1) STORED')))
+				{
+					echo 'ERROR['.__LINE__.']: '.$core->db->get_last_error().PHP_EOL;
+				}
+			}
+			$indexes = array();
+			if(!$core->db->select_ex($indexes, rpv("SHOW INDEX FROM `@users` WHERE Key_name = 'uq_login_auth'"))
+				|| count($indexes) === 0)
+			{
+				if(!$core->db->put(rpv('ALTER TABLE `@users` ADD UNIQUE KEY `uq_login_auth` (`login`, `auth_kind`)')))
+				{
+					echo 'ERROR['.__LINE__.']: '.$core->db->get_last_error().PHP_EOL;
+				}
+			}
+			echo "Set db_version = '16'...\n";
+			if(!$core->db->put(rpv("UPDATE @config SET `value` = 16 WHERE `uid` = 0 AND `name` = 'db_version' LIMIT 1")))
+			{
+				echo 'ERROR['.__LINE__.']: '.$core->db->get_last_error().PHP_EOL;
+			}
+			echo "\n\nUpgrade to version 16 complete!\n";
+		}
+
+		case 16:
 		{
 			echo "\nDatabase schema is up to date (version ".DB_VERSION.").\n";
 		}

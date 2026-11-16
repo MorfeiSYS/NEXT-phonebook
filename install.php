@@ -94,7 +94,9 @@ CREATE TABLE `#DB_NAME#`.`pb_users` (
   `reset_token` varchar(16) DEFAULT NULL,
   `flags` int(10) unsigned NOT NULL DEFAULT 0,
   `role` tinyint(3) unsigned NOT NULL DEFAULT 0,
-  PRIMARY KEY (`id`)
+  `auth_kind` tinyint(3) unsigned GENERATED ALWAYS AS ((`flags` & 2) >> 1) STORED,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_login_auth` (`login`, `auth_kind`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 EOT
 ,
