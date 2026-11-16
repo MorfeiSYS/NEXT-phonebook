@@ -526,6 +526,20 @@ function tftpboot_moderation_reject_note_max_len()
 	return 300;
 }
 
+function tftpboot_sanitize_reject_note($note)
+{
+	$note = (string)$note;
+	$note = preg_replace('/<\s*\/?\s*script[^>]*>/iu', '', $note);
+	$note = preg_replace('/<\s*\/?\s*style[^>]*>/iu', '', $note);
+	$note = preg_replace('/<\s*\/?\s*iframe[^>]*>/iu', '', $note);
+	$note = strip_tags($note);
+	$note = html_entity_decode($note, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+	$note = strip_tags($note);
+	$note = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', '', $note);
+
+	return trim($note);
+}
+
 function tftpboot_validate_reject_note($note, $required = TRUE)
 {
 	$note = trim((string)$note);
@@ -539,6 +553,14 @@ function tftpboot_validate_reject_note($note, $required = TRUE)
 	}
 	$max = tftpboot_moderation_reject_note_max_len();
 	if(mb_strlen($note, 'UTF-8') > $max)
+	{
+		return LL('TftpBootModerationRejectNoteInvalid');
+	}
+	if(preg_match('/<\s*\/?\s*script/i', $note) || preg_match('/<\s*\/?\s*iframe/i', $note) || preg_match('/<\s*\/?\s*style/i', $note))
+	{
+		return LL('TftpBootModerationRejectNoteInvalid');
+	}
+	if(preg_match('/javascript\s*:/i', $note) || preg_match('/data\s*:/i', $note))
 	{
 		return LL('TftpBootModerationRejectNoteInvalid');
 	}
@@ -556,7 +578,7 @@ function tftpboot_validate_reject_note($note, $required = TRUE)
 
 function tftpboot_normalize_reject_note($note)
 {
-	$note = trim((string)$note);
+	$note = tftpboot_sanitize_reject_note($note);
 
 	return mb_substr($note, 0, tftpboot_moderation_reject_note_max_len(), 'UTF-8');
 }

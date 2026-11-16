@@ -24,7 +24,7 @@ const LL = {
 	TftpBootNewModelsLine:		'%1 — %2 (id: %3, DSS: %4, файлов: %5)',
 	TftpBootCatalogModelsAdded:	'Модели добавлены в каталог',
 	TftpBootKeyClear:			'Сбросить кнопку',
-	TftpBootKeyPhone:			'Включить набор @1/bc',
+	TftpBootKeyPhone:			'Вкл./выкл. набор @1/bc',
 	TftpBootEditorSidekey:		'Кнопки на экране',
 	TftpBootEditorSoftdss:		'Софт кнопки',
 	TftpBootEditorDsskey:		'Быстрый набор',

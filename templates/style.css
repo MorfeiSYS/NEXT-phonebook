@@ -1553,6 +1553,35 @@ ul.tree-menu:before {
 	}
 }
 .tftpboot-keys-grid { display: flex; flex-wrap: wrap; gap: 8px; margin: 0.5em 0; }
+.tftpboot-keys-grid.tftpboot-keys-grid--layout { display: grid; gap: 8px; }
+.tftpboot-layout-cell { cursor: grab; min-height: 3.5em; }
+.tftpboot-layout-section-block { margin: 1em 0 1.5em; }
+#tftpboot-bulk-modal .tftpboot-bulk-modal-content {
+	max-width: min(920px, 94vw);
+	max-height: 90vh;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+}
+#tftpboot-bulk-modal .tftpboot-bulk-q {
+	width: 100%;
+	box-sizing: border-box;
+	margin: 0.5em 0;
+}
+#tftpboot-bulk-modal .tftpboot-bulk-scroll {
+	flex: 1 1 auto;
+	min-height: 0;
+	max-height: calc(90vh - 12em);
+	overflow: auto;
+}
+#tftpboot-bulk-modal .tftpboot-bulk-pages {
+	flex-shrink: 0;
+}
+#tftpboot-bulk-table tr.tftpboot-bulk-missing-pb .tftpboot-bulk-num,
+#tftpboot-bulk-table tr.tftpboot-bulk-missing-pb .tftpboot-bulk-title {
+	color: var(--color-error-text);
+	border-color: var(--color-error-border);
+}
 .tftpboot-key-card {
     border: 1px solid var(--color-border-2);
     padding: 8px;

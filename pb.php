@@ -725,6 +725,8 @@ function exception_handler_ajax($exception)
 			$core->Router->add_route('tftpboot_admin_override_save', 'tftpboot_admin_override_save', TRUE);
 			$core->Router->add_route('tftpboot_admin_policy_save', 'tftpboot_admin_policy_save', TRUE);
 			$core->Router->add_route('tftpboot_catalog_add_suggested', 'tftpboot_catalog_add_suggested', TRUE);
+			$core->Router->add_route('tftpboot_layout_get', 'tftpboot_layout_get', TRUE);
+			$core->Router->add_route('tftpboot_layout_save', 'tftpboot_layout_save', TRUE);
 		}
 
 	}

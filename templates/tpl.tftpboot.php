@@ -47,6 +47,9 @@ $tftpboot_editor_save_label = $tftpboot_self_only ? LL('TftpBootSubmitModeration
 	<button type="button" class="tftpboot-tab active" data-tab="pick"><?php L('TftpBootTabPick') ?></button>
 	<button type="button" class="tftpboot-tab" data-tab="bulk"><?php L('TftpBootTabBulk') ?></button>
 	<button type="button" class="tftpboot-tab" data-tab="sync"><?php L('TftpBootTabSync') ?></button>
+	<?php if($tftpboot_is_admin) { ?>
+	<button type="button" class="tftpboot-tab" data-tab="layout"><?php L('TftpBootTabLayout') ?></button>
+	<?php } ?>
 	<?php if($tftpboot_can_moderate) { ?>
 	<button type="button" class="tftpboot-tab tftpboot-tab-moderation<?php if($tftpboot_pending_count > 0) echo ' tftpboot-moderation-pending'; ?>" data-tab="moderation" data-moderation-label="<?php eh(LL('TftpBootTabModeration')); ?>"><span class="tftpboot-moderation-tab-label"><?php L('TftpBootTabModeration') ?></span><span class="tftpboot-moderation-tab-count"><?php if($tftpboot_pending_count > 0) { ?> (<?php echo intval($tftpboot_pending_count); ?>)<?php } ?></span></button>
 	<?php } ?>
@@ -69,16 +72,6 @@ $tftpboot_editor_save_label = $tftpboot_self_only ? LL('TftpBootSubmitModeration
 	<button type="button" class="button-accept" id="tftpboot-open-btn"><?php L('TftpBootOpenEditor') ?></button>
 </div>
 
-<div id="tftpboot-panel-bulk" class="tftpboot-panel" style="display:none">
-	<p class="tftpboot-bulk-hint"><?php L('TftpBootBulkHint') ?></p>
-	<input type="search" id="tftpboot-bulk-q" placeholder="<?php L('TftpBootSearchPlaceholder') ?>" />
-	<div id="tftpboot-bulk-vendors" class="tftpboot-vendor-chks"></div>
-	<table class="tftpboot-table" id="tftpboot-bulk-table">
-		<thead><tr><th><?php L('TftpBootNumber') ?></th><th><?php L('TftpBootName') ?></th><th><?php L('TftpBootBulkUses') ?></th><th><?php L('TftpBootBulkActions') ?></th></tr></thead>
-		<tbody></tbody>
-	</table>
-	<div id="tftpboot-bulk-pages" class="tftpboot-bulk-pages"></div>
-</div>
 
 <div id="tftpboot-panel-sync" class="tftpboot-panel" style="display:none">
 	<p class="tftpboot-sync-hint"><?php L('TftpBootSyncHint') ?></p>
@@ -92,6 +85,26 @@ $tftpboot_editor_save_label = $tftpboot_self_only ? LL('TftpBootSubmitModeration
 	</div>
 	<div id="tftpboot-sync-diff"></div>
 </div>
+
+<?php if($tftpboot_is_admin) { ?>
+<div id="tftpboot-panel-layout" class="tftpboot-panel" style="display:none">
+	<p class="tftpboot-layout-hint"><?php L('TftpBootLayoutHint') ?></p>
+	<label><?php L('TftpBootVendor') ?>
+		<select id="tftpboot-layout-vendor"></select>
+	</label>
+	<label><?php L('TftpBootModel') ?>
+		<select id="tftpboot-layout-model"></select>
+	</label>
+	<div id="tftpboot-layout-sections"></div>
+	<p>
+		<label><?php L('TftpBootLayoutSectionId') ?>
+			<input type="text" id="tftpboot-layout-section-id" class="form-field" size="32" placeholder="m0/dsskey config 1" autocomplete="off" />
+		</label>
+		<button type="button" class="button-other" id="tftpboot-layout-section-add"><?php L('TftpBootLayoutSectionAdd') ?></button>
+	</p>
+	<button type="button" class="button-accept" id="tftpboot-layout-save"><?php L('Save') ?></button>
+</div>
+<?php } ?>
 
 <?php if($tftpboot_can_moderate) { ?>
 <div id="tftpboot-panel-moderation" class="tftpboot-panel" style="display:none">
@@ -110,6 +123,24 @@ $tftpboot_editor_save_label = $tftpboot_self_only ? LL('TftpBootSubmitModeration
 		<div id="tftpboot-editor-sections" class="tftpboot-editor-sections"></div>
 		<input type="hidden" id="tftpboot-editor-filename" value="" />
 		<button type="button" class="button-accept" id="tftpboot-editor-save" onclick="tftpboot_save_editor()"><?php eh($tftpboot_editor_save_label); ?></button>
+	</div>
+</div>
+
+<div id="tftpboot-bulk-modal" class="modal-container" style="display:none">
+	<span class="close white" onclick="tftpboot_bulk_close()">&times;</span>
+	<div class="modal-content tftpboot-bulk-modal-content">
+		<span class="close" onclick="tftpboot_bulk_close()">&times;</span>
+		<h3><?php L('TftpBootTabBulk') ?></h3>
+		<p class="tftpboot-bulk-hint"><?php L('TftpBootBulkHint') ?></p>
+		<input type="search" id="tftpboot-bulk-q" class="tftpboot-bulk-q" placeholder="<?php L('TftpBootSearchPlaceholder') ?>" />
+		<div id="tftpboot-bulk-vendors" class="tftpboot-vendor-chks"></div>
+		<div class="tftpboot-bulk-scroll">
+			<table class="tftpboot-table" id="tftpboot-bulk-table">
+				<thead><tr><th><?php L('TftpBootNumber') ?></th><th><?php L('TftpBootName') ?></th><th><?php L('TftpBootBulkUses') ?></th><th><?php L('TftpBootBulkActions') ?></th></tr></thead>
+				<tbody></tbody>
+			</table>
+		</div>
+		<div id="tftpboot-bulk-pages" class="tftpboot-bulk-pages"></div>
 	</div>
 </div>
 
@@ -205,7 +236,10 @@ $tftpboot_editor_save_label = $tftpboot_self_only ? LL('TftpBootSubmitModeration
 			rejectNoteRequired: <?php echo json_encode(LL('TftpBootModerationRejectNoteRequired'), JSON_UNESCAPED_UNICODE); ?>,
 			rejectNoteInvalid: <?php echo json_encode(LL('TftpBootModerationRejectNoteInvalid'), JSON_UNESCAPED_UNICODE); ?>,
 			pickSearchEmpty: <?php echo json_encode(LL('TftpBootPickSearchEmpty'), JSON_UNESCAPED_UNICODE); ?>,
-			pickSearchLimit: <?php echo json_encode(LL('TftpBootPickSearchLimit'), JSON_UNESCAPED_UNICODE); ?>
+			pickSearchLimit: <?php echo json_encode(LL('TftpBootPickSearchLimit'), JSON_UNESCAPED_UNICODE); ?>,
+			bulkNotInPhonebook: <?php echo json_encode(LL('TftpBootBulkNotInPhonebook'), JSON_UNESCAPED_UNICODE); ?>,
+			layoutCols: <?php echo json_encode(LL('TftpBootLayoutCols'), JSON_UNESCAPED_UNICODE); ?>,
+			layoutDefault: <?php echo json_encode(LL('TftpBootLayoutDefault'), JSON_UNESCAPED_UNICODE); ?>
 		}
 	});
 </script>

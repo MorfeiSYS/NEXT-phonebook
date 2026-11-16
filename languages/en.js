@@ -24,7 +24,7 @@ const LL = {
 	TftpBootNewModelsLine:		'%1 — %2 (id: %3, DSS: %4, files: %5)',
 	TftpBootCatalogModelsAdded:	'Models added to catalog',
 	TftpBootKeyClear:			'Reset key',
-	TftpBootKeyPhone:			'Enable @1/bc dial',
+	TftpBootKeyPhone:			'Toggle @1/bc dial',
 	TftpBootEditorSidekey:		'On-screen keys',
 	TftpBootEditorSoftdss:		'Soft keys',
 	TftpBootEditorDsskey:		'Speed dial',

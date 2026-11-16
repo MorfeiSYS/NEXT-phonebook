@@ -98,7 +98,7 @@ class TftpBoot
 
 				if(isset($models[$dm['id']]))
 				{
-					foreach(array('title', 'match', 'dss_slots', 'sections') as $key)
+					foreach(array('title', 'match', 'dss_slots', 'sections', 'layout') as $key)
 					{
 						if(isset($dm[$key]))
 						{
@@ -145,6 +145,226 @@ class TftpBoot
 		$this->core->Config->set_global('tftpboot_catalog_json', $json);
 
 		return TRUE;
+	}
+
+	public function find_catalog_model($vendor_id, $model_id)
+	{
+		$vendor_id = trim((string)$vendor_id);
+		$model_id = trim((string)$model_id);
+		if($vendor_id === '' || $model_id === '')
+		{
+			return NULL;
+		}
+
+		$catalog = $this->get_catalog();
+		foreach($catalog['vendors'] as $v)
+		{
+			if(!isset($v['id']) || $v['id'] !== $vendor_id)
+			{
+				continue;
+			}
+			if(!isset($v['models']) || !is_array($v['models']))
+			{
+				return NULL;
+			}
+			foreach($v['models'] as $m)
+			{
+				if(isset($m['id']) && $m['id'] === $model_id)
+				{
+					return $m;
+				}
+			}
+
+			return NULL;
+		}
+
+		return NULL;
+	}
+
+	public function get_model_layout($vendor_id, $model_id)
+	{
+		$m = $this->find_catalog_model($vendor_id, $model_id);
+		if(!$m || !isset($m['layout']) || !is_array($m['layout']))
+		{
+			return array();
+		}
+
+		return $m['layout'];
+	}
+
+	private function validate_layout_grid($grid, $max_slots)
+	{
+		if(!is_array($grid))
+		{
+			return 'Invalid grid';
+		}
+		$cols = isset($grid['cols']) ? intval($grid['cols']) : 0;
+		if($cols < 1 || $cols > 12)
+		{
+			return 'Invalid cols';
+		}
+		if(!isset($grid['order']) || !is_array($grid['order']))
+		{
+			return 'Invalid order';
+		}
+		$seen = array();
+		foreach($grid['order'] as $slot)
+		{
+			$slot = intval($slot);
+			if($slot < 1)
+			{
+				return 'Invalid slot';
+			}
+			if(isset($seen[$slot]))
+			{
+				return 'Duplicate slot';
+			}
+			$seen[$slot] = TRUE;
+		}
+		if(count($grid['order']) > $max_slots && $max_slots > 0)
+		{
+			return 'Too many slots';
+		}
+
+		return '';
+	}
+
+	public function layout_models_for_admin()
+	{
+		$enabled = $this->get_enabled_vendors('editor');
+		$catalog = $this->get_catalog();
+		$out = array();
+		foreach($catalog['vendors'] as $v)
+		{
+			if(!isset($v['id']) || !in_array($v['id'], $enabled, TRUE))
+			{
+				continue;
+			}
+			$vnode = array(
+				'id' => $v['id'],
+				'title' => $this->vendor_tree_title($v),
+				'models' => array(),
+			);
+			if(!isset($v['models']) || !is_array($v['models']))
+			{
+				continue;
+			}
+			foreach($v['models'] as $m)
+			{
+				if(!isset($m['id']))
+				{
+					continue;
+				}
+				if($this->is_catalog_fallback_model_id($m['id']))
+				{
+					continue;
+				}
+				$vnode['models'][] = array(
+					'id' => $m['id'],
+					'title' => isset($m['title']) ? $m['title'] : $m['id'],
+					'dss_slots' => isset($m['dss_slots']) ? intval($m['dss_slots']) : 16,
+					'layout' => (isset($m['layout']) && is_array($m['layout'])) ? $m['layout'] : array(),
+				);
+			}
+			if(count($vnode['models']))
+			{
+				$out[] = $vnode;
+			}
+		}
+
+		return $out;
+	}
+
+	public function save_model_layout($vendor_id, $model_id, $layout)
+	{
+		$vendor_id = trim((string)$vendor_id);
+		$model_id = trim((string)$model_id);
+		if($vendor_id === '' || $model_id === '')
+		{
+			return array('code' => 1, 'message' => 'Invalid model');
+		}
+		if(!is_array($layout))
+		{
+			return array('code' => 1, 'message' => 'Invalid layout');
+		}
+
+		$model_def = $this->find_catalog_model($vendor_id, $model_id);
+		if(!$model_def)
+		{
+			return array('code' => 1, 'message' => 'Model not found');
+		}
+		$max_slots = isset($model_def['dss_slots']) ? intval($model_def['dss_slots']) : 16;
+		if($max_slots < 1)
+		{
+			$max_slots = 16;
+		}
+
+		$clean = array();
+		if(isset($layout['default']))
+		{
+			$err = $this->validate_layout_grid($layout['default'], $max_slots);
+			if($err !== '')
+			{
+				return array('code' => 1, 'message' => $err);
+			}
+			$clean['default'] = array(
+				'cols' => intval($layout['default']['cols']),
+				'order' => array_map('intval', $layout['default']['order']),
+			);
+		}
+		if(isset($layout['sections']) && is_array($layout['sections']))
+		{
+			$clean['sections'] = array();
+			foreach($layout['sections'] as $sec_id => $grid)
+			{
+				$sec_id = trim((string)$sec_id);
+				if($sec_id === '' || strlen($sec_id) > 128)
+				{
+					continue;
+				}
+				$err = $this->validate_layout_grid($grid, $max_slots);
+				if($err !== '')
+				{
+					return array('code' => 1, 'message' => $err.' ('.$sec_id.')');
+				}
+				$clean['sections'][$sec_id] = array(
+					'cols' => intval($grid['cols']),
+					'order' => array_map('intval', $grid['order']),
+				);
+			}
+		}
+
+		$catalog = $this->get_catalog();
+		$found = FALSE;
+		foreach($catalog['vendors'] as $vi => $v)
+		{
+			if(!isset($v['id']) || $v['id'] !== $vendor_id)
+			{
+				continue;
+			}
+			if(!isset($v['models']) || !is_array($v['models']))
+			{
+				break;
+			}
+			foreach($v['models'] as $mi => $m)
+			{
+				if(isset($m['id']) && $m['id'] === $model_id)
+				{
+					$catalog['vendors'][$vi]['models'][$mi]['layout'] = $clean;
+					$found = TRUE;
+					break 2;
+				}
+			}
+		}
+		if(!$found)
+		{
+			return array('code' => 1, 'message' => 'Model not found');
+		}
+
+		$this->save_catalog($catalog);
+		$this->write_catalog_file($catalog);
+
+		return array('code' => 0, 'message' => LL('Save'));
 	}
 
 	public function get_bulk_page_size()
@@ -1077,10 +1297,12 @@ class TftpBoot
 
 		$content = file_get_contents($path);
 		$vendor = $this->detect_vendor(basename($filename), $content);
+		$model = '';
 		$row = array();
 		if($this->core->db->select_assoc_ex($row, rpv('SELECT `vendor`, `model` FROM `@tftpboot_file` WHERE `filename` = ! LIMIT 1', $filename)))
 		{
 			$vendor = $row[0]['vendor'];
+			$model = isset($row[0]['model']) ? (string)$row[0]['model'] : '';
 		}
 
 		$parsed = $this->parse_content($vendor, $content);
@@ -1095,11 +1317,13 @@ class TftpBoot
 		$out = array(
 			'filename' => $filename,
 			'vendor' => $vendor,
+			'model' => $model,
 			'mac' => $mac,
 			'label' => tftpboot_display_label($parsed['phone'], $mac),
 			'phone' => $parsed['phone'],
 			'displayName' => isset($parsed['displayName']) ? $parsed['displayName'] : '',
 			'speedDialKeys' => $editor_keys,
+			'layout' => $this->get_model_layout($vendor, $model),
 			'policy' => $policy,
 		);
 
@@ -1305,6 +1529,8 @@ class TftpBoot
 
 		$query = trim($query);
 		$uniq = $this->aggregate_unique_dial_keys($rows);
+		$name_map = $this->sync_name_map();
+		$index = $this->build_sync_phonebook_index($name_map);
 
 		$result = array();
 		foreach($uniq as $row)
@@ -1316,6 +1542,11 @@ class TftpBoot
 				{
 					continue;
 				}
+			}
+			$in_pb = $this->dial_in_phonebook(isset($row['number']) ? $row['number'] : '', isset($row['title']) ? $row['title'] : '', $name_map, $index);
+			if($in_pb !== NULL)
+			{
+				$row['in_phonebook'] = $in_pb;
 			}
 
 			$result[] = $row;
@@ -1756,6 +1987,31 @@ class TftpBoot
 		}
 
 		return $index;
+	}
+
+	private function dial_in_phonebook($display_number, $title, $name_map, $index)
+	{
+		$display_number = trim((string)$display_number);
+		if($display_number === '' || $display_number[0] === '*')
+		{
+			return NULL;
+		}
+		$num = $this->normalize_dial_number($display_number);
+		if($num === '')
+		{
+			return NULL;
+		}
+		if(isset($name_map[$num]) && trim((string)$name_map[$num]) !== '')
+		{
+			return TRUE;
+		}
+		$resolved = $this->resolve_sync_title_for_dial($num, $title, $name_map, $index);
+		if($resolved['source'] === 'phonebook' || $resolved['source'] === 'tail7')
+		{
+			return TRUE;
+		}
+
+		return FALSE;
 	}
 
 	private function resolve_sync_title_for_dial($num, $title, $name_map, $index)
@@ -2434,6 +2690,7 @@ class TftpBoot
 			return array('code' => 1, 'message' => 'Not found');
 		}
 
+		$note = tftpboot_sanitize_reject_note($note);
 		$err = tftpboot_validate_reject_note($note, TRUE);
 		if($err !== '')
 		{
