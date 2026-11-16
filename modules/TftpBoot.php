@@ -192,6 +192,215 @@ class TftpBoot
 		return $m['layout'];
 	}
 
+	public function resolve_editor_layout($vendor_id, $model_id, $speed_dial_keys)
+	{
+		$vendor_id = trim((string)$vendor_id);
+		$model_id = trim((string)$model_id);
+		if($vendor_id === '' || $model_id === '')
+		{
+			return array();
+		}
+		if(!is_array($speed_dial_keys))
+		{
+			$speed_dial_keys = array();
+		}
+
+		$saved = $this->get_model_layout($vendor_id, $model_id);
+		$blueprint = $this->layout_blueprint_for_model($vendor_id, $model_id);
+		$key_sections = array();
+		foreach($speed_dial_keys as $k)
+		{
+			if(!is_array($k))
+			{
+				continue;
+			}
+			$sid = isset($k['section']) && $k['section'] !== '' ? $k['section'] : 'default';
+			if(!isset($key_sections[$sid]))
+			{
+				$key_sections[$sid] = array();
+			}
+			$slot = isset($k['slot']) ? intval($k['slot']) : 0;
+			if($slot > 0)
+			{
+				$key_sections[$sid][$slot] = TRUE;
+			}
+		}
+
+		if(!empty($blueprint['use_default']))
+		{
+			$slots = array();
+			if(isset($blueprint['sections'][0]['slots']) && is_array($blueprint['sections'][0]['slots']))
+			{
+				$slots = $blueprint['sections'][0]['slots'];
+			}
+			if(!count($slots) && isset($key_sections['default']))
+			{
+				$slots = array_keys($key_sections['default']);
+				sort($slots, SORT_NUMERIC);
+			}
+			$prev = array();
+			if(isset($saved['default']) && is_array($saved['default']))
+			{
+				$prev = $saved['default'];
+			}
+			elseif(isset($saved['sections']['default']) && is_array($saved['sections']['default']))
+			{
+				$prev = $saved['sections']['default'];
+			}
+			$grid = $this->resolve_layout_grid_for_slots($slots, $prev);
+			if(!$grid)
+			{
+				return array();
+			}
+
+			return array('default' => $grid);
+		}
+
+		$resolved = array('sections' => array());
+		if(isset($blueprint['sections']) && is_array($blueprint['sections']))
+		{
+			foreach($blueprint['sections'] as $sec)
+			{
+				if(!isset($sec['id']) || $sec['id'] === 'default')
+				{
+					continue;
+				}
+				$sid = $sec['id'];
+				$slots = isset($sec['slots']) && is_array($sec['slots']) ? $sec['slots'] : array();
+				$prev = isset($saved['sections'][$sid]) && is_array($saved['sections'][$sid])
+					? $saved['sections'][$sid] : array();
+				$grid = $this->resolve_layout_grid_for_slots($slots, $prev);
+				if($grid)
+				{
+					$resolved['sections'][$sid] = $grid;
+				}
+			}
+		}
+		foreach($key_sections as $sid => $slot_map)
+		{
+			if($sid === 'default' || isset($resolved['sections'][$sid]))
+			{
+				continue;
+			}
+			$slots = array_keys($slot_map);
+			sort($slots, SORT_NUMERIC);
+			$prev = isset($saved['sections'][$sid]) && is_array($saved['sections'][$sid])
+				? $saved['sections'][$sid] : array();
+			$grid = $this->resolve_layout_grid_for_slots($slots, $prev);
+			if($grid)
+			{
+				$resolved['sections'][$sid] = $grid;
+			}
+		}
+		if(!count($resolved['sections']))
+		{
+			return array();
+		}
+
+		return $resolved;
+	}
+
+	private function resolve_layout_grid_for_slots($slots, $prev)
+	{
+		$slots = array_map('intval', is_array($slots) ? $slots : array());
+		sort($slots, SORT_NUMERIC);
+		$n = count($slots);
+		if($n < 1)
+		{
+			return NULL;
+		}
+		$cols = min(5, $n);
+		if(is_array($prev) && isset($prev['cols']))
+		{
+			$c = intval($prev['cols']);
+			if($c >= 1 && $c <= 12)
+			{
+				$cols = $c;
+			}
+		}
+		$saved_order = (is_array($prev) && isset($prev['order']) && is_array($prev['order']))
+			? $prev['order'] : array();
+
+		return array(
+			'cols' => $cols,
+			'order' => $this->layout_order_from_slots($slots, $saved_order, $cols),
+		);
+	}
+
+	private function layout_default_order_from_slots($slots, $cols)
+	{
+		$slots = array_values(is_array($slots) ? $slots : array());
+		sort($slots, SORT_NUMERIC);
+		$n = count($slots);
+		if($n < 1)
+		{
+			return array();
+		}
+		$cols = intval($cols);
+		if($cols < 1)
+		{
+			$cols = min(5, $n);
+		}
+		if($cols > 12)
+		{
+			$cols = 12;
+		}
+		$rows = intval(ceil($n / $cols));
+		$order = array();
+		for($r = 0; $r < $rows; $r++)
+		{
+			for($c = 0; $c < $cols; $c++)
+			{
+				$idx = $c * $rows + $r;
+				if($idx < $n)
+				{
+					$order[] = intval($slots[$idx]);
+				}
+			}
+		}
+
+		return $order;
+	}
+
+	private function layout_order_from_slots($slots, $saved_order, $cols)
+	{
+		$slots = array_map('intval', is_array($slots) ? $slots : array());
+		if(!count($slots))
+		{
+			return array();
+		}
+		$allowed = array();
+		foreach($slots as $s)
+		{
+			$allowed[$s] = TRUE;
+		}
+		$order = array();
+		if(is_array($saved_order))
+		{
+			foreach($saved_order as $s)
+			{
+				$s = intval($s);
+				if(isset($allowed[$s]) && !in_array($s, $order, TRUE))
+				{
+					$order[] = $s;
+				}
+			}
+		}
+		foreach($slots as $s)
+		{
+			if(!in_array($s, $order, TRUE))
+			{
+				$order[] = $s;
+			}
+		}
+		if(!count($order))
+		{
+			return $this->layout_default_order_from_slots($slots, $cols);
+		}
+
+		return $order;
+	}
+
 	private function validate_layout_grid_for_slots($grid, $allowed_slots)
 	{
 		if(!is_array($grid))
@@ -1518,7 +1727,7 @@ class TftpBoot
 			'phone' => $parsed['phone'],
 			'displayName' => isset($parsed['displayName']) ? $parsed['displayName'] : '',
 			'speedDialKeys' => $editor_keys,
-			'layout' => $this->get_model_layout($vendor, $model),
+			'layout' => $this->resolve_editor_layout($vendor, $model, $editor_keys),
 			'policy' => $policy,
 		);
 

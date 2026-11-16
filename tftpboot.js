@@ -154,8 +154,8 @@ function tftpboot_layout_default_order_from_slots(slots, cols) {
 	if (cols > 12) cols = 12;
 	var rows = Math.ceil(n / cols);
 	var order = [];
-	for (var c = 0; c < cols; c++) {
-		for (var r = 0; r < rows; r++) {
+	for (var r = 0; r < rows; r++) {
+		for (var c = 0; c < cols; c++) {
 			var idx = c * rows + r;
 			if (idx < n) order.push(slots[idx]);
 		}
@@ -1717,10 +1717,21 @@ function tftpboot_layout_grid_spec(fullLayout, sectionId) {
 }
 
 function tftpboot_apply_keys_grid_layout(grid, spec) {
-	if (!grid || !spec || !spec.order || !spec.order.length) return;
+	if (!grid || !spec) return;
 	var cols = parseInt(spec.cols, 10) || 1;
 	if (cols < 1) cols = 1;
 	if (cols > 12) cols = 12;
+	var order = spec.order && spec.order.length ? spec.order.slice() : null;
+	if (!order || !order.length) {
+		var slots = [];
+		Array.prototype.forEach.call(grid.children, function (card) {
+			var s = parseInt(card.dataset.slot, 10);
+			if (!isNaN(s)) slots.push(s);
+		});
+		slots.sort(function (a, b) { return a - b; });
+		if (!slots.length) return;
+		order = tftpboot_layout_default_order_from_slots(slots, cols);
+	}
 	grid.classList.add('tftpboot-keys-grid--layout');
 	grid.style.display = 'grid';
 	grid.style.gridTemplateColumns = 'repeat(' + cols + ', minmax(0, 1fr))';
@@ -1729,7 +1740,7 @@ function tftpboot_apply_keys_grid_layout(grid, spec) {
 		var s = parseInt(card.dataset.slot, 10);
 		if (!isNaN(s)) bySlot[s] = card;
 	});
-	spec.order.forEach(function (slot) {
+	order.forEach(function (slot) {
 		slot = parseInt(slot, 10);
 		if (bySlot[slot]) grid.appendChild(bySlot[slot]);
 	});
