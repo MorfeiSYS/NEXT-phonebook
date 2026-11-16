@@ -192,7 +192,7 @@ class TftpBoot
 		return $m['layout'];
 	}
 
-	private function validate_layout_grid($grid, $max_slots)
+	private function validate_layout_grid_for_slots($grid, $allowed_slots)
 	{
 		if(!is_array($grid))
 		{
@@ -207,11 +207,20 @@ class TftpBoot
 		{
 			return 'Invalid order';
 		}
+		$allowed = array();
+		foreach($allowed_slots as $s)
+		{
+			$allowed[intval($s)] = TRUE;
+		}
+		if(!count($allowed))
+		{
+			return 'No slots';
+		}
 		$seen = array();
 		foreach($grid['order'] as $slot)
 		{
 			$slot = intval($slot);
-			if($slot < 1)
+			if($slot < 1 || !isset($allowed[$slot]))
 			{
 				return 'Invalid slot';
 			}
@@ -221,7 +230,7 @@ class TftpBoot
 			}
 			$seen[$slot] = TRUE;
 		}
-		if(count($grid['order']) > $max_slots && $max_slots > 0)
+		if(count($grid['order']) > count($allowed))
 		{
 			return 'Too many slots';
 		}
@@ -266,6 +275,12 @@ class TftpBoot
 					'layout' => (isset($m['layout']) && is_array($m['layout'])) ? $m['layout'] : array(),
 				);
 			}
+			usort($vnode['models'], function($a, $b) {
+				return strnatcasecmp(
+					isset($a['title']) ? $a['title'] : $a['id'],
+					isset($b['title']) ? $b['title'] : $b['id']
+				);
+			});
 			if(count($vnode['models']))
 			{
 				$out[] = $vnode;
@@ -273,6 +288,163 @@ class TftpBoot
 		}
 
 		return $out;
+	}
+
+	private function layout_section_kind($section_title)
+	{
+		$t = strtolower(trim((string)$section_title));
+		if(strpos($t, 'sidekey') !== FALSE)
+		{
+			return 'sidekey';
+		}
+		if(strpos($t, 'softdss') !== FALSE)
+		{
+			return 'softdss';
+		}
+		if(preg_match('/dsskey\s*config/', $t))
+		{
+			return 'dsskey_page';
+		}
+
+		return 'other';
+	}
+
+	public function layout_blueprint_for_model($vendor_id, $model_id)
+	{
+		$vendor_id = trim((string)$vendor_id);
+		$model_id = trim((string)$model_id);
+		$model_def = $this->find_catalog_model($vendor_id, $model_id);
+		$fallback_slots = 16;
+		if($model_def && isset($model_def['dss_slots']))
+		{
+			$fallback_slots = intval($model_def['dss_slots']);
+		}
+		if($fallback_slots < 1)
+		{
+			$fallback_slots = 16;
+		}
+
+		$rows = array();
+		if(!$this->core->db->select_assoc_ex(
+			$rows,
+			rpv(
+				'SELECT `filename` FROM `@tftpboot_file` WHERE `vendor` = ! AND `model` = ! ORDER BY `filename` LIMIT 1',
+				$vendor_id,
+				$model_id
+			)
+		))
+		{
+			$slots = array();
+			for($i = 1; $i <= $fallback_slots; $i++)
+			{
+				$slots[] = $i;
+			}
+
+			return array(
+				'sections' => array(
+					array(
+						'id' => 'default',
+						'title' => '',
+						'kind' => 'default',
+						'slots' => $slots,
+					),
+				),
+				'use_default' => TRUE,
+			);
+		}
+
+		$path = $this->resolve_path($rows[0]['filename']);
+		if(!$path)
+		{
+			$slots = array();
+			for($i = 1; $i <= $fallback_slots; $i++)
+			{
+				$slots[] = $i;
+			}
+
+			return array(
+				'sections' => array(
+					array(
+						'id' => 'default',
+						'title' => '',
+						'kind' => 'default',
+						'slots' => $slots,
+					),
+				),
+				'use_default' => TRUE,
+			);
+		}
+
+		$content = file_get_contents($path);
+		$parsed = $this->parse_content($vendor_id, $content);
+		$editor_keys = isset($parsed['speedDialKeys']) ? $parsed['speedDialKeys'] : array();
+		if($vendor_id === 'fanvil')
+		{
+			$editor_keys = $this->fanvil->editor_speed_dial_keys($parsed);
+		}
+
+		$by_sec = array();
+		$sec_meta = array();
+		foreach($editor_keys as $k)
+		{
+			$sid = isset($k['section']) && $k['section'] !== '' ? $k['section'] : 'default';
+			if(!isset($by_sec[$sid]))
+			{
+				$by_sec[$sid] = array();
+				$sec_meta[$sid] = array(
+					'title' => isset($k['section_title']) ? $k['section_title'] : $sid,
+				);
+			}
+			$slot = isset($k['slot']) ? intval($k['slot']) : 0;
+			if($slot > 0)
+			{
+				$by_sec[$sid][$slot] = TRUE;
+			}
+		}
+
+		if(!count($by_sec))
+		{
+			$slots = array();
+			for($i = 1; $i <= $fallback_slots; $i++)
+			{
+				$slots[] = $i;
+			}
+
+			return array(
+				'sections' => array(
+					array(
+						'id' => 'default',
+						'title' => '',
+						'kind' => 'default',
+						'slots' => $slots,
+					),
+				),
+				'use_default' => TRUE,
+			);
+		}
+
+		$sections = array();
+		foreach($by_sec as $sid => $slot_map)
+		{
+			$slots = array_keys($slot_map);
+			sort($slots, SORT_NUMERIC);
+			$title = isset($sec_meta[$sid]['title']) ? $sec_meta[$sid]['title'] : $sid;
+			$sections[] = array(
+				'id' => $sid,
+				'title' => $title,
+				'kind' => $this->layout_section_kind($title),
+				'slots' => $slots,
+			);
+		}
+
+		usort($sections, function($a, $b) {
+			return strnatcasecmp($a['title'], $b['title']);
+		});
+
+		return array(
+			'sections' => $sections,
+			'use_default' => (count($sections) === 1 && $sections[0]['id'] === 'default'),
+		);
 	}
 
 	public function save_model_layout($vendor_id, $model_id, $layout)
@@ -293,36 +465,51 @@ class TftpBoot
 		{
 			return array('code' => 1, 'message' => 'Model not found');
 		}
-		$max_slots = isset($model_def['dss_slots']) ? intval($model_def['dss_slots']) : 16;
-		if($max_slots < 1)
+		$blueprint = $this->layout_blueprint_for_model($vendor_id, $model_id);
+		$allowed = array();
+		foreach($blueprint['sections'] as $sec)
 		{
-			$max_slots = 16;
+			$allowed[$sec['id']] = $sec['slots'];
 		}
 
 		$clean = array();
-		if(isset($layout['default']))
+		if(!empty($blueprint['use_default']))
 		{
-			$err = $this->validate_layout_grid($layout['default'], $max_slots);
+			$def = isset($layout['default']) ? $layout['default'] : NULL;
+			if(!is_array($def) && isset($layout['sections']['default']))
+			{
+				$def = $layout['sections']['default'];
+			}
+			if(!is_array($def))
+			{
+				return array('code' => 1, 'message' => 'Invalid layout');
+			}
+			$slots = isset($allowed['default']) ? $allowed['default'] : array();
+			$err = $this->validate_layout_grid_for_slots($def, $slots);
 			if($err !== '')
 			{
 				return array('code' => 1, 'message' => $err);
 			}
 			$clean['default'] = array(
-				'cols' => intval($layout['default']['cols']),
-				'order' => array_map('intval', $layout['default']['order']),
+				'cols' => intval($def['cols']),
+				'order' => array_map('intval', $def['order']),
 			);
 		}
-		if(isset($layout['sections']) && is_array($layout['sections']))
+		elseif(isset($layout['sections']) && is_array($layout['sections']))
 		{
 			$clean['sections'] = array();
-			foreach($layout['sections'] as $sec_id => $grid)
+			foreach($allowed as $sec_id => $slots)
 			{
-				$sec_id = trim((string)$sec_id);
-				if($sec_id === '' || strlen($sec_id) > 128)
+				if($sec_id === 'default')
 				{
 					continue;
 				}
-				$err = $this->validate_layout_grid($grid, $max_slots);
+				if(!isset($layout['sections'][$sec_id]) || !is_array($layout['sections'][$sec_id]))
+				{
+					continue;
+				}
+				$grid = $layout['sections'][$sec_id];
+				$err = $this->validate_layout_grid_for_slots($grid, $slots);
 				if($err !== '')
 				{
 					return array('code' => 1, 'message' => $err.' ('.$sec_id.')');
@@ -332,6 +519,14 @@ class TftpBoot
 					'order' => array_map('intval', $grid['order']),
 				);
 			}
+			if(!count($clean['sections']))
+			{
+				return array('code' => 1, 'message' => 'Invalid layout');
+			}
+		}
+		else
+		{
+			return array('code' => 1, 'message' => 'Invalid layout');
 		}
 
 		$catalog = $this->get_catalog();

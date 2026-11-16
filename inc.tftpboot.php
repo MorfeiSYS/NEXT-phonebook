@@ -568,7 +568,7 @@ function tftpboot_validate_reject_note($note, $required = TRUE)
 	{
 		return LL('TftpBootModerationRejectNoteInvalid');
 	}
-	if(!preg_match('/^[\p{L}\p{N}\s,.\-+\/\\_@#]+$/u', $note))
+	if(!preg_match('/^[\p{L}\p{N}\s,.\-+\/\\_@#!*()№]+$/u', $note))
 	{
 		return LL('TftpBootModerationRejectNoteInvalid');
 	}

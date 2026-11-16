@@ -5,7 +5,7 @@ var tftpboot_state = {
 	pickIndex: [], pickFilteredRows: [], pickMatchLimit: 50,
 	moderationActionInFlight: false, moderationDetailSeq: 0,
 	moderationHttpMs: 180000, labels: {},
-	layoutVendors: [], layoutDraft: {}, editorLayout: {}
+	layoutVendors: [], layoutDraft: {}, layoutBlueprint: null, editorLayout: {}
 };
 
 function tftpboot_init(opts) {
@@ -89,8 +89,6 @@ function tftpboot_init(opts) {
 	if (tftpboot_state.isAdmin) {
 		var laySave = document.getElementById('tftpboot-layout-save');
 		if (laySave) laySave.onclick = tftpboot_layout_save;
-		var layAdd = document.getElementById('tftpboot-layout-section-add');
-		if (layAdd) layAdd.onclick = tftpboot_layout_add_section;
 		var layVendor = document.getElementById('tftpboot-layout-vendor');
 		if (layVendor) layVendor.onchange = tftpboot_layout_vendor_change;
 		var layModel = document.getElementById('tftpboot-layout-model');
@@ -147,10 +145,39 @@ function tftpboot_layout_label(key, fb) {
 	return fb;
 }
 
-function tftpboot_layout_default_order(n) {
-	var o = [];
-	for (var i = 1; i <= n; i++) o.push(i);
-	return o;
+function tftpboot_layout_default_order_from_slots(slots, cols) {
+	slots = (slots || []).slice().sort(function (a, b) { return a - b; });
+	var n = slots.length;
+	if (n < 1) return [];
+	cols = parseInt(cols, 10) || Math.min(5, n);
+	if (cols < 1) cols = 1;
+	if (cols > 12) cols = 12;
+	var rows = Math.ceil(n / cols);
+	var order = [];
+	for (var c = 0; c < cols; c++) {
+		for (var r = 0; r < rows; r++) {
+			var idx = c * rows + r;
+			if (idx < n) order.push(slots[idx]);
+		}
+	}
+	return order;
+}
+
+function tftpboot_layout_order_from_slots(slots, savedOrder, cols) {
+	slots = (slots || []).slice();
+	if (!slots.length) return [];
+	var allowed = {};
+	slots.forEach(function (s) { allowed[s] = true; });
+	var order = [];
+	(savedOrder || []).forEach(function (s) {
+		s = parseInt(s, 10);
+		if (allowed[s] && order.indexOf(s) < 0) order.push(s);
+	});
+	slots.forEach(function (s) {
+		if (order.indexOf(s) < 0) order.push(s);
+	});
+	if (!order.length) order = tftpboot_layout_default_order_from_slots(slots, cols);
+	return order;
 }
 
 function tftpboot_layout_init_panel() {
@@ -225,69 +252,165 @@ function tftpboot_layout_current_model() {
 function tftpboot_layout_model_change() {
 	var ctx = tftpboot_layout_current_model();
 	if (!ctx) return;
-	var layout = ctx.model.layout && typeof ctx.model.layout === 'object' ? ctx.model.layout : {};
-	var slots = parseInt(ctx.model.dss_slots, 10) || 16;
-	if (slots < 1) slots = 16;
-	if (!layout.default) {
-		layout.default = { cols: Math.min(5, slots), order: tftpboot_layout_default_order(slots) };
-	}
-	tftpboot_state.layoutDraft = JSON.parse(JSON.stringify(layout));
-	tftpboot_layout_render_sections(slots);
+	var box = document.getElementById('tftpboot-layout-sections');
+	if (box) box.innerHTML = '';
+	tftpboot_http('tftpboot_layout_blueprint', { vendor: ctx.vendor.id, model: ctx.model.id }, function (res) {
+		if (!res || res.code) {
+			f_notify(res && res.message ? res.message : 'Error', 'error');
+			return;
+		}
+		tftpboot_state.layoutBlueprint = res;
+		var layout = ctx.model.layout && typeof ctx.model.layout === 'object' ? ctx.model.layout : {};
+		tftpboot_state.layoutDraft = tftpboot_layout_build_draft(layout, res);
+		tftpboot_layout_render_sections();
+	});
 }
 
-function tftpboot_layout_render_sections(maxSlots) {
+function tftpboot_layout_build_draft(saved, blueprint) {
+	var draft = { use_default: !!blueprint.use_default };
+	var sections = blueprint.sections || [];
+	if (blueprint.use_default && sections.length) {
+		var sec = sections[0];
+		var slots = sec.slots || [];
+		var cols = Math.min(5, slots.length || 16);
+		var prev = saved.default || (saved.sections && saved.sections.default) || {};
+		if (prev.cols) cols = parseInt(prev.cols, 10) || cols;
+		draft.default = {
+			cols: cols,
+			order: tftpboot_layout_order_from_slots(slots, prev.order, cols)
+		};
+		return draft;
+	}
+	draft.sections = {};
+	sections.forEach(function (sec) {
+		var slots = sec.slots || [];
+		var cols = Math.min(5, slots.length || 16);
+		var prev = saved.sections && saved.sections[sec.id] ? saved.sections[sec.id] : {};
+		if (prev.cols) cols = parseInt(prev.cols, 10) || cols;
+		draft.sections[sec.id] = {
+			cols: cols,
+			order: tftpboot_layout_order_from_slots(slots, prev.order, cols)
+		};
+	});
+	return draft;
+}
+
+function tftpboot_layout_section_tab_title(sec, dssList) {
+	var base = tftpboot_editor_label('dsskey');
+	if (sec.title && /config\s*\d+/i.test(sec.title)) {
+		var m = sec.title.match(/config\s*(\d+)/i);
+		if (m) return base + ' ' + m[1];
+	}
+	var idx = dssList.indexOf(sec);
+	return base + ' ' + (idx >= 0 ? idx + 1 : 1);
+}
+
+function tftpboot_layout_render_section_block(parent, sec, spec) {
+	var wrap = document.createElement('div');
+	wrap.className = 'tftpboot-layout-section-block';
+	wrap.dataset.sectionId = sec.id;
+	var title = sec.id === 'default'
+		? tftpboot_layout_label('layoutDefault', 'Default grid')
+		: (sec.title || sec.id);
+	var head = document.createElement('h4');
+	head.textContent = title;
+	wrap.appendChild(head);
+	var colsLbl = tftpboot_layout_label('layoutCols', 'Columns');
+	var colsInp = document.createElement('input');
+	colsInp.type = 'number';
+	colsInp.min = '1';
+	colsInp.max = '12';
+	colsInp.className = 'tftpboot-layout-cols form-field';
+	colsInp.value = String(spec.cols || 5);
+	colsInp.dataset.sectionId = sec.id;
+	colsInp.onchange = function () { tftpboot_layout_cols_change(sec.id, colsInp); };
+	wrap.appendChild(document.createTextNode(colsLbl + ' '));
+	wrap.appendChild(colsInp);
+	var grid = document.createElement('div');
+	grid.className = 'tftpboot-keys-grid tftpboot-layout-grid tftpboot-keys-grid--layout';
+	grid.dataset.sectionId = sec.id;
+	var order = spec.order && spec.order.length ? spec.order.slice()
+		: tftpboot_layout_default_order_from_slots(sec.slots || [], spec.cols);
+	order.forEach(function (slot) {
+		grid.appendChild(tftpboot_layout_create_cell(slot, grid));
+	});
+	tftpboot_apply_keys_grid_layout(grid, { cols: parseInt(colsInp.value, 10) || 5, order: order });
+	wrap.appendChild(grid);
+	parent.appendChild(wrap);
+}
+
+function tftpboot_layout_render_sections() {
 	var box = document.getElementById('tftpboot-layout-sections');
 	if (!box) return;
 	box.innerHTML = '';
+	var blueprint = tftpboot_state.layoutBlueprint;
 	var draft = tftpboot_state.layoutDraft || {};
-	var ids = ['default'];
-	if (draft.sections) {
-		Object.keys(draft.sections).forEach(function (sid) {
-			if (ids.indexOf(sid) < 0) ids.push(sid);
-		});
+	if (!blueprint || !blueprint.sections) return;
+	var sections = blueprint.sections;
+	if (blueprint.use_default && sections.length) {
+		var spec = draft.default || { cols: 5, order: [] };
+		tftpboot_layout_render_section_block(box, sections[0], spec);
+		return;
 	}
-	ids.forEach(function (sid) {
-		var spec = sid === 'default' ? draft.default : draft.sections[sid];
-		if (!spec) {
-			spec = { cols: Math.min(5, maxSlots), order: tftpboot_layout_default_order(maxSlots) };
-			if (sid === 'default') draft.default = spec;
-			else {
-				if (!draft.sections) draft.sections = {};
-				draft.sections[sid] = spec;
-			}
-		}
-		var wrap = document.createElement('div');
-		wrap.className = 'tftpboot-layout-section-block';
-		wrap.dataset.sectionId = sid;
-		var title = sid === 'default'
-			? tftpboot_layout_label('layoutDefault', 'Default grid')
-			: sid;
-		var head = document.createElement('h4');
-		head.textContent = title;
-		wrap.appendChild(head);
-		var colsLbl = tftpboot_layout_label('layoutCols', 'Columns');
-		var colsInp = document.createElement('input');
-		colsInp.type = 'number';
-		colsInp.min = '1';
-		colsInp.max = '12';
-		colsInp.className = 'tftpboot-layout-cols form-field';
-		colsInp.value = String(spec.cols || 5);
-		colsInp.dataset.sectionId = sid;
-		colsInp.onchange = function () { tftpboot_layout_cols_change(sid, colsInp); };
-		wrap.appendChild(document.createTextNode(colsLbl + ' '));
-		wrap.appendChild(colsInp);
-		var grid = document.createElement('div');
-		grid.className = 'tftpboot-keys-grid tftpboot-layout-grid tftpboot-keys-grid--layout';
-		grid.dataset.sectionId = sid;
-		var order = spec.order && spec.order.length ? spec.order.slice() : tftpboot_layout_default_order(maxSlots);
-		order.forEach(function (slot) {
-			grid.appendChild(tftpboot_layout_create_cell(slot, grid));
-		});
-		tftpboot_apply_keys_grid_layout(grid, { cols: parseInt(colsInp.value, 10) || 5, order: order });
-		wrap.appendChild(grid);
-		box.appendChild(wrap);
+	var dss = sections.filter(function (s) { return s.kind === 'dsskey_page'; });
+	var other = sections.filter(function (s) { return s.kind !== 'dsskey_page'; });
+	other.forEach(function (sec) {
+		var spec = draft.sections && draft.sections[sec.id] ? draft.sections[sec.id] : { cols: 5, order: [] };
+		tftpboot_layout_render_section_block(box, sec, spec);
 	});
-	tftpboot_state.layoutDraft = draft;
+	if (dss.length) {
+		var inner = document.createElement('div');
+		inner.className = 'tftpboot-dsskey-tabbed tftpboot-layout-dsskey-tabbed';
+		var panels = document.createElement('div');
+		panels.className = 'tftpboot-dsskey-panels';
+		var tabs = document.createElement('div');
+		tabs.className = 'tftpboot-dsskey-tabs';
+		dss.forEach(function (sec, idx) {
+			var spec = draft.sections && draft.sections[sec.id] ? draft.sections[sec.id] : { cols: 5, order: [] };
+			var panel = document.createElement('div');
+			panel.className = 'tftpboot-layout-dsskey-panel';
+			panel.dataset.panel = String(idx);
+			if (idx > 0) panel.style.display = 'none';
+			var colsLbl = tftpboot_layout_label('layoutCols', 'Columns');
+			var colsInp = document.createElement('input');
+			colsInp.type = 'number';
+			colsInp.min = '1';
+			colsInp.max = '12';
+			colsInp.className = 'tftpboot-layout-cols form-field';
+			colsInp.value = String(spec.cols || 5);
+			colsInp.dataset.sectionId = sec.id;
+			colsInp.onchange = function () { tftpboot_layout_cols_change(sec.id, colsInp); };
+			panel.appendChild(document.createTextNode(colsLbl + ' '));
+			panel.appendChild(colsInp);
+			var grid = document.createElement('div');
+			grid.className = 'tftpboot-keys-grid tftpboot-layout-grid tftpboot-keys-grid--layout';
+			grid.dataset.sectionId = sec.id;
+			var order = spec.order && spec.order.length ? spec.order.slice()
+				: tftpboot_layout_default_order_from_slots(sec.slots || [], spec.cols);
+			order.forEach(function (slot) {
+				grid.appendChild(tftpboot_layout_create_cell(slot, grid));
+			});
+			tftpboot_apply_keys_grid_layout(grid, { cols: parseInt(colsInp.value, 10) || 5, order: order });
+			panel.appendChild(grid);
+			panels.appendChild(panel);
+			var btn = document.createElement('button');
+			btn.type = 'button';
+			btn.className = 'tftpboot-dsskey-tab' + (idx === 0 ? ' active' : '');
+			btn.textContent = tftpboot_layout_section_tab_title(sec, dss);
+			btn.dataset.panel = String(idx);
+			btn.onclick = function () {
+				tabs.querySelectorAll('.tftpboot-dsskey-tab').forEach(function (b) { b.classList.remove('active'); });
+				btn.classList.add('active');
+				panels.querySelectorAll('.tftpboot-layout-dsskey-panel').forEach(function (p) {
+					p.style.display = p.dataset.panel === btn.dataset.panel ? '' : 'none';
+				});
+			};
+			tabs.appendChild(btn);
+		});
+		inner.appendChild(panels);
+		inner.appendChild(tabs);
+		box.appendChild(inner);
+	}
 }
 
 function tftpboot_layout_cols_change(sid, inp) {
@@ -369,38 +492,22 @@ function tftpboot_layout_sync_grid_order(grid) {
 	}
 }
 
-function tftpboot_layout_add_section() {
-	var inp = document.getElementById('tftpboot-layout-section-id');
-	if (!inp) return;
-	var sid = String(inp.value || '').trim();
-	if (!sid || sid === 'default') {
-		f_notify('—', 'error');
-		return;
-	}
-	var ctx = tftpboot_layout_current_model();
-	if (!ctx) return;
-	var slots = parseInt(ctx.model.dss_slots, 10) || 16;
-	if (!tftpboot_state.layoutDraft.sections) tftpboot_state.layoutDraft.sections = {};
-	if (!tftpboot_state.layoutDraft.sections[sid]) {
-		tftpboot_state.layoutDraft.sections[sid] = {
-			cols: Math.min(5, slots),
-			order: tftpboot_layout_default_order(slots)
-		};
-	}
-	inp.value = '';
-	tftpboot_layout_render_sections(slots);
-}
-
 function tftpboot_layout_save() {
 	var ctx = tftpboot_layout_current_model();
 	if (!ctx) return;
 	document.querySelectorAll('.tftpboot-layout-grid').forEach(function (grid) {
 		tftpboot_layout_sync_grid_order(grid);
 	});
+	var payload = { use_default: tftpboot_state.layoutDraft.use_default };
+	if (payload.use_default) {
+		payload.default = tftpboot_state.layoutDraft.default;
+	} else {
+		payload.sections = tftpboot_state.layoutDraft.sections;
+	}
 	tftpboot_http('tftpboot_layout_save', {
 		vendor: ctx.vendor.id,
 		model: ctx.model.id,
-		layout: tftpboot_state.layoutDraft
+		layout: payload
 	}, function (res) {
 		f_notify(res && res.message ? res.message : 'OK', res && res.code ? 'error' : 'success');
 		if (res && !res.code) {
@@ -852,7 +959,7 @@ function tftpboot_validate_reject_note_client(note) {
 	if (/javascript\s*:/i.test(note) || /data\s*:/i.test(note)) {
 		return tftpboot_reject_note_err('rejectNoteInvalid');
 	}
-	if (!/^[\p{L}\p{N}\s,.\-+\/\\_@#\n\r\t]+$/u.test(note)) {
+	if (!/^[\p{L}\p{N}\s,.\-+\/\\_@#!*()№\n\r\t]+$/u.test(note)) {
 		return tftpboot_reject_note_err('rejectNoteInvalid');
 	}
 	return '';
@@ -1509,7 +1616,7 @@ function tftpboot_create_key_card(k, grid) {
 			if (tftpboot_card_is_auto(card) || tftpboot_card_star_transfer(card) || phoneBtn.disabled) return;
 			var sfx = card.dataset.dialSuffix || '';
 			if (tftpboot_dial_has_bc(sfx)) {
-				card.dataset.dialSuffix = sfx.replace(/@1\/bc/gi, '');
+				card.dataset.dialSuffix = sfx.replace(/\/bc/gi, '');
 			} else {
 				card.dataset.dialSuffix = '@1/bc';
 			}

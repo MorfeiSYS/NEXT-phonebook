@@ -1482,7 +1482,9 @@ ul.tree-menu:before {
 	border-radius: 4px;
 	background: var(--color-bg-2, rgba(0, 0, 0, 0.03));
 }
-.tftpboot-dsskey-tabbed { margin: 1em 0; }
+.tftpboot-dsskey-tabbed { margin: 1em 0; display: flex; flex-direction: column; }
+.tftpboot-dsskey-panels { flex: 1 1 auto; }
+.tftpboot-layout-dsskey-tabbed { margin-top: 1.5em; }
 .tftpboot-dsskey-tabs {
 	display: flex;
 	flex-wrap: wrap;

@@ -302,7 +302,7 @@
 		'TftpBootModerationEmpty'		=> 'Нет заявок, ожидающих подтверждения',
 		'TftpBootModerationRejectNote'	=> 'Комментарий при отклонении',
 		'TftpBootModerationRejectNoteRequired'	=> 'Укажите комментарий при отклонении',
-		'TftpBootModerationRejectNoteInvalid'	=> 'Комментарий: только буквы, цифры, пробелы и , . - + / \\ _ @ # (до 300 символов)',
+		'TftpBootModerationRejectNoteInvalid'	=> 'Комментарий: буквы (рус./лат.), цифры, пробелы и ! * ( ) № # @ , . - + / \\ _ (до 300 символов)',
 		'TftpBootModerationBack'		=> 'К списку',
 		'TftpBootModerationReject'		=> 'Отклонить',
 		'TftpBootModerationApprove'		=> 'Принять',

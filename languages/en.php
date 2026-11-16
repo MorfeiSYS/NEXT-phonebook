@@ -302,7 +302,7 @@
 		'TftpBootModerationEmpty'		=> 'No pending requests',
 		'TftpBootModerationRejectNote'	=> 'Rejection comment',
 		'TftpBootModerationRejectNoteRequired'	=> 'Rejection comment is required',
-		'TftpBootModerationRejectNoteInvalid'	=> 'Comment: letters, digits, spaces and , . - + / \\ _ @ # only (max 300 characters)',
+		'TftpBootModerationRejectNoteInvalid'	=> 'Comment: letters, digits, spaces and ! * ( ) № # @ , . - + / \\ _ (max 300 characters)',
 		'TftpBootModerationBack'		=> 'Back to list',
 		'TftpBootModerationReject'		=> 'Reject',
 		'TftpBootModerationApprove'		=> 'Approve',

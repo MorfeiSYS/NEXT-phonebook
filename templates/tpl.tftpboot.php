@@ -96,12 +96,6 @@ $tftpboot_editor_save_label = $tftpboot_self_only ? LL('TftpBootSubmitModeration
 		<select id="tftpboot-layout-model"></select>
 	</label>
 	<div id="tftpboot-layout-sections"></div>
-	<p>
-		<label><?php L('TftpBootLayoutSectionId') ?>
-			<input type="text" id="tftpboot-layout-section-id" class="form-field" size="32" placeholder="m0/dsskey config 1" autocomplete="off" />
-		</label>
-		<button type="button" class="button-other" id="tftpboot-layout-section-add"><?php L('TftpBootLayoutSectionAdd') ?></button>
-	</p>
 	<button type="button" class="button-accept" id="tftpboot-layout-save"><?php L('Save') ?></button>
 </div>
 <?php } ?>
