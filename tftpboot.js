@@ -1580,12 +1580,32 @@ function tftpboot_remove_dial_bc(suffix) {
 }
 
 function tftpboot_append_dial_bc(suffix) {
-	suffix = String(suffix || '');
-	if (/\/bc/i.test(suffix)) return suffix;
-	if (suffix === '') return '/bc';
-	if (/@1\/[a-z]+$/i.test(suffix)) return suffix.replace(/\/[a-z]+$/i, '/bc');
-	if (/@1$/i.test(suffix)) return suffix + '/bc';
-	return suffix + '/bc';
+	suffix = String(suffix || '').trim();
+	if (tftpboot_dial_has_bc(suffix)) return suffix;
+	return '@1/bc';
+}
+
+function tftpboot_card_merge_number_suffix(card) {
+	var numEl = card.querySelector('.tftpboot-key-number');
+	if (!numEl || tftpboot_card_is_auto(card)) return card.dataset.dialSuffix || '';
+	var num = String(numEl.value || '').trim();
+	var sfx = String(card.dataset.dialSuffix || '').trim();
+	if (/^(\d+)(@1(?:\/[a-z]+)?)$/i.test(num)) {
+		var m = num.match(/^(\d+)(@1(?:\/[a-z]+)?)$/i);
+		numEl.value = m[1];
+		sfx = m[2].toLowerCase();
+		card.dataset.dialSuffix = sfx;
+		return sfx;
+	}
+	if (!sfx && /^@1/i.test(num)) {
+		var m2 = num.match(/^(\d*)(@1(?:\/[a-z]+)?)$/i);
+		if (m2 && m2[1]) {
+			numEl.value = m2[1];
+			sfx = m2[2].toLowerCase();
+			card.dataset.dialSuffix = sfx;
+		}
+	}
+	return sfx;
 }
 
 function tftpboot_type2_line_value(raw) {
@@ -1662,7 +1682,7 @@ function tftpboot_update_phone_icon(card) {
 	}
 	btn.disabled = false;
 	btn.classList.remove('tftpboot-key-phone--disabled');
-	var suffix = card.dataset.dialSuffix || '';
+	var suffix = tftpboot_card_merge_number_suffix(card);
 	var isBc = tftpboot_dial_has_bc(suffix);
 	var hasAt1 = /@1/.test(suffix);
 	btn.classList.remove('tftpboot-key-phone--green', 'tftpboot-key-phone--red', 'tftpboot-key-phone--neutral');
@@ -1807,7 +1827,7 @@ function tftpboot_create_key_card(k, grid) {
 			e.preventDefault();
 			e.stopPropagation();
 			if (tftpboot_card_is_auto(card) || tftpboot_card_star_transfer(card) || phoneBtn.disabled) return;
-			var sfx = card.dataset.dialSuffix || '';
+			var sfx = tftpboot_card_merge_number_suffix(card);
 			if (tftpboot_dial_has_bc(sfx)) {
 				card.dataset.dialSuffix = tftpboot_remove_dial_bc(sfx);
 			} else {
