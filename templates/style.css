@@ -1444,6 +1444,20 @@ ul.tree-menu:before {
 	color: var(--color-error-text);
 	font-weight: 500;
 }
+.tftpboot-self-status-approved {
+	display: inline-block;
+	padding: 0.35em 0.65em;
+	border-radius: 4px;
+	font-weight: 500;
+	color: var(--color-success);
+	background-color: #e8f5e9;
+	border: 1px solid rgba(58, 170, 58, 0.35);
+}
+:root[data-theme-color="dark"] .tftpboot-self-status-approved {
+	color: #a5d6a7;
+	background-color: #2e4a30;
+	border-color: rgba(165, 214, 167, 0.25);
+}
 .tftpboot-self-status-pending {
 	display: inline-block;
 	padding: 0.35em 0.65em;

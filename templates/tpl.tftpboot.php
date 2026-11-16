@@ -130,6 +130,9 @@ $tftpboot_editor_save_label = $tftpboot_self_only ? LL('TftpBootSubmitModeration
 	<div class="modal-content tftpboot-editor-content">
 		<span class="close" onclick="tftpboot_close_editor()">&times;</span>
 		<h3 id="tftpboot-editor-title"></h3>
+		<?php if($tftpboot_self_only) { ?>
+		<p id="tftpboot-editor-approved-notice" class="tftpboot-self-status tftpboot-self-status-approved" style="display:none"></p>
+		<?php } ?>
 		<div id="tftpboot-editor-sip" class="tftpboot-section" style="display:none"></div>
 		<div id="tftpboot-editor-sections" class="tftpboot-editor-sections"></div>
 		<input type="hidden" id="tftpboot-editor-filename" value="" />
@@ -213,6 +216,7 @@ $tftpboot_editor_save_label = $tftpboot_self_only ? LL('TftpBootSubmitModeration
 		canModerate: <?php echo $tftpboot_can_moderate ? '1' : '0'; ?>,
 		canUnfixBulk: <?php echo !empty($tftpboot_can_unfix_bulk) ? '1' : '0'; ?>,
 		moderationPendingCount: <?php echo intval($tftpboot_pending_count); ?>,
+		moderationApprovedNoticeTtl: <?php echo intval(tftpboot_moderation_approved_notice_ttl_sec()); ?>,
 		bulkVendors: <?php echo json_encode($tftpboot_enabled_bulk, JSON_UNESCAPED_UNICODE); ?>,
 		bulkPageSize: <?php echo intval($tftpboot_bulk_page_size); ?>,
 		bulkLookupMinDigits: <?php echo intval($tftpboot_bulk_lookup_min_digits); ?>,
@@ -256,6 +260,7 @@ $tftpboot_editor_save_label = $tftpboot_self_only ? LL('TftpBootSubmitModeration
 			moderationDiffSuffix: <?php echo json_encode(LL('TftpBootModerationDiffSuffix'), JSON_UNESCAPED_UNICODE); ?>,
 			selfStatusPending: <?php echo json_encode(LL('TftpBootModerationSelfPending'), JSON_UNESCAPED_UNICODE); ?>,
 			selfStatusRejected: <?php echo json_encode(LL('TftpBootModerationSelfRejected'), JSON_UNESCAPED_UNICODE); ?>,
+			selfStatusApproved: <?php echo json_encode(LL('TftpBootModerationSelfApproved'), JSON_UNESCAPED_UNICODE); ?>,
 			selfModerationPendingBlock: <?php echo json_encode(LL('TftpBootModerationPendingBlock'), JSON_UNESCAPED_UNICODE); ?>,
 			dialNumberHint: <?php echo json_encode(LL('TftpBootDialNumberHint'), JSON_UNESCAPED_UNICODE); ?>,
 			starDialInvalid: <?php echo json_encode(LL('TftpBootStarDialInvalid'), JSON_UNESCAPED_UNICODE); ?>,

@@ -314,6 +314,7 @@
 		'TftpBootModerationDiffSuffix'	=> 'Dial suffix (@1/bc)',
 		'TftpBootModerationSelfPending'	=> 'Awaiting operator approval',
 		'TftpBootModerationSelfRejected'=> 'Last request was rejected',
+		'TftpBootModerationSelfApproved'=> 'Changes approved. They will be loaded onto the phone within one hour.',
 		'TftpBootDialNumberHint'		=> 'Digits, *8 or **',
 		'TftpBootStarDialInvalid'		=> 'Only *8 or ** allowed',
 		'TftpBootDialLabelRequired'		=> 'Label is required when number is set',

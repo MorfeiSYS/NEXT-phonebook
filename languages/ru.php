@@ -314,6 +314,7 @@
 		'TftpBootModerationDiffSuffix'	=> 'Набор @1/bc',
 		'TftpBootModerationSelfPending'	=> 'Заявка ожидает подтверждения оператором',
 		'TftpBootModerationSelfRejected'=> 'Последняя заявка отклонена',
+		'TftpBootModerationSelfApproved'=> 'Изменения одобрены. В течение одного часа они будут загружены в телефон.',
 		'TftpBootDialNumberHint'		=> 'Цифры, *8 или **',
 		'TftpBootStarDialInvalid'		=> 'Допустимы только *8 или **',
 		'TftpBootDialLabelRequired'		=> 'Укажите подпись, если заполнен номер',

@@ -19,6 +19,10 @@ function tftpboot_init(opts) {
 	tftpboot_state.selfOnly = !!opts.selfOnly;
 	tftpboot_state.canModerate = !!opts.canModerate;
 	tftpboot_state.canUnfixBulk = !!opts.canUnfixBulk;
+	tftpboot_state.moderationApprovedNoticeTtl = parseInt(opts.moderationApprovedNoticeTtl, 10);
+	if (isNaN(tftpboot_state.moderationApprovedNoticeTtl) || tftpboot_state.moderationApprovedNoticeTtl < 1) {
+		tftpboot_state.moderationApprovedNoticeTtl = 1800;
+	}
 	tftpboot_state.moderationRequestId = 0;
 	tftpboot_state.selfFiles = [];
 	tftpboot_state.bulkVendors = opts.bulkVendors || [];
@@ -974,6 +978,121 @@ function tftpboot_card_star_transfer(card) {
 }
 
 var g_tftpboot_self_poll_timer = null;
+var g_tftpboot_approved_expire_timer = null;
+
+function tftpboot_self_approved_notice_ttl_sec() {
+	var n = parseInt(tftpboot_state.moderationApprovedNoticeTtl, 10);
+	return (isNaN(n) || n < 1) ? 1800 : n;
+}
+
+function tftpboot_parse_sql_datetime(s) {
+	if (!s) return NaN;
+	var t = String(s).trim();
+	if (!t) return NaN;
+	return Date.parse(t.replace(' ', 'T'));
+}
+
+function tftpboot_self_moderation_for_filename(fn) {
+	if (!fn) return null;
+	var mod = null;
+	tftpboot_state.selfFiles.forEach(function (f) {
+		if (f.filename === fn && f.moderation) mod = f.moderation;
+	});
+	return mod;
+}
+
+function tftpboot_self_approved_still_visible(mod) {
+	if (!mod || mod.status !== 'approved') return false;
+	var reviewed = tftpboot_parse_sql_datetime(mod.reviewed);
+	if (isNaN(reviewed)) return true;
+	return (Date.now() - reviewed) < tftpboot_self_approved_notice_ttl_sec() * 1000;
+}
+
+function tftpboot_self_hide_status_box(box) {
+	if (!box) return;
+	if (box._tftpbootApprovedExpireTimer) {
+		clearTimeout(box._tftpbootApprovedExpireTimer);
+		box._tftpbootApprovedExpireTimer = null;
+	}
+	box.style.display = 'none';
+	box.textContent = '';
+	box.innerHTML = '';
+	box.className = 'tftpboot-self-status';
+}
+
+function tftpboot_self_schedule_approved_expire(box, mod) {
+	if (!box || !mod) return;
+	if (box._tftpbootApprovedExpireTimer) {
+		clearTimeout(box._tftpbootApprovedExpireTimer);
+		box._tftpbootApprovedExpireTimer = null;
+	}
+	var reviewed = tftpboot_parse_sql_datetime(mod.reviewed);
+	if (isNaN(reviewed)) return;
+	var left = tftpboot_self_approved_notice_ttl_sec() * 1000 - (Date.now() - reviewed);
+	if (left <= 0) return;
+	box._tftpbootApprovedExpireTimer = setTimeout(function () {
+		box._tftpbootApprovedExpireTimer = null;
+		tftpboot_self_update_status();
+		var fn = document.getElementById('tftpboot-editor-filename');
+		tftpboot_self_sync_approved_notice(fn ? fn.value : '');
+	}, left + 50);
+}
+
+function tftpboot_self_apply_status_box(box, mod) {
+	if (!box) return;
+	if (!mod) {
+		tftpboot_self_hide_status_box(box);
+		return;
+	}
+	var lbl = tftpboot_state.labels || {};
+	var st = mod.status;
+	if (st === 'pending') {
+		box.className = 'tftpboot-self-status tftpboot-self-status-pending';
+		box.textContent = lbl.selfStatusPending || 'Pending moderation';
+		box.style.display = '';
+		if (box._tftpbootApprovedExpireTimer) {
+			clearTimeout(box._tftpbootApprovedExpireTimer);
+			box._tftpbootApprovedExpireTimer = null;
+		}
+	} else if (st === 'rejected') {
+		box.className = 'tftpboot-self-status';
+		var title = lbl.selfStatusRejected || 'Rejected';
+		var rejectNote = mod.reject_note ? String(mod.reject_note) : '';
+		if (rejectNote) {
+			box.innerHTML = escapeHtml(title) + ': <span class="tftpboot-self-status-reject-note">'
+				+ escapeHtml(rejectNote) + '</span>';
+		} else {
+			box.textContent = title;
+		}
+		box.style.display = '';
+		if (box._tftpbootApprovedExpireTimer) {
+			clearTimeout(box._tftpbootApprovedExpireTimer);
+			box._tftpbootApprovedExpireTimer = null;
+		}
+	} else if (st === 'approved') {
+		if (!tftpboot_self_approved_still_visible(mod)) {
+			tftpboot_self_hide_status_box(box);
+			return;
+		}
+		box.className = 'tftpboot-self-status tftpboot-self-status-approved';
+		box.textContent = lbl.selfStatusApproved || 'Changes approved';
+		box.style.display = '';
+		tftpboot_self_schedule_approved_expire(box, mod);
+	} else {
+		tftpboot_self_hide_status_box(box);
+	}
+}
+
+function tftpboot_self_sync_approved_notice(filename) {
+	if (!tftpboot_state.selfOnly) return;
+	var box = document.getElementById('tftpboot-editor-approved-notice');
+	if (!box) return;
+	if (!filename) {
+		var fnEl = document.getElementById('tftpboot-editor-filename');
+		filename = fnEl ? fnEl.value : '';
+	}
+	tftpboot_self_apply_status_box(box, tftpboot_self_moderation_for_filename(filename));
+}
 
 function tftpboot_self_poll_interval_sec() {
 	var sec = parseInt(window.g_tftpboot_moderation_poll_sec, 10);
@@ -1049,34 +1168,7 @@ function tftpboot_self_update_status() {
 		if (f.filename === fn) row = f;
 	});
 	tftpboot_self_sync_open_btn(row);
-	if (!row || !row.moderation) {
-		if (box) {
-			box.style.display = 'none';
-			box.textContent = '';
-		}
-		return;
-	}
-	var st = row.moderation.status;
-	var lbl = tftpboot_state.labels || {};
-	if (st === 'pending') {
-		box.className = 'tftpboot-self-status tftpboot-self-status-pending';
-		box.textContent = lbl.selfStatusPending || 'Pending moderation';
-		box.style.display = '';
-	} else if (st === 'rejected') {
-		box.className = 'tftpboot-self-status';
-		var title = lbl.selfStatusRejected || 'Rejected';
-		var rejectNote = row.moderation.reject_note ? String(row.moderation.reject_note) : '';
-		if (rejectNote) {
-			box.innerHTML = escapeHtml(title) + ': <span class="tftpboot-self-status-reject-note">'
-				+ escapeHtml(rejectNote) + '</span>';
-		} else {
-			box.textContent = title;
-		}
-		box.style.display = '';
-	} else {
-		box.className = 'tftpboot-self-status';
-		box.style.display = 'none';
-	}
+	tftpboot_self_apply_status_box(box, row && row.moderation ? row.moderation : null);
 }
 
 function tftpboot_set_pb_hint(el, text) {
@@ -2528,6 +2620,9 @@ function tftpboot_show_editor(cfg) {
 	document.getElementById('tftpboot-editor').style.display = 'block';
 	if (typeof pb_hint_init === 'function') {
 		pb_hint_init(root);
+	}
+	if (tftpboot_state.selfOnly) {
+		tftpboot_self_sync_approved_notice(cfg.filename);
 	}
 	var ec = document.querySelector('.tftpboot-editor-content');
 	if (ec) tftpboot_schedule_grid_modal_expand(ec, 0.9);

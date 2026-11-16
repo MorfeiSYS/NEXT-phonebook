@@ -3055,7 +3055,7 @@ class TftpBoot
 		if(!$this->core->db->select_assoc_ex(
 			$rows,
 			rpv(
-				"SELECT `id`, `status`, `created`, `reject_note` FROM `@tftpboot_moderation_request` ".
+				"SELECT `id`, `status`, `created`, `reviewed`, `reject_note` FROM `@tftpboot_moderation_request` ".
 				"WHERE `uid` = # AND `filename` = ! ORDER BY `id` DESC LIMIT 1",
 				intval($uid),
 				$filename
@@ -3066,6 +3066,49 @@ class TftpBoot
 		}
 
 		return $rows[0];
+	}
+
+	public function get_self_moderation_ui_status($uid, $filename)
+	{
+		$row = $this->get_self_pending_status($uid, $filename);
+		if(!$row || !isset($row['status']))
+		{
+			return NULL;
+		}
+
+		$status = $row['status'];
+		if($status === 'pending' || $status === 'rejected')
+		{
+			return array(
+				'status' => $status,
+				'created' => isset($row['created']) ? $row['created'] : '',
+				'reviewed' => isset($row['reviewed']) ? $row['reviewed'] : '',
+				'reject_note' => isset($row['reject_note']) ? $row['reject_note'] : '',
+			);
+		}
+
+		if($status === 'approved')
+		{
+			$reviewed = isset($row['reviewed']) ? trim((string)$row['reviewed']) : '';
+			if($reviewed === '')
+			{
+				return NULL;
+			}
+			$reviewed_ts = strtotime($reviewed);
+			if($reviewed_ts === FALSE || $reviewed_ts < time() - tftpboot_moderation_approved_notice_ttl_sec())
+			{
+				return NULL;
+			}
+
+			return array(
+				'status' => 'approved',
+				'created' => isset($row['created']) ? $row['created'] : '',
+				'reviewed' => $reviewed,
+				'reject_note' => '',
+			);
+		}
+
+		return NULL;
 	}
 
 	public function self_has_pending_moderation($uid, $filename)

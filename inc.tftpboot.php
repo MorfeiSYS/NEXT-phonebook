@@ -814,6 +814,11 @@ function tftpboot_moderation_poll_interval_sec(&$core)
 	return $n;
 }
 
+function tftpboot_moderation_approved_notice_ttl_sec()
+{
+	return 1800;
+}
+
 function tftpboot_dial_label_max_len(&$core)
 {
 	$n = intval($core->Config->get_global('tftpboot_moderation_label_max_len', '25'));
