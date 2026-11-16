@@ -617,18 +617,39 @@ function tftpboot_layout_create_cell(slot, grid) {
 	return card;
 }
 
+function tftpboot_layout_clear_drop_hints(grid) {
+	if (!grid) return;
+	Array.prototype.forEach.call(grid.children, function (el) {
+		el.classList.remove('tftpboot-layout-drop-hint');
+	});
+}
+
 function tftpboot_bind_layout_dnd(card, grid) {
 	card.addEventListener('dragstart', function (e) {
 		grid._tftpbootDragCard = card;
 		e.dataTransfer.setData('text/plain', card.dataset.slot);
+		e.dataTransfer.effectAllowed = 'move';
 		card.classList.add('tftpboot-dragging');
 	});
 	card.addEventListener('dragend', function () {
 		card.classList.remove('tftpboot-dragging');
+		tftpboot_layout_clear_drop_hints(grid);
 		grid._tftpbootDragCard = null;
 		tftpboot_layout_sync_grid_order(grid);
 	});
-	card.addEventListener('dragover', function (e) { e.preventDefault(); });
+	card.addEventListener('dragover', function (e) {
+		e.preventDefault();
+		e.dataTransfer.dropEffect = 'move';
+		var from = grid._tftpbootDragCard;
+		if (!from || from === card) return;
+		tftpboot_layout_clear_drop_hints(grid);
+		card.classList.add('tftpboot-layout-drop-hint');
+	});
+	card.addEventListener('dragleave', function (e) {
+		if (!e.relatedTarget || !card.contains(e.relatedTarget)) {
+			card.classList.remove('tftpboot-layout-drop-hint');
+		}
+	});
 	card.addEventListener('drop', function (e) {
 		e.preventDefault();
 		var from = grid._tftpbootDragCard;
@@ -636,6 +657,7 @@ function tftpboot_bind_layout_dnd(card, grid) {
 		var parent = grid;
 		var after = (from.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING) ? card.nextSibling : card;
 		parent.insertBefore(from, after);
+		tftpboot_layout_clear_drop_hints(grid);
 		tftpboot_layout_sync_grid_order(grid);
 	});
 }

@@ -1555,8 +1555,56 @@ ul.tree-menu:before {
 	}
 }
 .tftpboot-keys-grid { display: flex; flex-wrap: wrap; gap: 8px; margin: 0.5em 0; }
-.tftpboot-keys-grid.tftpboot-keys-grid--layout { display: grid; gap: 8px; }
-.tftpboot-layout-cell { cursor: grab; min-height: 3.5em; }
+.tftpboot-keys-grid.tftpboot-keys-grid--layout {
+	display: grid;
+	gap: 6px;
+	align-items: start;
+}
+.tftpboot-layout-grid.tftpboot-keys-grid--layout {
+	justify-items: center;
+}
+.tftpboot-keys-grid--layout .tftpboot-layout-cell {
+	min-width: 0;
+	min-height: 0;
+	width: max-content;
+	max-width: 100%;
+	padding: 0.35em 0.6em;
+	margin: 0;
+	border-radius: 8px;
+	box-sizing: border-box;
+	cursor: grab;
+	transition:
+		transform 0.22s ease,
+		opacity 0.22s ease,
+		box-shadow 0.22s ease,
+		border-color 0.22s ease,
+		background-color 0.22s ease;
+}
+.tftpboot-keys-grid--layout .tftpboot-layout-cell .tftpboot-key-slot {
+	margin-bottom: 0;
+	font-size: 0.82em;
+	white-space: nowrap;
+}
+.tftpboot-keys-grid--layout .tftpboot-layout-cell:hover {
+	border-color: var(--color-border-3, #9aa0a6);
+}
+.tftpboot-keys-grid--layout .tftpboot-layout-cell.tftpboot-dragging {
+	opacity: 0.7;
+	transform: scale(1.04);
+	box-shadow: 0 6px 16px rgba(0, 0, 0, 0.14);
+	z-index: 2;
+	cursor: grabbing;
+}
+.tftpboot-keys-grid--layout .tftpboot-layout-cell.tftpboot-layout-drop-hint {
+	transform: scale(1.06);
+	border-color: var(--color-success-border, #2a8f2a);
+	background: var(--color-bg-2, #f5f5f5);
+}
+@media (prefers-reduced-motion: reduce) {
+	.tftpboot-keys-grid--layout .tftpboot-layout-cell {
+		transition: none;
+	}
+}
 .tftpboot-layout-reset-btn { margin-left: 0.35em; vertical-align: middle; }
 .tftpboot-layout-size-inp {
 	width: 3.2em;
