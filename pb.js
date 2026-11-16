@@ -1201,7 +1201,6 @@ function contact_status_dot_span(flags)
 	var f = flags | 0;
 	var i, n, active, step, parts, style;
 	var title = attr_escape(contact_status_dot_title(f));
-	var tip = ' title="' + title + '" aria-label="' + title + '"';
 
 	active = [];
 	for(i = 0; i < CONTACT_DOT_ORDER.length; i++)
@@ -1216,12 +1215,12 @@ function contact_status_dot_span(flags)
 
 	if(active.length === 0)
 	{
-		return '<span class="contact-status-dot contact-status-dot--ok"' + tip + '></span>';
+		return '<span class="contact-status-dot contact-status-dot--ok pb-hint" data-pb-hint="' + title + '" aria-label="' + title + '"></span>';
 	}
 
 	if(active.length === 1)
 	{
-		return '<span class="contact-status-dot ' + active[0].singleClass + '"' + tip + '></span>';
+		return '<span class="contact-status-dot ' + active[0].singleClass + ' pb-hint" data-pb-hint="' + title + '" aria-label="' + title + '"></span>';
 	}
 
 	n = active.length;
@@ -1233,7 +1232,7 @@ function contact_status_dot_span(flags)
 	}
 	style = 'background: conic-gradient(from 0deg, ' + parts.join(', ') + ');';
 
-	return '<span class="contact-status-dot contact-status-dot--multi" style="' + style + '"' + tip + '></span>';
+	return '<span class="contact-status-dot contact-status-dot--multi pb-hint" style="' + style + '" data-pb-hint="' + title + '" aria-label="' + title + '"></span>';
 }
 
 function contact_cells_html(c)
@@ -1505,6 +1504,10 @@ function f_update_row(id)
 				row.setAttribute("data-y", data.data.y);
 				row.setAttribute("data-flags", data.data.flags);
 				row.innerHTML = contact_cells_html(data.data);
+				if(typeof pb_hint_init === 'function')
+				{
+					pb_hint_init(row);
+				}
 			}
 		}
 	);
@@ -2022,6 +2025,10 @@ function fill_contacts(action, query, offset, total, contacts)
 	}
 	
 	table_data.innerHTML = html;
+	if(typeof pb_hint_init === 'function')
+	{
+		pb_hint_init(table_data);
+	}
 
 	var max = Math.min(offset + 1000, total - (total % 100));
 
@@ -2094,7 +2101,7 @@ function autocomplete_on_input(ev)
 				autocomplete_destroy(null);
 				a = document.createElement('DIV');
 				a.setAttribute('id', 'autocomplete-container');
-				a.setAttribute('class', 'autocomplete-items');
+				a.setAttribute('class', 'autocomplete-items pb-popup-list');
 
 				el.parentNode.appendChild(a);
 				for(i = 0; i < data.list.length; i++)
@@ -2185,6 +2192,165 @@ function autocomplete_remove_active(items)
 	}
 }
 
+var g_pb_hint_el = null;
+var g_pb_hint_hide_timer = null;
+var g_pb_hint_show_timer = null;
+var g_pb_hint_anchor = null;
+
+function pb_hint_delay_ms()
+{
+	var n = parseInt(window.g_pb_hint_delay_ms, 10);
+	if(isNaN(n) || n < 0)
+	{
+		return 400;
+	}
+	if(n > 5000)
+	{
+		return 5000;
+	}
+	return n;
+}
+
+function pb_hint_ensure()
+{
+	if(g_pb_hint_el)
+	{
+		return g_pb_hint_el;
+	}
+	g_pb_hint_el = document.createElement('div');
+	g_pb_hint_el.id = 'pb-hint-popup';
+	g_pb_hint_el.className = 'pb-hint-popup';
+	g_pb_hint_el.setAttribute('role', 'tooltip');
+	g_pb_hint_el.style.display = 'none';
+	document.body.appendChild(g_pb_hint_el);
+	return g_pb_hint_el;
+}
+
+function pb_hint_hide()
+{
+	if(g_pb_hint_el)
+	{
+		g_pb_hint_el.style.display = 'none';
+	}
+	g_pb_hint_anchor = null;
+}
+
+function pb_hint_position(anchor, box)
+{
+	var r = anchor.getBoundingClientRect();
+	var pad = 10;
+	var gap = 8;
+	var boxRect = box.getBoundingClientRect();
+	var w = boxRect.width || 280;
+	var h = boxRect.height || 40;
+	var left = r.left + (r.width / 2);
+	var top = r.bottom + gap;
+	var placeAbove = (top + h + pad > window.innerHeight) && (r.top - gap - h > pad);
+	box.classList.toggle('pb-hint-above', placeAbove);
+	box.classList.toggle('pb-hint-below', !placeAbove);
+	if(placeAbove)
+	{
+		top = r.top - gap - h;
+	}
+	if(left - w / 2 < pad)
+	{
+		left = pad + w / 2;
+	}
+	if(left + w / 2 > window.innerWidth - pad)
+	{
+		left = window.innerWidth - pad - w / 2;
+	}
+	box.style.left = left + 'px';
+	box.style.top = top + 'px';
+	box.style.transform = 'translateX(-50%)';
+	var arrowX = Math.max(14, Math.min(w - 14, (r.left + r.width / 2) - (left - w / 2)));
+	box.style.setProperty('--pb-hint-arrow-x', arrowX + 'px');
+}
+
+function pb_hint_show(anchor)
+{
+	var text = anchor.getAttribute('data-pb-hint');
+	if(!text)
+	{
+		return;
+	}
+	var box = pb_hint_ensure();
+	box.textContent = text;
+	box.style.display = 'block';
+	g_pb_hint_anchor = anchor;
+	pb_hint_position(anchor, box);
+	window.requestAnimationFrame(function() {
+		if(g_pb_hint_anchor === anchor)
+		{
+			pb_hint_position(anchor, box);
+		}
+	});
+	var onScroll = function() {
+		if(g_pb_hint_anchor === anchor)
+		{
+			pb_hint_hide();
+		}
+		window.removeEventListener('scroll', onScroll, true);
+	};
+	window.addEventListener('scroll', onScroll, true);
+}
+
+function pb_hint_bind(el)
+{
+	if(!el || el.getAttribute('data-pb-hint-bound') === '1')
+	{
+		return;
+	}
+	var text = el.getAttribute('data-pb-hint');
+	if(!text && el.getAttribute('data-tooltip'))
+	{
+		text = el.getAttribute('data-tooltip');
+		el.setAttribute('data-pb-hint', text);
+	}
+	if(!text && el.getAttribute('title'))
+	{
+		text = el.getAttribute('title');
+		el.setAttribute('data-pb-hint', text);
+		el.removeAttribute('title');
+	}
+	if(!text)
+	{
+		return;
+	}
+	el.setAttribute('data-pb-hint-bound', '1');
+	el.classList.add('pb-hint-source');
+	el.addEventListener('mouseenter', function() {
+		clearTimeout(g_pb_hint_hide_timer);
+		clearTimeout(g_pb_hint_show_timer);
+		g_pb_hint_show_timer = setTimeout(function() {
+			pb_hint_show(el);
+		}, pb_hint_delay_ms());
+	});
+	el.addEventListener('mouseleave', function() {
+		clearTimeout(g_pb_hint_show_timer);
+		g_pb_hint_hide_timer = setTimeout(pb_hint_hide, 60);
+	});
+	el.addEventListener('focus', function() {
+		clearTimeout(g_pb_hint_hide_timer);
+		clearTimeout(g_pb_hint_show_timer);
+		g_pb_hint_show_timer = setTimeout(function() {
+			pb_hint_show(el);
+		}, pb_hint_delay_ms());
+	});
+	el.addEventListener('blur', pb_hint_hide);
+}
+
+function pb_hint_init(root)
+{
+	var scope = root || document;
+	if(!scope.querySelectorAll)
+	{
+		return;
+	}
+	scope.querySelectorAll('[data-pb-hint], .pb-hint, .tooltip-icon').forEach(pb_hint_bind);
+	scope.querySelectorAll('[title]:not([data-pb-hint-bound])').forEach(pb_hint_bind);
+}
+
 function autocomplete_destroy(e)
 {
 	var el = gi('autocomplete-container');
@@ -2207,6 +2373,7 @@ function autocomplete_destroy(e)
             // this must be set to true before we start calling callbacks
             readyFired = true;
             tftpboot_moderation_poll_start();
+            pb_hint_init(document);
 
 			/*execute a function when someone clicks in the document:*/
         	if(document.addEventListener)

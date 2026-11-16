@@ -16,6 +16,7 @@
 			is_admin = <?php echo (user_is_admin() ? '1' : '0'); ?>;
 			is_operator = <?php echo (user_is_operator() ? '1' : '0'); ?>;
 			g_tftpboot_can_moderate = <?php echo ($core->UserAuth->get_id() && user_can_tftpboot_moderate($core) ? '1' : '0'); ?>;
+			g_pb_hint_delay_ms = <?php echo intval(pb_hint_delay_ms($core)); ?>;
 			g_tftpboot_moderation_poll_sec = <?php
 				$tftpboot_poll_sec = 60;
 				if($core->UserAuth->get_id()

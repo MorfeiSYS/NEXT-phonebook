@@ -251,11 +251,11 @@ function contact_name_status_dot_markup($flags)
 	$n = count($active);
 	if($n === 0)
 	{
-		return '<span class="contact-status-dot contact-status-dot--ok" title="'.$title.'" aria-label="'.$title.'"></span>';
+		return '<span class="contact-status-dot contact-status-dot--ok pb-hint" data-pb-hint="'.$title.'" aria-label="'.$title.'"></span>';
 	}
 	if($n === 1)
 	{
-		return '<span class="contact-status-dot '.htmlspecialchars($active[0]['class'], ENT_QUOTES, 'UTF-8').'" title="'.$title.'" aria-label="'.$title.'"></span>';
+		return '<span class="contact-status-dot '.htmlspecialchars($active[0]['class'], ENT_QUOTES, 'UTF-8').' pb-hint" data-pb-hint="'.$title.'" aria-label="'.$title.'"></span>';
 	}
 	$step = 360 / $n;
 	$parts = array();
@@ -265,7 +265,7 @@ function contact_name_status_dot_markup($flags)
 	}
 	$style = 'background: conic-gradient(from 0deg, '.implode(', ', $parts).');';
 
-	return '<span class="contact-status-dot contact-status-dot--multi" style="'.htmlspecialchars($style, ENT_QUOTES, 'UTF-8').'" title="'.$title.'" aria-label="'.$title.'"></span>';
+	return '<span class="contact-status-dot contact-status-dot--multi pb-hint" style="'.htmlspecialchars($style, ENT_QUOTES, 'UTF-8').'" data-pb-hint="'.$title.'" aria-label="'.$title.'"></span>';
 }
 
 function contacts_column_cell($key, &$row)

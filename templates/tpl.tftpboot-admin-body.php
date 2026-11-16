@@ -21,6 +21,7 @@ if(!isset($tftpboot_settings))
 		'moderation_max_per_hour' => '1',
 		'bulk_lookup_min_digits' => '2',
 		'bulk_lookup_min_name' => '2',
+		'pb_hint_delay_ms' => '400',
 		'sync_cron_key' => '',
 	);
 }
@@ -65,6 +66,7 @@ if(!isset($tftpboot_admin_embedded)) { $tftpboot_admin_embedded = FALSE; }
 	<label><?php L('TftpBootModerationMaxPerHour') ?> <input type="number" name="moderation_max_per_hour" value="<?php eh($tftpboot_settings['moderation_max_per_hour']); ?>" min="1" step="1" /></label><br />
 	<label><?php L('TftpBootBulkLookupMinDigits') ?> <input type="number" name="bulk_lookup_min_digits" value="<?php eh($tftpboot_settings['bulk_lookup_min_digits']); ?>" min="1" max="11" step="1" /></label><br />
 	<label><?php L('TftpBootBulkLookupMinName') ?> <input type="number" name="bulk_lookup_min_name" value="<?php eh($tftpboot_settings['bulk_lookup_min_name']); ?>" min="1" max="30" step="1" /></label><br />
+	<label><?php L('TftpBootHintDelayMs') ?> <input type="number" name="pb_hint_delay_ms" value="<?php eh($tftpboot_settings['pb_hint_delay_ms']); ?>" min="0" max="5000" step="50" /></label><br />
 
 	<h4><?php L('TftpBootUnknownFiles') ?></h4>
 	<table class="tftpboot-table">

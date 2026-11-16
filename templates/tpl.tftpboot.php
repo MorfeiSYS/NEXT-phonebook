@@ -89,11 +89,11 @@ $tftpboot_editor_save_label = $tftpboot_self_only ? LL('TftpBootSubmitModeration
 	<p class="tftpboot-sync-hint"><?php L('TftpBootSyncHint') ?></p>
 	<div id="tftpboot-sync-vendors" class="tftpboot-vendor-chks"></div>
 	<div class="tftpboot-sync-actions">
-		<button type="button" class="button-other" id="tftpboot-directory-open" title="<?php eh(LL('TftpBootHintDirectory')); ?>"><?php L('TftpBootTabDirectory') ?></button>
-		<button type="button" class="button-other" id="tftpboot-directory-refresh"<?php if(empty($tftpboot_sync_api_fetch)) echo ' style="display:none"'; ?> title="<?php eh(LL('TftpBootHintFetchNames')); ?>"><?php L('TftpBootFetchNames') ?></button>
-		<button type="button" class="button-other" id="tftpboot-sync-undo"<?php if(empty($tftpboot_sync_has_undo)) echo ' style="display:none"'; ?> title="<?php eh(LL('TftpBootHintSyncUndo')); ?>"><?php L('TftpBootSyncUndo') ?></button>
-		<button type="button" class="button-decline" id="tftpboot-sync-apply" style="display:none" title="<?php eh(LL('TftpBootHintApplySync')); ?>"><?php L('TftpBootApplySync') ?></button>
-		<button type="button" class="button-accept tftpboot-sync-preview-btn" id="tftpboot-sync-preview" title="<?php eh(LL('TftpBootHintSyncPreview')); ?>"><?php L('TftpBootSyncPreview') ?></button>
+		<button type="button" class="button-other pb-hint" id="tftpboot-directory-open" data-pb-hint="<?php eh(LL('TftpBootHintDirectory')); ?>"><?php L('TftpBootTabDirectory') ?></button>
+		<button type="button" class="button-other pb-hint" id="tftpboot-directory-refresh"<?php if(empty($tftpboot_sync_api_fetch)) echo ' style="display:none"'; ?> data-pb-hint="<?php eh(LL('TftpBootHintFetchNames')); ?>"><?php L('TftpBootFetchNames') ?></button>
+		<button type="button" class="button-other pb-hint" id="tftpboot-sync-undo"<?php if(empty($tftpboot_sync_has_undo)) echo ' style="display:none"'; ?> data-pb-hint="<?php eh(LL('TftpBootHintSyncUndo')); ?>"><?php L('TftpBootSyncUndo') ?></button>
+		<button type="button" class="button-decline pb-hint" id="tftpboot-sync-apply" style="display:none" data-pb-hint="<?php eh(LL('TftpBootHintApplySync')); ?>"><?php L('TftpBootApplySync') ?></button>
+		<button type="button" class="button-accept tftpboot-sync-preview-btn pb-hint" id="tftpboot-sync-preview" data-pb-hint="<?php eh(LL('TftpBootHintSyncPreview')); ?>"><?php L('TftpBootSyncPreview') ?></button>
 	</div>
 	<div id="tftpboot-sync-diff"></div>
 </div>
@@ -134,6 +134,7 @@ $tftpboot_editor_save_label = $tftpboot_self_only ? LL('TftpBootSubmitModeration
 		<div id="tftpboot-editor-sections" class="tftpboot-editor-sections"></div>
 		<input type="hidden" id="tftpboot-editor-filename" value="" />
 		<button type="button" class="button-accept" id="tftpboot-editor-save" onclick="tftpboot_save_editor()"><?php eh($tftpboot_editor_save_label); ?></button>
+		<button type="button" class="button-other" id="tftpboot-editor-close" onclick="tftpboot_close_editor()"><?php L('TftpBootEditorClose') ?></button>
 	</div>
 </div>
 
@@ -147,7 +148,20 @@ $tftpboot_editor_save_label = $tftpboot_self_only ? LL('TftpBootSubmitModeration
 		<div id="tftpboot-bulk-vendors" class="tftpboot-vendor-chks"></div>
 		<div class="tftpboot-bulk-scroll">
 			<table class="tftpboot-table" id="tftpboot-bulk-table">
-				<thead><tr><th><?php L('TftpBootNumber') ?></th><th><?php L('TftpBootName') ?></th><th><?php L('TftpBootBulkUses') ?></th><th><?php L('TftpBootBulkActions') ?></th></tr></thead>
+				<thead><tr>
+					<th class="tftpboot-bulk-sort" data-sort="number" tabindex="0" role="columnheader" aria-sort="none"><?php L('TftpBootNumber') ?><span class="tftpboot-bulk-sort-ind" aria-hidden="true"></span></th>
+					<th class="tftpboot-bulk-sort" data-sort="title" tabindex="0" role="columnheader" aria-sort="none"><?php L('TftpBootName') ?><span class="tftpboot-bulk-sort-ind" aria-hidden="true"></span></th>
+					<th class="tftpboot-bulk-sort" data-sort="count" tabindex="0" role="columnheader" aria-sort="none"><?php L('TftpBootBulkUses') ?><span class="tftpboot-bulk-sort-ind" aria-hidden="true"></span></th>
+					<th class="tftpboot-bulk-th-actions" role="columnheader">
+						<span class="tftpboot-bulk-head-filters">
+							<button type="button" id="tftpboot-bulk-refresh" class="tftpboot-bulk-head-btn tftpboot-bulk-head-refresh pb-hint" data-pb-hint="<?php echo htmlspecialchars(LL('TftpBootBulkRefresh'), ENT_QUOTES, 'UTF-8'); ?>" aria-label="<?php echo htmlspecialchars(LL('Refresh'), ENT_QUOTES, 'UTF-8'); ?>"><span class="tftpboot-bulk-head-refresh-ico" aria-hidden="true">↻</span></button>
+							<button type="button" id="tftpboot-bulk-refresh-pb" class="tftpboot-bulk-head-btn tftpboot-bulk-head-refresh-pb pb-hint" data-pb-hint="<?php echo htmlspecialchars(LL('TftpBootBulkRefreshPhonebook'), ENT_QUOTES, 'UTF-8'); ?>" aria-label="<?php echo htmlspecialchars(LL('TftpBootBulkRefreshPhonebook'), ENT_QUOTES, 'UTF-8'); ?>"></button>
+							<label class="tftpboot-bulk-fchk tftpboot-bulk-fchk-yellow pb-hint" data-pb-hint="<?php echo htmlspecialchars(LL('TftpBootBulkFilterFixed'), ENT_QUOTES, 'UTF-8'); ?>"><input type="checkbox" id="tftpboot-bulk-chk-fixed" /></label>
+							<label class="tftpboot-bulk-fchk tftpboot-bulk-fchk-red pb-hint" data-pb-hint="<?php echo htmlspecialchars(LL('TftpBootBulkFilterMissing'), ENT_QUOTES, 'UTF-8'); ?>"><input type="checkbox" id="tftpboot-bulk-chk-missing" /></label>
+						</span>
+						<?php L('TftpBootBulkActions') ?>
+					</th>
+				</tr></thead>
 				<tbody></tbody>
 			</table>
 		</div>
@@ -258,6 +272,8 @@ $tftpboot_editor_save_label = $tftpboot_self_only ? LL('TftpBootSubmitModeration
 			bulkFixHintLocked: <?php echo json_encode(LL('TftpBootBulkFixHintLocked'), JSON_UNESCAPED_UNICODE); ?>,
 			bulkFixedBlockSave: <?php echo json_encode(LL('TftpBootBulkFixedBlockSave'), JSON_UNESCAPED_UNICODE); ?>,
 			bulkFixedBlockDelete: <?php echo json_encode(LL('TftpBootBulkFixedBlockDelete'), JSON_UNESCAPED_UNICODE); ?>,
+			bulkFilterFixed: <?php echo json_encode(LL('TftpBootBulkFilterFixed'), JSON_UNESCAPED_UNICODE); ?>,
+			bulkFilterMissing: <?php echo json_encode(LL('TftpBootBulkFilterMissing'), JSON_UNESCAPED_UNICODE); ?>,
 			layoutCols: <?php echo json_encode(LL('TftpBootLayoutCols'), JSON_UNESCAPED_UNICODE); ?>,
 			layoutResetNumber: <?php echo json_encode(LL('TftpBootLayoutResetNumber'), JSON_UNESCAPED_UNICODE); ?>,
 			layoutDefault: <?php echo json_encode(LL('TftpBootLayoutDefault'), JSON_UNESCAPED_UNICODE); ?>

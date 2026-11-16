@@ -410,25 +410,6 @@ class TftpBoot
 		return $order;
 	}
 
-	private function layout_order_is_ascending($slots, $order)
-	{
-		$slots = array_values(array_map('intval', is_array($slots) ? $slots : array()));
-		sort($slots, SORT_NUMERIC);
-		if(!is_array($order) || count($order) !== count($slots))
-		{
-			return FALSE;
-		}
-		foreach($slots as $i => $s)
-		{
-			if(intval($order[$i]) !== $s)
-			{
-				return FALSE;
-			}
-		}
-
-		return TRUE;
-	}
-
 	private function layout_order_from_slots($slots, $saved_order, $cols, $rows = 0)
 	{
 		$slots = array_map('intval', is_array($slots) ? $slots : array());
@@ -462,7 +443,7 @@ class TftpBoot
 				$order[] = $s;
 			}
 		}
-		if(!count($order) || $this->layout_order_is_ascending($slots, $order))
+		if(!count($order))
 		{
 			return $this->layout_default_order_from_slots($slots, $cols, $rows);
 		}
@@ -1819,6 +1800,21 @@ class TftpBoot
 		{
 			$editor_keys = $this->fanvil->editor_speed_dial_keys($parsed);
 		}
+
+		foreach($editor_keys as &$ek)
+		{
+			if(!is_array($ek))
+			{
+				continue;
+			}
+			$num = isset($ek['number']) ? $ek['number'] : '';
+			$lab = isset($ek['label']) ? $ek['label'] : (isset($ek['title']) ? $ek['title'] : '');
+			if($this->bulk_is_fixed($num, $lab))
+			{
+				$ek['fixed'] = TRUE;
+			}
+		}
+		unset($ek);
 
 		$out = array(
 			'filename' => $filename,

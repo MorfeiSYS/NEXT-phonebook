@@ -1,6 +1,8 @@
 var tftpboot_state = {
 	tree: [], policy: {}, syncDiff: [], bulkRows: [], bulkAllRows: [],
 	bulkFilteredRows: [], bulkPage: 0, bulkPageSize: 50,
+	bulkSortCol: '', bulkSortDir: 1,
+	bulkFilterFixed: false, bulkFilterMissing: false,
 	phonebookRows: null, bulkLookupMinDigits: 2, bulkLookupMinName: 2,
 	bulkLookupMatchLimit: 20,
 	directoryAllRows: [], directoryFilteredRows: [], directoryPage: 0,
@@ -76,6 +78,7 @@ function tftpboot_init(opts) {
 		bulkQ.oninput = tftpboot_bulk_filter;
 		bulkQ.onkeydown = function (e) { if (e.key === 'Enter') { e.preventDefault(); tftpboot_bulk_filter(); } };
 	}
+	tftpboot_bulk_bind_table_head();
 	var dirOpen = document.getElementById('tftpboot-directory-open');
 	if (dirOpen) dirOpen.onclick = function () { tftpboot_directory_show(false); };
 	var dirRefresh = document.getElementById('tftpboot-directory-refresh');
@@ -201,13 +204,13 @@ function tftpboot_layout_default_order_from_slots(slots, cols, rows) {
 	return order;
 }
 
-function tftpboot_layout_order_is_ascending(slots, order) {
-	var sorted = (slots || []).slice().sort(function (a, b) { return a - b; });
-	if (!order || order.length !== sorted.length) return false;
-	for (var i = 0; i < sorted.length; i++) {
-		if (parseInt(order[i], 10) !== sorted[i]) return false;
+function tftpboot_layout_spec_rows(slots, cols, prev) {
+	var rows = tftpboot_layout_default_rows(slots, cols);
+	if (prev && prev.rows) {
+		var r = parseInt(prev.rows, 10);
+		if (r >= 1 && r <= 64) rows = r;
 	}
-	return true;
+	return rows;
 }
 
 function tftpboot_layout_order_from_slots(slots, savedOrder, cols, rows) {
@@ -226,7 +229,7 @@ function tftpboot_layout_order_from_slots(slots, savedOrder, cols, rows) {
 	slots.forEach(function (s) {
 		if (order.indexOf(s) < 0) order.push(s);
 	});
-	if (!order.length || tftpboot_layout_order_is_ascending(slots, order)) {
+	if (!order.length) {
 		return tftpboot_layout_default_order_from_slots(slots, cols, rows);
 	}
 	return order;
@@ -339,7 +342,7 @@ function tftpboot_layout_build_draft(saved, blueprint) {
 		var cols = Math.min(5, slots.length || 16);
 		var prev = saved.default || (saved.sections && saved.sections.default) || {};
 		if (prev.cols) cols = parseInt(prev.cols, 10) || cols;
-		var rows = tftpboot_layout_default_rows(slots, cols);
+		var rows = tftpboot_layout_spec_rows(slots, cols, prev);
 		draft.default = {
 			cols: cols,
 			rows: rows,
@@ -353,7 +356,7 @@ function tftpboot_layout_build_draft(saved, blueprint) {
 		var cols = Math.min(5, slots.length || 16);
 		var prev = saved.sections && saved.sections[sec.id] ? saved.sections[sec.id] : {};
 		if (prev.cols) cols = parseInt(prev.cols, 10) || cols;
-		var rows = tftpboot_layout_default_rows(slots, cols);
+		var rows = tftpboot_layout_spec_rows(slots, cols, prev);
 		draft.sections[sec.id] = {
 			cols: cols,
 			rows: rows,
@@ -498,7 +501,8 @@ function tftpboot_layout_render_section_block(parent, sec, spec, showTitle) {
 	grid.className = 'tftpboot-keys-grid tftpboot-layout-grid tftpboot-keys-grid--layout';
 	grid.dataset.sectionId = sec.id;
 	var cols = parseInt(spec.cols, 10) || 5;
-	var rows = tftpboot_layout_default_rows(sec.slots || [], cols);
+	var rows = parseInt(spec.rows, 10);
+	if (!rows || rows < 1) rows = tftpboot_layout_default_rows(sec.slots || [], cols);
 	var order = spec.order && spec.order.length ? spec.order.slice()
 		: tftpboot_layout_default_order_from_slots(sec.slots || [], cols, rows);
 	order.forEach(function (slot) {
@@ -694,7 +698,10 @@ function tftpboot_layout_sync_grid_order(grid) {
 	var colsInp = block ? block.querySelector('.tftpboot-layout-cols') : null;
 	var cols = colsInp ? parseInt(colsInp.value, 10) || 5 : 5;
 	var slots = block ? tftpboot_layout_slots_from_wrap(block) : [];
-	var rows = tftpboot_layout_default_rows(slots, cols);
+	var rowSpec = sid === 'default'
+		? (tftpboot_state.layoutDraft.default || {})
+		: ((tftpboot_state.layoutDraft.sections && tftpboot_state.layoutDraft.sections[sid]) || {});
+	var rows = tftpboot_layout_spec_rows(slots, cols, rowSpec);
 	if (sid === 'default') {
 		if (!tftpboot_state.layoutDraft.default) tftpboot_state.layoutDraft.default = {};
 		tftpboot_state.layoutDraft.default.order = order;
@@ -974,6 +981,32 @@ function tftpboot_self_update_status() {
 	}
 }
 
+function tftpboot_set_pb_hint(el, text) {
+	if (!el) return;
+	el.removeAttribute('title');
+	if (el.getAttribute('data-pb-hint-bound') === '1') {
+		if (text) {
+			el.classList.add('pb-hint');
+			el.setAttribute('data-pb-hint', text);
+		} else {
+			el.classList.remove('pb-hint', 'pb-hint-source');
+			el.removeAttribute('data-pb-hint');
+			el.removeAttribute('data-pb-hint-bound');
+		}
+		return;
+	}
+	if (text) {
+		el.classList.add('pb-hint');
+		el.setAttribute('data-pb-hint', text);
+		if (typeof pb_hint_bind === 'function') {
+			pb_hint_bind(el);
+		}
+	} else {
+		el.classList.remove('pb-hint', 'pb-hint-source');
+		el.removeAttribute('data-pb-hint');
+	}
+}
+
 function tftpboot_self_pending_hint() {
 	var lbl = tftpboot_state.labels || {};
 	if (lbl.selfModerationPendingBlock) return lbl.selfModerationPendingBlock;
@@ -988,11 +1021,11 @@ function tftpboot_self_sync_open_btn(row) {
 	openBtn.disabled = false;
 	if (blocked) {
 		openBtn.classList.add('tftpboot-self-open-wait');
-		openBtn.setAttribute('title', tftpboot_self_pending_hint());
+		tftpboot_set_pb_hint(openBtn, tftpboot_self_pending_hint());
 		openBtn.setAttribute('aria-disabled', 'true');
 	} else {
 		openBtn.classList.remove('tftpboot-self-open-wait');
-		openBtn.removeAttribute('title');
+		tftpboot_set_pb_hint(openBtn, null);
 		openBtn.removeAttribute('aria-disabled');
 	}
 }
@@ -1706,6 +1739,7 @@ function tftpboot_sync_card_auto_state(card) {
 		delete card.dataset.fkeyAuto;
 	}
 	tftpboot_update_phone_icon(card);
+	tftpboot_editor_sync_fix_button(card);
 }
 
 function tftpboot_update_phone_icon(card) {
@@ -1803,6 +1837,99 @@ function tftpboot_key_number_placeholder() {
 	return 'Number';
 }
 
+function tftpboot_editor_show_fix() {
+	return !tftpboot_state.selfOnly;
+}
+
+function tftpboot_card_label_value(card) {
+	var tit = card.querySelector('.tftpboot-key-title');
+	return tit ? String(tit.value || '').trim() : '';
+}
+
+function tftpboot_card_number_value(card) {
+	var numEl = card.querySelector('.tftpboot-key-number');
+	if (!numEl) return '';
+	if (tftpboot_card_is_auto(card) || tftpboot_card_star_transfer(card)) return '';
+	return tftpboot_sanitize_dial_number(String(numEl.value || '').trim());
+}
+
+function tftpboot_editor_card_can_fix(card) {
+	if (!tftpboot_editor_show_fix()) return false;
+	if (tftpboot_card_is_auto(card) || tftpboot_card_star_transfer(card)) return false;
+	return tftpboot_card_number_value(card) !== '';
+}
+
+function tftpboot_editor_card_is_fixed(card) {
+	return card.dataset.fixed === '1';
+}
+
+function tftpboot_editor_sync_fix_button(card) {
+	var fixBtn = card.querySelector('.tftpboot-key-fix');
+	if (!fixBtn) return;
+	var can = tftpboot_editor_card_can_fix(card);
+	var locked = tftpboot_editor_card_is_fixed(card);
+	var hidden = !can && !locked;
+	fixBtn.style.display = hidden ? 'none' : '';
+	if (!locked && !can) {
+		fixBtn.disabled = true;
+	} else if (!locked) {
+		fixBtn.disabled = false;
+	}
+}
+
+function tftpboot_editor_update_card_fixed_ui(card, locked) {
+	if (!card) return;
+	card.dataset.fixed = locked ? '1' : '0';
+	card.classList.toggle('tftpboot-key-card--fixed', !!locked);
+	var numEl = card.querySelector('.tftpboot-key-number');
+	var titEl = card.querySelector('.tftpboot-key-title');
+	var clr = card.querySelector('.tftpboot-key-clear');
+	var fixBtn = card.querySelector('.tftpboot-key-fix');
+	if (numEl) numEl.readOnly = !!locked;
+	if (titEl) titEl.readOnly = !!locked;
+	if (clr) clr.disabled = !!locked;
+	if (fixBtn) {
+		fixBtn.classList.toggle('tftpboot-key-fix--active', !!locked);
+		fixBtn.setAttribute('data-pb-hint', tftpboot_bulk_fix_hint(!!locked));
+		fixBtn.disabled = !!(locked && !tftpboot_state.canUnfixBulk);
+		if (typeof pb_hint_bind === 'function') {
+			pb_hint_bind(fixBtn);
+		}
+	}
+	tftpboot_editor_sync_fix_button(card);
+}
+
+function tftpboot_editor_fix_toggle(card) {
+	if (!card) return;
+	var locked = tftpboot_editor_card_is_fixed(card);
+	if (!locked && !tftpboot_editor_card_can_fix(card)) return;
+	if (locked && !tftpboot_state.canUnfixBulk) return;
+	var number, title;
+	if (locked) {
+		number = card.dataset.fixedNumber || tftpboot_card_number_value(card);
+		title = card.dataset.fixedTitle !== undefined ? card.dataset.fixedTitle : tftpboot_card_label_value(card);
+	} else {
+		number = tftpboot_card_number_value(card);
+		title = tftpboot_card_label_value(card);
+	}
+	if (!number) return;
+	var fixBtn = card.querySelector('.tftpboot-key-fix');
+	tftpboot_bulk_btn_anim(fixBtn, 'tftpboot-bulk-fix-pulse');
+	tftpboot_http('tftpboot_keys_bulk_fix', { number: number, title: title, fixed: locked ? 0 : 1 }, function (res) {
+		f_notify(res && res.message ? res.message : 'OK', res && res.code ? 'error' : 'success');
+		if (res && res.code) return;
+		var nowFixed = !locked;
+		if (nowFixed) {
+			card.dataset.fixedNumber = number;
+			card.dataset.fixedTitle = title;
+		} else {
+			delete card.dataset.fixedNumber;
+			delete card.dataset.fixedTitle;
+		}
+		tftpboot_editor_update_card_fixed_ui(card, nowFixed);
+	});
+}
+
 function tftpboot_create_key_card(k, grid) {
 	var card = document.createElement('div');
 	card.className = 'tftpboot-key-card';
@@ -1847,11 +1974,19 @@ function tftpboot_create_key_card(k, grid) {
 		card.dataset.starTransfer = '1';
 	}
 	card.dataset.dialSuffix = dialSuffix;
+	var isFixedInit = !!k.fixed;
+	var fixHintInit = escapeHtml(tftpboot_bulk_fix_hint(isFixedInit));
+	var fixBtnHtml = '';
+	if (tftpboot_editor_show_fix()) {
+		fixBtnHtml = '<button type="button" class="tftpboot-key-fix pb-hint' + (isFixedInit ? ' tftpboot-key-fix--active' : '') +
+			'" data-pb-hint="' + fixHintInit + '" aria-label="' + fixHintInit + '"></button>';
+	}
 	card.innerHTML =
 		'<span class="tftpboot-key-slot"><span class="tftpboot-key-slot-label">' + label + '</span>' +
 		'<span class="tftpboot-key-slot-actions">' +
-		'<button type="button" class="tftpboot-key-phone" title="' + phoneTitle + '" aria-label="' + phoneTitle + '">&#9742;</button>' +
-		'<button type="button" class="tftpboot-key-clear" title="' + clrTitle + '">&times;</button>' +
+		'<button type="button" class="tftpboot-key-phone pb-hint" data-pb-hint="' + phoneTitle + '" aria-label="' + phoneTitle + '">&#9742;</button>' +
+		fixBtnHtml +
+		'<button type="button" class="tftpboot-key-clear pb-hint" data-pb-hint="' + clrTitle + '" aria-label="' + clrTitle + '">&times;</button>' +
 		'</span></span>' +
 		'<input type="text" class="tftpboot-key-title" value="' + escapeHtml(k.label || '') + '" placeholder="' +
 			escapeHtml(tftpboot_key_title_placeholder()) + '" />' +
@@ -1875,8 +2010,14 @@ function tftpboot_create_key_card(k, grid) {
 		};
 	}
 	var numInp = card.querySelector('.tftpboot-key-number');
+	var titInp = card.querySelector('.tftpboot-key-title');
 	if (numInp) {
 		if (!tftpboot_card_is_auto(card)) tftpboot_bind_dial_number_input(numInp);
+		if (!tftpboot_card_is_auto(card)) {
+			tftpboot_phonebook_bind_lookup(numInp, 'number', function (row) {
+				tftpboot_editor_ac_apply(card, row);
+			});
+		}
 		numInp.addEventListener('input', function () {
 			var splitFull = tftpboot_split_star_dial_value(numInp.value);
 			if (splitFull) {
@@ -1894,18 +2035,38 @@ function tftpboot_create_key_card(k, grid) {
 				if (numInp.value !== v) numInp.value = v;
 			}
 			tftpboot_update_phone_icon(card);
+			tftpboot_editor_sync_fix_button(card);
 		});
+	}
+	if (titInp) {
+		tftpboot_phonebook_bind_lookup(titInp, 'name', function (row) {
+			tftpboot_editor_ac_apply(card, row);
+		});
+	}
+	var fixBtn = card.querySelector('.tftpboot-key-fix');
+	if (fixBtn) {
+		fixBtn.onclick = function (e) {
+			e.preventDefault();
+			e.stopPropagation();
+			tftpboot_editor_fix_toggle(card);
+		};
 	}
 	var clr = card.querySelector('.tftpboot-key-clear');
 	clr.onclick = function (e) {
 		e.preventDefault();
 		e.stopPropagation();
+		if (tftpboot_editor_card_is_fixed(card)) return;
 		card.querySelector('.tftpboot-key-title').value = '';
 		card.querySelector('.tftpboot-key-number').value = '';
 		card.dataset.dialSuffix = '';
 		delete card.dataset.fkeyAuto;
 		delete card.dataset.starTransfer;
+		delete card.dataset.fixed;
+		delete card.dataset.fixedNumber;
+		delete card.dataset.fixedTitle;
+		card.classList.remove('tftpboot-key-card--fixed');
 		tftpboot_update_phone_icon(card);
+		tftpboot_editor_sync_fix_button(card);
 		card.dataset.clear = '1';
 	};
 	card.querySelectorAll('input').forEach(function (inp) {
@@ -1916,6 +2077,16 @@ function tftpboot_create_key_card(k, grid) {
 	});
 	tftpboot_sync_card_auto_state(card);
 	tftpboot_bind_dnd(card, grid);
+	if (k.fixed) {
+		card.dataset.fixedNumber = tftpboot_card_number_value(card);
+		card.dataset.fixedTitle = tftpboot_card_label_value(card);
+		tftpboot_editor_update_card_fixed_ui(card, true);
+	} else {
+		tftpboot_editor_sync_fix_button(card);
+	}
+	if (typeof pb_hint_bind === 'function') {
+		card.querySelectorAll('.tftpboot-key-phone, .tftpboot-key-clear, .tftpboot-key-fix').forEach(pb_hint_bind);
+	}
 	return card;
 }
 
@@ -2131,23 +2302,46 @@ function tftpboot_show_editor(cfg) {
 		});
 	});
 	document.getElementById('tftpboot-editor').style.display = 'block';
+	if (typeof pb_hint_init === 'function') {
+		pb_hint_init(root);
+	}
+}
+
+function tftpboot_editor_clear_drop_hints(grid) {
+	if (!grid) return;
+	Array.prototype.forEach.call(grid.children, function (el) {
+		el.classList.remove('tftpboot-key-drop-hint');
+	});
 }
 
 function tftpboot_bind_dnd(card, grid) {
 	card.addEventListener('dragstart', function (e) {
 		grid._tftpbootDragCard = card;
 		e.dataTransfer.setData('text/plain', card.dataset.keyId || card.dataset.section + ':' + card.dataset.slot);
+		e.dataTransfer.effectAllowed = 'move';
 		card.classList.add('tftpboot-dragging');
 	});
 	card.addEventListener('dragend', function () {
 		card.classList.remove('tftpboot-dragging');
+		tftpboot_editor_clear_drop_hints(grid);
 		grid._tftpbootDragCard = null;
 	});
 	card.addEventListener('dragover', function (e) {
 		e.preventDefault();
+		e.dataTransfer.dropEffect = 'move';
+		var from = grid._tftpbootDragCard;
+		if (!from || from === card) return;
+		tftpboot_editor_clear_drop_hints(grid);
+		card.classList.add('tftpboot-key-drop-hint');
+	});
+	card.addEventListener('dragleave', function (e) {
+		if (!e.relatedTarget || !card.contains(e.relatedTarget)) {
+			card.classList.remove('tftpboot-key-drop-hint');
+		}
 	});
 	card.addEventListener('drop', function (e) {
 		e.preventDefault();
+		tftpboot_editor_clear_drop_hints(grid);
 		var from = grid._tftpbootDragCard;
 		if (!from || from === card) return;
 		if (from.dataset.section !== card.dataset.section) return;
@@ -2193,6 +2387,7 @@ function tftpboot_mark_clear_if_empty(card) {
 }
 
 function tftpboot_close_editor() {
+	tftpboot_bulk_ac_close();
 	document.getElementById('tftpboot-editor').style.display = 'none';
 }
 
@@ -2247,9 +2442,8 @@ function tftpboot_save_editor() {
 		tftpboot_state.moderationSubmitInFlight = false;
 		if (loading) loading.style.display = 'none';
 		f_notify(res && res.message ? res.message : 'OK', res && res.code ? 'error' : 'success');
-		if (res && !res.code) {
-			tftpboot_close_editor();
-			if (tftpboot_state.selfOnly) tftpboot_self_init();
+		if (res && !res.code && tftpboot_state.selfOnly) {
+			tftpboot_self_init();
 		}
 	});
 }
@@ -2260,11 +2454,12 @@ function tftpboot_selected_vendors() {
 	return v;
 }
 
-function tftpboot_bulk_fetch() {
+function tftpboot_bulk_fetch(onDone) {
 	var vendors = tftpboot_selected_vendors();
 	if (!vendors.length) {
 		tftpboot_state.bulkAllRows = [];
 		tftpboot_bulk_filter();
+		if (onDone) onDone();
 		return;
 	}
 	var loading = document.getElementById('loading');
@@ -2273,14 +2468,172 @@ function tftpboot_bulk_fetch() {
 		if (loading) loading.style.display = 'none';
 		if (!res || res.code) {
 			f_notify(res && res.message ? res.message : 'Error', 'error');
+			if (onDone) onDone();
 			return;
 		}
 		tftpboot_state.bulkAllRows = res.rows || [];
 		tftpboot_bulk_filter();
+		if (onDone) onDone();
 	});
 }
 
+function tftpboot_bulk_refresh() {
+	tftpboot_bulk_ac_close();
+	var btn = document.getElementById('tftpboot-bulk-refresh');
+	if (btn) {
+		btn.disabled = true;
+		btn.classList.add('tftpboot-bulk-head-refresh-busy');
+	}
+	tftpboot_bulk_fetch(function () {
+		if (btn) {
+			btn.disabled = false;
+			btn.classList.remove('tftpboot-bulk-head-refresh-busy');
+		}
+	});
+}
+
+function tftpboot_bulk_refresh_phonebook() {
+	var btn = document.getElementById('tftpboot-bulk-refresh-pb');
+	if (btn) btn.disabled = true;
+	tftpboot_bulk_ensure_phonebook_cache(function () {
+		if (btn) btn.disabled = false;
+	}, true);
+}
+
+function tftpboot_bulk_row_missing_pb(r) {
+	return r && r.in_phonebook === false;
+}
+
+function tftpboot_bulk_compare_rows(a, b, col, dir) {
+	var mul = dir < 0 ? -1 : 1;
+	var na;
+	var nb;
+	if (col === 'count') {
+		na = parseInt(a.count, 10) || 0;
+		nb = parseInt(b.count, 10) || 0;
+		if (na !== nb) return (na - nb) * mul;
+		return tftpboot_bulk_compare_rows(a, b, 'number', 1);
+	}
+	if (col === 'title') {
+		na = String(a.title || '');
+		nb = String(b.title || '');
+		var c = na.localeCompare(nb, undefined, { sensitivity: 'base' });
+		if (c !== 0) return c * mul;
+		return tftpboot_bulk_compare_rows(a, b, 'number', 1);
+	}
+	na = String(a.number || '');
+	nb = String(b.number || '');
+	var d = na.replace(/\D/g, '');
+	var e = nb.replace(/\D/g, '');
+	if (d !== '' && e !== '' && d !== e) {
+		if (d.length !== e.length) return (d.length - e.length) * mul;
+		if (d < e) return -1 * mul;
+		if (d > e) return 1 * mul;
+	}
+	na = na.toLowerCase();
+	nb = nb.toLowerCase();
+	if (na < nb) return -1 * mul;
+	if (na > nb) return 1 * mul;
+	return 0;
+}
+
+function tftpboot_bulk_apply_sort(rows) {
+	var col = tftpboot_state.bulkSortCol;
+	if (!col || !rows.length) return rows;
+	var dir = tftpboot_state.bulkSortDir;
+	var sorted = rows.slice();
+	sorted.sort(function (a, b) {
+		return tftpboot_bulk_compare_rows(a, b, col, dir);
+	});
+	return sorted;
+}
+
+function tftpboot_bulk_update_sort_ui() {
+	var col = tftpboot_state.bulkSortCol;
+	var dir = tftpboot_state.bulkSortDir;
+	document.querySelectorAll('#tftpboot-bulk-table .tftpboot-bulk-sort').forEach(function (th) {
+		var key = th.getAttribute('data-sort');
+		var ind = th.querySelector('.tftpboot-bulk-sort-ind');
+		var active = key === col;
+		th.classList.toggle('tftpboot-bulk-sort-active', active);
+		if (ind) {
+			ind.textContent = active ? (dir > 0 ? ' ▲' : ' ▼') : '';
+		}
+		var asc = (tftpboot_state.labels && tftpboot_state.labels.bulkSortAsc) || 'Asc';
+		var desc = (tftpboot_state.labels && tftpboot_state.labels.bulkSortDesc) || 'Desc';
+		th.title = active ? (dir > 0 ? asc : desc) : '';
+		th.setAttribute('aria-sort', active ? (dir > 0 ? 'ascending' : 'descending') : 'none');
+	});
+}
+
+function tftpboot_bulk_sort_toggle(col) {
+	if (!col) return;
+	if (tftpboot_state.bulkSortCol === col) {
+		tftpboot_state.bulkSortDir = tftpboot_state.bulkSortDir > 0 ? -1 : 1;
+	} else {
+		tftpboot_state.bulkSortCol = col;
+		tftpboot_state.bulkSortDir = 1;
+	}
+	tftpboot_bulk_update_sort_ui();
+	tftpboot_bulk_filter();
+}
+
+function tftpboot_bulk_bind_table_head() {
+	var table = document.getElementById('tftpboot-bulk-table');
+	if (!table) return;
+	document.querySelectorAll('#tftpboot-bulk-table .tftpboot-bulk-sort').forEach(function (th) {
+		if (th.getAttribute('data-sort-bound')) return;
+		th.setAttribute('data-sort-bound', '1');
+		var col = th.getAttribute('data-sort');
+		th.style.cursor = 'pointer';
+		var fire = function () { tftpboot_bulk_sort_toggle(col); };
+		th.addEventListener('click', fire);
+		th.addEventListener('keydown', function (e) {
+			if (e.key === 'Enter' || e.key === ' ') {
+				e.preventDefault();
+				fire();
+			}
+		});
+	});
+	var chkFixed = document.getElementById('tftpboot-bulk-chk-fixed');
+	var chkMiss = document.getElementById('tftpboot-bulk-chk-missing');
+	if (chkFixed && !chkFixed.getAttribute('data-bound')) {
+		chkFixed.setAttribute('data-bound', '1');
+		chkFixed.addEventListener('change', function () {
+			tftpboot_state.bulkFilterFixed = !!chkFixed.checked;
+			tftpboot_state.bulkPage = 0;
+			tftpboot_bulk_filter();
+		});
+	}
+	if (chkMiss && !chkMiss.getAttribute('data-bound')) {
+		chkMiss.setAttribute('data-bound', '1');
+		chkMiss.addEventListener('change', function () {
+			tftpboot_state.bulkFilterMissing = !!chkMiss.checked;
+			tftpboot_state.bulkPage = 0;
+			tftpboot_bulk_filter();
+		});
+	}
+	var btnRefresh = document.getElementById('tftpboot-bulk-refresh');
+	if (btnRefresh && !btnRefresh.getAttribute('data-bound')) {
+		btnRefresh.setAttribute('data-bound', '1');
+		btnRefresh.addEventListener('click', tftpboot_bulk_refresh);
+	}
+	var btnRefreshPb = document.getElementById('tftpboot-bulk-refresh-pb');
+	if (btnRefreshPb && !btnRefreshPb.getAttribute('data-bound')) {
+		btnRefreshPb.setAttribute('data-bound', '1');
+		btnRefreshPb.addEventListener('click', tftpboot_bulk_refresh_phonebook);
+	}
+	if (typeof pb_hint_init === 'function') {
+		pb_hint_init(table.querySelector('thead'));
+	}
+	tftpboot_bulk_update_sort_ui();
+}
+
 function tftpboot_bulk_filter() {
+	var chkFixed = document.getElementById('tftpboot-bulk-chk-fixed');
+	var chkMiss = document.getElementById('tftpboot-bulk-chk-missing');
+	if (chkFixed) tftpboot_state.bulkFilterFixed = !!chkFixed.checked;
+	if (chkMiss) tftpboot_state.bulkFilterMissing = !!chkMiss.checked;
 	var qEl = document.getElementById('tftpboot-bulk-q');
 	var q = qEl ? qEl.value.trim().toLowerCase() : '';
 	var all = tftpboot_state.bulkAllRows || [];
@@ -2291,6 +2644,32 @@ function tftpboot_bulk_filter() {
 			return hay.indexOf(q) >= 0;
 		});
 	}
+	var wantFixed = !!tftpboot_state.bulkFilterFixed;
+	var wantMiss = !!tftpboot_state.bulkFilterMissing;
+	if (wantFixed || wantMiss) {
+		var fixedRows = [];
+		var missRows = [];
+		filtered.forEach(function (r) {
+			var isFixed = tftpboot_bulk_row_fixed(r);
+			var isMiss = tftpboot_bulk_row_missing_pb(r);
+			if (wantFixed && wantMiss) {
+				if (isFixed) fixedRows.push(r);
+				else if (isMiss) missRows.push(r);
+			} else if (wantFixed && isFixed) {
+				fixedRows.push(r);
+			} else if (wantMiss && isMiss) {
+				missRows.push(r);
+			}
+		});
+		if (wantFixed && wantMiss) {
+			filtered = fixedRows.concat(missRows);
+		} else if (wantFixed) {
+			filtered = fixedRows;
+		} else {
+			filtered = missRows;
+		}
+	}
+	filtered = tftpboot_bulk_apply_sort(filtered);
 	tftpboot_state.bulkFilteredRows = filtered;
 	tftpboot_state.bulkPage = 0;
 	tftpboot_bulk_render_page();
@@ -2375,7 +2754,10 @@ function tftpboot_bulk_set_row_locked_ui(tr, locked) {
 	if (delBtn) delBtn.disabled = !!locked;
 	if (fixBtn) {
 		fixBtn.classList.toggle('tftpboot-bulk-fix-active', !!locked);
-		fixBtn.title = tftpboot_bulk_fix_hint(!!locked);
+		fixBtn.setAttribute('data-pb-hint', tftpboot_bulk_fix_hint(!!locked));
+		if (typeof pb_hint_bind === 'function') {
+			pb_hint_bind(fixBtn);
+		}
 		fixBtn.disabled = !!(locked && !tftpboot_state.canUnfixBulk);
 	}
 }
@@ -2468,14 +2850,22 @@ function tftpboot_bulk_phonebook_filter(mode, query) {
 	return out;
 }
 
-function tftpboot_bulk_ensure_phonebook_cache(cb) {
+function tftpboot_bulk_ensure_phonebook_cache(cb, force) {
+	if (force) tftpboot_state.phonebookRows = null;
 	if (tftpboot_state.phonebookRows) {
 		if (cb) cb();
 		return;
 	}
 	if (tftpboot_state.phonebookLoading) {
 		tftpboot_state.phonebookLoadQueue = tftpboot_state.phonebookLoadQueue || [];
-		if (cb) tftpboot_state.phonebookLoadQueue.push(cb);
+		var queued = cb;
+		if (force) {
+			queued = function () {
+				tftpboot_state.phonebookRows = null;
+				tftpboot_bulk_ensure_phonebook_cache(cb, true);
+			};
+		}
+		if (queued) tftpboot_state.phonebookLoadQueue.push(queued);
 		return;
 	}
 	tftpboot_state.phonebookLoading = true;
@@ -2487,6 +2877,24 @@ function tftpboot_bulk_ensure_phonebook_cache(cb) {
 		if (cb) cb();
 		queue.forEach(function (fn) { fn(); });
 	});
+}
+
+function tftpboot_editor_ac_apply(card, row) {
+	if (!card || tftpboot_editor_card_is_fixed(card)) return;
+	var numEl = card.querySelector('.tftpboot-key-number');
+	var titEl = card.querySelector('.tftpboot-key-title');
+	if (numEl) {
+		numEl.value = row.number || '';
+		numEl.classList.remove('tftpboot-field-error');
+	}
+	if (titEl) {
+		titEl.value = row.name || '';
+		titEl.classList.remove('tftpboot-field-error');
+	}
+	delete card.dataset.clear;
+	tftpboot_sync_card_auto_state(card);
+	tftpboot_update_phone_icon(card);
+	tftpboot_editor_sync_fix_button(card);
 }
 
 function tftpboot_bulk_ac_apply(idx, row) {
@@ -2503,7 +2911,24 @@ function tftpboot_bulk_ac_apply(idx, row) {
 	tftpboot_bulk_ac_close();
 }
 
-function tftpboot_bulk_ac_show(inp, matches) {
+function tftpboot_ac_scroll_parent(inp) {
+	var el = inp && inp.parentElement;
+	while (el && el !== document.body) {
+		if (el.classList && (el.classList.contains('tftpboot-bulk-scroll')
+			|| el.classList.contains('tftpboot-editor-content')
+			|| el.classList.contains('tftpboot-editor-sections-scroll'))) {
+			return el;
+		}
+		var st = window.getComputedStyle(el);
+		if (/(auto|scroll)/.test(st.overflowY) && el.scrollHeight > el.clientHeight) {
+			return el;
+		}
+		el = el.parentElement;
+	}
+	return null;
+}
+
+function tftpboot_bulk_ac_show(inp, matches, onPick) {
 	if (!matches.length) {
 		if (g_tftpboot_bulk_ac.anchor === inp) tftpboot_bulk_ac_close();
 		return;
@@ -2511,7 +2936,7 @@ function tftpboot_bulk_ac_show(inp, matches) {
 	tftpboot_bulk_ac_close();
 	var box = document.createElement('div');
 	box.id = 'tftpboot-bulk-ac';
-	box.className = 'autocomplete-items tftpboot-bulk-ac-items';
+	box.className = 'autocomplete-items pb-popup-list tftpboot-bulk-ac-items';
 	document.body.appendChild(box);
 	g_tftpboot_bulk_ac.box = box;
 	g_tftpboot_bulk_ac.anchor = inp;
@@ -2522,12 +2947,18 @@ function tftpboot_bulk_ac_show(inp, matches) {
 		item.textContent = (row.number || '') + ' — ' + (row.name || '');
 		item.addEventListener('mousedown', function (e) {
 			e.preventDefault();
-			tftpboot_bulk_ac_apply(idx, row);
+			if (onPick) {
+				onPick(row);
+				tftpboot_bulk_ac_close();
+			} else {
+				tftpboot_bulk_ac_apply(idx, row);
+			}
 		});
 		box.appendChild(item);
 	});
 	tftpboot_bulk_ac_position(inp, box);
 	var scrollEl = document.querySelector('#tftpboot-bulk-modal .tftpboot-bulk-scroll');
+	if (!scrollEl && inp) scrollEl = tftpboot_ac_scroll_parent(inp);
 	if (scrollEl) {
 		g_tftpboot_bulk_ac.scrollEl = scrollEl;
 		g_tftpboot_bulk_ac.onScroll = tftpboot_bulk_ac_close;
@@ -2538,20 +2969,22 @@ function tftpboot_bulk_ac_show(inp, matches) {
 	}, 0);
 }
 
-function tftpboot_bulk_bind_lookup(inp, mode) {
-	if (!inp || inp.disabled) return;
+function tftpboot_phonebook_bind_lookup(inp, mode, onPick) {
+	if (!inp || inp.disabled || inp.readOnly) return;
 	inp.setAttribute('autocomplete', 'off');
 	var timer = null;
 	var schedule = function () {
+		if (inp.readOnly) return;
 		clearTimeout(timer);
 		timer = setTimeout(function () {
 			tftpboot_bulk_ensure_phonebook_cache(function () {
 				var matches = tftpboot_bulk_phonebook_filter(mode, inp.value);
-				tftpboot_bulk_ac_show(inp, matches);
+				tftpboot_bulk_ac_show(inp, matches, onPick);
 			});
 		}, 200);
 	};
 	inp.addEventListener('input', function () {
+		if (inp.readOnly) return;
 		if (mode === 'number') {
 			var v = tftpboot_sanitize_dial_number(inp.value);
 			if (tftpboot_special_line_value(v) || tftpboot_star_dial_prefix(v)) {
@@ -2563,6 +2996,12 @@ function tftpboot_bulk_bind_lookup(inp, mode) {
 	});
 	inp.addEventListener('keydown', function (e) {
 		if (e.key === 'Escape') tftpboot_bulk_ac_close();
+	});
+}
+
+function tftpboot_bulk_bind_lookup(inp, mode) {
+	tftpboot_phonebook_bind_lookup(inp, mode, function (row) {
+		tftpboot_bulk_ac_apply(inp.getAttribute('data-idx'), row);
 	});
 }
 
@@ -2621,15 +3060,15 @@ function tftpboot_bulk_render_table(rows) {
 				? tftpboot_state.labels.bulkNotInPhonebook
 				: 'Not in directory';
 		}
-		var numTitle = tipText
-			? ' title="' + escapeHtml(tipText).replace(/\n/g, '&#10;') + '"'
-			: '';
+		var hintAttr = tipText ? ' data-pb-hint="' + escapeHtml(tipText) + '"' : '';
+		var numCls = 'tftpboot-bulk-num' + (tipText ? ' pb-hint' : '');
+		var titleCls = 'tftpboot-bulk-title' + (tipText ? ' pb-hint' : '');
 		tr.innerHTML =
-			'<td><input type="text" class="tftpboot-bulk-num" data-idx="' + idx + '" value="' + escapeHtml(r.number || '') + '"' + numTitle + ' /></td>' +
-			'<td><input type="text" class="tftpboot-bulk-title" data-idx="' + idx + '" value="' + escapeHtml(r.title || '') + '" /></td>' +
+			'<td><input type="text" class="' + numCls + '" data-idx="' + idx + '" value="' + escapeHtml(r.number || '') + '"' + hintAttr + ' /></td>' +
+			'<td><input type="text" class="' + titleCls + '" data-idx="' + idx + '" value="' + escapeHtml(r.title || '') + '"' + hintAttr + ' /></td>' +
 			'<td class="tftpboot-bulk-count">' + (r.count || 0) + '</td>' +
 			'<td class="tftpboot-bulk-actions">' +
-			'<button type="button" class="button-other tftpboot-bulk-fix' + (isFixed ? ' tftpboot-bulk-fix-active' : '') + '" data-idx="' + idx + '" title="' + escapeHtml(tftpboot_bulk_fix_hint(isFixed)) + '">' + fixLbl + '</button> ' +
+			'<button type="button" class="button-other tftpboot-bulk-fix pb-hint' + (isFixed ? ' tftpboot-bulk-fix-active' : '') + '" data-idx="' + idx + '" data-pb-hint="' + escapeHtml(tftpboot_bulk_fix_hint(isFixed)) + '">' + fixLbl + '</button> ' +
 			'<button type="button" class="button-other tftpboot-bulk-one" data-idx="' + idx + '">' + saveLbl + '</button> ' +
 			'<button type="button" class="button-decline tftpboot-bulk-del" data-idx="' + idx + '">' + delLbl + '</button></td>';
 		tb.appendChild(tr);
@@ -2652,6 +3091,9 @@ function tftpboot_bulk_render_table(rows) {
 		inp.addEventListener('input', function () { inp.classList.remove('tftpboot-field-error'); });
 		tftpboot_bulk_bind_lookup(inp, 'name');
 	});
+	if (typeof pb_hint_init === 'function') {
+		pb_hint_init(tb);
+	}
 }
 
 function tftpboot_bulk_delete_one(idx) {

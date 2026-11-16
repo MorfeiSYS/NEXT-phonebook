@@ -105,6 +105,21 @@ function tftpboot_admin_catalog_save(&$core, $params, $post_data)
 		$core->Config->set_global('tftpboot_bulk_lookup_min_name', (string) $n);
 	}
 
+	if(isset($post_data['pb_hint_delay_ms']))
+	{
+		$n = intval($post_data['pb_hint_delay_ms']);
+		if($n < 0)
+		{
+			$n = 0;
+		}
+		if($n > 5000)
+		{
+			$n = 5000;
+		}
+
+		$core->Config->set_global('pb_hint_delay_ms', (string) $n);
+	}
+
 	log_db('tftpboot admin catalog save', '', 0);
 	tftpboot_json_send(array('code' => 0, 'message' => LL('Save')));
 }

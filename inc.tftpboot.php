@@ -835,6 +835,21 @@ function tftpboot_bulk_lookup_min_name(&$core)
 	return $n;
 }
 
+function pb_hint_delay_ms(&$core)
+{
+	$n = intval($core->Config->get_global('pb_hint_delay_ms', '400'));
+	if($n < 0)
+	{
+		$n = 0;
+	}
+	if($n > 5000)
+	{
+		$n = 5000;
+	}
+
+	return $n;
+}
+
 function assert_tftpboot_moderate_ajax(&$core)
 {
 	if(!user_can_tftpboot_moderate($core))
