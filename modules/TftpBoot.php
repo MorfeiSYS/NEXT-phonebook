@@ -3076,7 +3076,7 @@ class TftpBoot
 			return NULL;
 		}
 
-		$status = $row['status'];
+		$status = trim((string)$row['status']);
 		if($status === 'pending' || $status === 'rejected')
 		{
 			return array(
@@ -3090,7 +3090,11 @@ class TftpBoot
 		if($status === 'approved')
 		{
 			$reviewed = isset($row['reviewed']) ? trim((string)$row['reviewed']) : '';
-			if($reviewed === '')
+			if($reviewed === '' || $reviewed === '0000-00-00 00:00:00')
+			{
+				$reviewed = isset($row['created']) ? trim((string)$row['created']) : '';
+			}
+			if($reviewed === '' || $reviewed === '0000-00-00 00:00:00')
 			{
 				return NULL;
 			}
@@ -3099,12 +3103,14 @@ class TftpBoot
 			{
 				return NULL;
 			}
+			$ttl = tftpboot_moderation_approved_notice_ttl_sec();
 
 			return array(
 				'status' => 'approved',
 				'created' => isset($row['created']) ? $row['created'] : '',
 				'reviewed' => $reviewed,
 				'reject_note' => '',
+				'notice_expires_at' => $reviewed_ts + $ttl,
 			);
 		}
 

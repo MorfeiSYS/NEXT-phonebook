@@ -988,8 +988,23 @@ function tftpboot_self_approved_notice_ttl_sec() {
 function tftpboot_parse_sql_datetime(s) {
 	if (!s) return NaN;
 	var t = String(s).trim();
-	if (!t) return NaN;
+	if (!t || t === '0000-00-00 00:00:00') return NaN;
+	var m = t.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})/);
+	if (m) {
+		return new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]).getTime();
+	}
 	return Date.parse(t.replace(' ', 'T'));
+}
+
+function tftpboot_self_approved_expires_ms(mod) {
+	if (!mod || mod.status !== 'approved') return 0;
+	if (mod.notice_expires_at != null && mod.notice_expires_at !== '') {
+		var exp = parseInt(mod.notice_expires_at, 10);
+		if (!isNaN(exp) && exp > 0) return exp * 1000;
+	}
+	var reviewed = tftpboot_parse_sql_datetime(mod.reviewed);
+	if (isNaN(reviewed)) return 0;
+	return reviewed + tftpboot_self_approved_notice_ttl_sec() * 1000;
 }
 
 function tftpboot_self_moderation_for_filename(fn) {
@@ -1003,9 +1018,9 @@ function tftpboot_self_moderation_for_filename(fn) {
 
 function tftpboot_self_approved_still_visible(mod) {
 	if (!mod || mod.status !== 'approved') return false;
-	var reviewed = tftpboot_parse_sql_datetime(mod.reviewed);
-	if (isNaN(reviewed)) return true;
-	return (Date.now() - reviewed) < tftpboot_self_approved_notice_ttl_sec() * 1000;
+	var expMs = tftpboot_self_approved_expires_ms(mod);
+	if (expMs > 0) return Date.now() < expMs;
+	return true;
 }
 
 function tftpboot_self_hide_status_box(box) {
@@ -1026,9 +1041,9 @@ function tftpboot_self_schedule_approved_expire(box, mod) {
 		clearTimeout(box._tftpbootApprovedExpireTimer);
 		box._tftpbootApprovedExpireTimer = null;
 	}
-	var reviewed = tftpboot_parse_sql_datetime(mod.reviewed);
-	if (isNaN(reviewed)) return;
-	var left = tftpboot_self_approved_notice_ttl_sec() * 1000 - (Date.now() - reviewed);
+	var expMs = tftpboot_self_approved_expires_ms(mod);
+	if (expMs <= 0) return;
+	var left = expMs - Date.now();
 	if (left <= 0) return;
 	box._tftpbootApprovedExpireTimer = setTimeout(function () {
 		box._tftpbootApprovedExpireTimer = null;
@@ -1049,7 +1064,7 @@ function tftpboot_self_apply_status_box(box, mod) {
 	if (st === 'pending') {
 		box.className = 'tftpboot-self-status tftpboot-self-status-pending';
 		box.textContent = lbl.selfStatusPending || 'Pending moderation';
-		box.style.display = '';
+		box.style.display = 'inline-block';
 		if (box._tftpbootApprovedExpireTimer) {
 			clearTimeout(box._tftpbootApprovedExpireTimer);
 			box._tftpbootApprovedExpireTimer = null;
@@ -1064,7 +1079,7 @@ function tftpboot_self_apply_status_box(box, mod) {
 		} else {
 			box.textContent = title;
 		}
-		box.style.display = '';
+		box.style.display = 'inline-block';
 		if (box._tftpbootApprovedExpireTimer) {
 			clearTimeout(box._tftpbootApprovedExpireTimer);
 			box._tftpbootApprovedExpireTimer = null;
@@ -1076,7 +1091,7 @@ function tftpboot_self_apply_status_box(box, mod) {
 		}
 		box.className = 'tftpboot-self-status tftpboot-self-status-approved';
 		box.textContent = lbl.selfStatusApproved || 'Changes approved';
-		box.style.display = '';
+		box.style.display = 'inline-block';
 		tftpboot_self_schedule_approved_expire(box, mod);
 	} else {
 		tftpboot_self_hide_status_box(box);
@@ -1124,14 +1139,17 @@ function tftpboot_self_reload_files(notifyOnError) {
 		});
 		if (!had && sel.options.length) sel.selectedIndex = 0;
 		tftpboot_self_update_status();
+		var editor = document.getElementById('tftpboot-editor');
+		if (editor && editor.style.display !== 'none' && editor.style.display !== '') {
+			var fnEl = document.getElementById('tftpboot-editor-filename');
+			tftpboot_self_sync_approved_notice(fnEl ? fnEl.value : '');
+		}
 	});
 }
 
 function tftpboot_self_poll_tick() {
 	if (!tftpboot_state.selfOnly) return;
 	if (typeof document.hidden !== 'undefined' && document.hidden) return;
-	var editor = document.getElementById('tftpboot-editor');
-	if (editor && editor.style.display !== 'none' && editor.style.display !== '') return;
 	tftpboot_self_reload_files(false);
 }
 
@@ -2709,9 +2727,12 @@ function tftpboot_mark_clear_if_empty(card) {
 
 function tftpboot_close_editor() {
 	tftpboot_bulk_ac_close();
+	var editorNotice = document.getElementById('tftpboot-editor-approved-notice');
+	if (editorNotice) tftpboot_self_hide_status_box(editorNotice);
 	document.getElementById('tftpboot-editor').style.display = 'none';
 	var ec = document.querySelector('.tftpboot-editor-content');
 	tftpboot_reset_grid_modal_width(ec);
+	if (tftpboot_state.selfOnly) tftpboot_self_update_status();
 }
 
 function tftpboot_save_editor() {
